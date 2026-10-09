@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "defaultMode": "plan",
+    "deny": [
+      "Read(/.env)",
+      "Read(/.env.local)",
+      "Read(/.env.development)",
+      "Read(/.env.production)",
+      "Edit(/docs/backlog/**)",
+      "Edit(/docs/tesis/**)",
+      "Edit(/docs/decisiones.md)",
+      "Edit(/docs/der/**)",
+      "Edit(/docs/ui/**)",
+      "Bash(git push *)",
+      "Bash(git push)",
+      "Bash(git reset --hard *)",
+      "Bash(docker compose -f docker-compose.yml -f docker-compose.prod.yml *)"
+    ]
+  }
+}

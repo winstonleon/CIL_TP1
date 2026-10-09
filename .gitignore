@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+.env
+.env.local
+.env.development
+.env.production
+CLAUDE.local.md
+.claude/settings.local.json
+infra/backups/
+*.log
