@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "skills": {
+    "n8n-binary-and-data": {
+      "source": "czlonkowski/n8n-skills",
+      "sourceType": "github",
+      "skillPath": "skills/n8n-binary-and-data/SKILL.md",
+      "computedHash": "691b07fe1923c77129391dd4d75329c73a2139dbc6d452021d0eea8396e664d8"
+    },
+    "n8n-code-javascript": {
+      "source": "czlonkowski/n8n-skills",
+      "sourceType": "github",
+      "skillPath": "skills/n8n-code-javascript/SKILL.md",
+      "computedHash": "5aadb50c963c1df2a83f6e5720a1c76dc0895ed96aaebc2f5cd49060eceade21"
+    },
+    "n8n-error-handling": {
+      "source": "czlonkowski/n8n-skills",
+      "sourceType": "github",
+      "skillPath": "skills/n8n-error-handling/SKILL.md",
+      "computedHash": "d0fa9babced47d805acbb772a4cad1392c536bb724b2eb00063471bb81b23696"
+    },
+    "n8n-expression-syntax": {
+      "source": "czlonkowski/n8n-skills",
+      "sourceType": "github",
+      "skillPath": "skills/n8n-expression-syntax/SKILL.md",
+      "computedHash": "2fa2fb1e5893d7ea0951ea5520f1c8534575d08f4d89e6d79527719b11246d2e"
+    },
+    "n8n-mcp-tools-expert": {
+      "source": "czlonkowski/n8n-skills",
+      "sourceType": "github",
+      "skillPath": "skills/n8n-mcp-tools-expert/SKILL.md",
+      "computedHash": "21a8fa4a2767e7f39f84c1b4a865e7713f4b9d59c638b9631fc3510cab4ac1aa"
+    },
+    "n8n-node-configuration": {
+      "source": "czlonkowski/n8n-skills",
+      "sourceType": "github",
+      "skillPath": "skills/n8n-node-configuration/SKILL.md",
+      "computedHash": "dd9c61ca01cfd48ce50b7af9657426f2dd33d7e19e20d547b596e5d5c99b314d"
+    },
+    "n8n-subworkflows": {
+      "source": "czlonkowski/n8n-skills",
+      "sourceType": "github",
+      "skillPath": "skills/n8n-subworkflows/SKILL.md",
+      "computedHash": "3a2b8eb74c133b4b11227dcdd1e164873f44eca19c50eeeb537e9aa235fac5cb"
+    },
+    "n8n-validation-expert": {
+      "source": "czlonkowski/n8n-skills",
+      "sourceType": "github",
+      "skillPath": "skills/n8n-validation-expert/SKILL.md",
+      "computedHash": "7d6dd073686e62943c6f3c274e461588b6f548baaeade9dbe868dcd2ec4a383f"
+    },
+    "n8n-workflow-patterns": {
+      "source": "czlonkowski/n8n-skills",
+      "sourceType": "github",
+      "skillPath": "skills/n8n-workflow-patterns/SKILL.md",
+      "computedHash": "6903984d79738f740b93470c80645c4ee5cb5d3669b5c9a6bf804e9e3ec0d481"
+    },
+    "tdd": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/tdd/SKILL.md",
+      "computedHash": "535d1a6f3bd5bded8971e7e4ea76538907cbff6b6d32c39cf97b669869dcd383"
+    },
+    "vue-best-practices": {
+      "source": "vuejs-ai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/vue-best-practices/SKILL.md",
+      "computedHash": "21132f6c11c765bd11d0d6ad081122dd858630073e2123b651e58f17b399b131"
+    },
+    "vue-pinia-best-practices": {
+      "source": "vuejs-ai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/vue-pinia-best-practices/SKILL.md",
+      "computedHash": "ab191c9cc34d755e5e2133bbedc56bd5f9ba0841e242a7b54c818780a5c78a9c"
+    },
+    "vue-router-best-practices": {
+      "source": "vuejs-ai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/vue-router-best-practices/SKILL.md",
+      "computedHash": "5a8f2f8021fe27cef48d8cf053b4cdb9375c0dc5d5e066330888229d0370f55c"
+    },
+    "vue-testing-best-practices": {
+      "source": "vuejs-ai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/vue-testing-best-practices/SKILL.md",
+      "computedHash": "743e11d7e5eaea83aead5853200df531328036f0cb7009d70f525626292f12d2"
+    }
+  }
+}
