@@ -68,6 +68,8 @@ Dos ajustes ya vienen en `.mcp.json`, sin secretos:
 
 Si cambias `.mcp.json`, reinicia VS Code (o reconecta el servidor desde `/mcp`) para que tome el cambio.
 
+**La primera vez puede fallar por tiempo.** Al arrancar con una versión que todavía no está en la caché, `npx` descarga `n8n-mcp` y eso puede tardar más de los 30 s que Claude Code espera; el servidor aparece como «connection timed out». No es un error de configuración: espera a que termine la descarga y reconéctalo desde `/mcp` (o recarga VS Code). Las siguientes veces arranca desde la caché.
+
 ## 4. Abrir Claude Code y verificar
 
 - Abre la carpeta del repo en VS Code y luego el panel de Claude Code.
