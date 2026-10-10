@@ -62,6 +62,12 @@ El MCP apunta **solo** al n8n del docker-compose del proyecto (`http://localhost
 
 Cada integrante usa su propia API key. La key nunca va en el repo.
 
+Dos ajustes ya vienen en `.mcp.json`, sin secretos:
+- **Versión fijada:** `npx -y n8n-mcp@2.92.1`. Para actualizarla, se cambia en `.mcp.json`, se prueba y se versiona; así los dos usan la misma.
+- **`WEBHOOK_SECURITY_MODE=moderate`:** la protección SSRF de `n8n-mcp` viene en `strict` y bloquea `localhost`, así que el health check falla con «Localhost access is blocked in strict mode». `moderate` permite **solo** `localhost` y sigue bloqueando las IP privadas y las direcciones de metadatos de nube.
+
+Si cambias `.mcp.json`, reinicia VS Code (o reconecta el servidor desde `/mcp`) para que tome el cambio.
+
 ## 4. Abrir Claude Code y verificar
 
 - Abre la carpeta del repo en VS Code y luego el panel de Claude Code.
