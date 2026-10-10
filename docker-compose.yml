@@ -74,7 +74,8 @@ services:
   n8n:
     image: n8nio/n8n:2.42.5
     # Variables declaradas una por una (ajuste A): nunca claves de cifrado de la API,
-    # secretos de Keycloak ni contraseñas de otras bases.
+    # secretos de Keycloak ni contraseñas de otras bases. Los secretos que usan los flujos
+    # (token de la API interna, secreto del webhook, SMTP) viven en credenciales de n8n, no aquí.
     environment:
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: postgres
@@ -83,10 +84,10 @@ services:
       DB_POSTGRESDB_USER: ${N8N_DB_USER}
       DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD}
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
-      # n8n 2.x bloquea $env por defecto; los flujos leen URLs y el token de servicio con $env (rules/n8n.md)
+      # n8n 2.x bloquea $env por defecto; los flujos leen con $env solo configuración no secreta
+      # (URLs, banderas, remitente), según rules/n8n.md
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       API_INTERNAL_URL: ${API_INTERNAL_URL}
-      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
       WHATSAPP_ENABLED: ${WHATSAPP_ENABLED}
       SMTP_FROM: ${SMTP_FROM}
       N8N_PORT: "5678"

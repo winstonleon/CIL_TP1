@@ -304,6 +304,9 @@ await prueba("S0-A7", "n8n no recibe secretos ajenos y ningún servicio usa env_
     "ADMISION_DB_PASSWORD",
     "ADMISION_MIGRATOR_PASSWORD",
     "KEYCLOAK_DB_PASSWORD",
+    // Secretos que n8n usa a través de sus credenciales (cil-api-interna, cil-webhook-secret), no por entorno.
+    "INTERNAL_API_TOKEN",
+    "N8N_WEBHOOK_SECRET",
   ];
   const variables = docker(["exec", "-T", "n8n", "env"])
     .split(/\r?\n/)

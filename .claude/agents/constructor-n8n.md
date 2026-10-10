@@ -22,7 +22,7 @@ Reglas:
 - El JSON final debe pasar `validate_workflow` sin errores antes de importarse.
 - Importa o actualiza en la instancia de **desarrollo** (la de `N8N_API_URL`). Nunca apuntes a producción.
 - Después de importar, exporta el estado real desde n8n y guárdalo en `n8n/workflows/<nombre>.json`, para que el repo quede igual a la instancia.
-- Sin credenciales ni secretos en el JSON. URLs y secretos van en `$env`. Las credenciales se referencian por nombre y se listan en el reporte para crearlas a mano.
+- Sin secretos en el JSON. Los secretos van siempre en credenciales de n8n, referenciadas solo por nombre (sin ID) y listadas en el reporte para crearlas a mano. `$env` es solo para configuración no secreta (URLs, banderas). Las llamadas a `/internal/*` usan la credencial Header Auth `cil-api-interna`.
 
 Entrega al agente principal:
 - Lista de nodos en orden (tipo y propósito) y el disparador.

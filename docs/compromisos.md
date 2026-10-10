@@ -13,6 +13,9 @@ debe incluir el compromiso. Al cumplirlo, se mueve a «Cumplidos» con la fecha 
 | C5 | Pasar `N8N_DB_PASSWORD` y `N8N_ENCRYPTION_KEY` a variables `*_FILE` (secretos de Docker) en lugar de variables de entorno en claro | **Antes del despliegue al VPS** | Sprint 0, S0-B9 |
 | C6 | Definir la política de contraseñas y el tiempo de bloqueo de Keycloak. Hoy rigen valores provisionales (ver `infra/keycloak/README.md`) | **Cuando el colegio los defina** (ADR-02, PENDIENTE) | ADR-02 |
 | C7 | Keycloak debe validar sus conexiones a la base y no fallar la primera petición tras un reinicio de Postgres (configurar la validación del pool de conexiones de Keycloak, Agroal, y comprobarlo reiniciando Postgres) | **Antes del despliegue al VPS** | Sprint 0, S0-B9: el 09/10/2026, tras reiniciar Postgres, Keycloak registró «Closing connection in incorrect state VALIDATION» y falló el primer token de administración |
+| C8 | El registro de notificaciones no es idempotente: si la API guarda la fila pero se pierde la respuesta, el reintento de n8n la duplica en `notificacion`. Revisar si alguna métrica cuenta notificaciones; si ninguna lo hace, se cierra sin cambios | **Plan de HU0019** (indicadores) | Sprint 0, C2 (riesgo del flujo `notificacion-multicanal`) |
+| C9 | Todo flujo que llame a `notificacion-multicanal` debe manejar sus errores (400 entrada inválida, 502 contacto no disponible, 500 registro fallido), por ejemplo con `onError` en su nodo Execute Workflow, para que una notificación fallida no detenga el trámite | **HU0002** y cada flujo que la use después | Sprint 0, C2 |
+| C10 | Limitar la retención de las ejecuciones de n8n, que guardan datos personales (correo, asunto, cuerpo): por ejemplo poda automática por antigüedad y no guardar las ejecuciones exitosas. Valores a definir | **Antes del despliegue al VPS** | Sprint 0, C2 |
 
 ## Cumplidos
 

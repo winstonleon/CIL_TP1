@@ -70,6 +70,18 @@ Si cambias `.mcp.json`, reinicia VS Code (o reconecta el servidor desde `/mcp`) 
 
 **La primera vez puede fallar por tiempo.** Al arrancar con una versión que todavía no está en la caché, `npx` descarga `n8n-mcp` y eso puede tardar más de los 30 s que Claude Code espera; el servidor aparece como «connection timed out». No es un error de configuración: espera a que termine la descarga y reconéctalo desde `/mcp` (o recarga VS Code). Las siguientes veces arranca desde la caché.
 
+### Credenciales de n8n del proyecto
+
+Los flujos usan tres credenciales que cada integrante crea a mano en **su** n8n (`http://localhost:5679` → **Overview → Create → Credential**). Los nombres deben ser exactos: el script de importación las busca por nombre. Los secretos nunca van en el JSON de los flujos ni en variables de entorno de n8n (`.claude/rules/n8n.md`).
+
+| Credencial | Tipo | Campos |
+|---|---|---|
+| `cil-smtp` | SMTP | User y Password vacíos · Host `mailpit` · Port `1025` · SSL/TLS desactivado · Disable STARTTLS activado · Client Host Name vacío (solo dev; en prod, el proveedor SMTP real) |
+| `cil-webhook-secret` | Header Auth | Name `X-Webhook-Secret` · Value = valor de `N8N_WEBHOOK_SECRET` de tu `.env` |
+| `cil-api-interna` | Header Auth | Name `Authorization` · Value = `Bearer ` (la palabra, un espacio) + valor de `INTERNAL_API_TOKEN` de tu `.env` |
+
+**Un mismo secreto vive en dos lugares.** `INTERNAL_API_TOKEN` está en `.env` (lo valida la API) y en `cil-api-interna` (lo envía n8n). `N8N_WEBHOOK_SECRET` está en `.env` (lo envía la API al llamar al webhook) y en `cil-webhook-secret` (lo valida n8n). Si cambias uno, por ejemplo al ejecutar `generar-secretos.js` sobre un `.env` nuevo, actualiza también la credencial; si no, las llamadas fallan con 401 o 403.
+
 ## 4. Abrir Claude Code y verificar
 
 - Abre la carpeta del repo en VS Code y luego el panel de Claude Code.
