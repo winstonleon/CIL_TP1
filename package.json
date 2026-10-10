@@ -6,7 +6,9 @@
     "node": "22.23.3"
   },
   "workspaces": [
-    "api"
+    "api",
+    "frontend",
+    "e2e"
   ],
   "scripts": {
     "kc:usuarios-prueba": "node scripts/keycloak-usuarios-prueba.mjs",
@@ -14,7 +16,9 @@
     "db:roles": "docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T postgres sh /docker-entrypoint-initdb.d/02-separar-roles.sh",
     "db:migrate": "node scripts/db.mjs up",
     "db:seed": "npm run seed --workspace api",
-    "test:api": "npm run test --workspace api"
+    "test:api": "npm run test --workspace api",
+    "test:front": "npm run test --workspace frontend",
+    "test:e2e": "npm run test --workspace e2e"
   },
   "devDependencies": {
     "dbmate": "2.36.0"

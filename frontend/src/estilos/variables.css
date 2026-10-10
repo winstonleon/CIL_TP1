@@ -1,0 +1,34 @@
+/* Identidad visual del CIL (TI 6.4). Las tipografías se cargarán con las pantallas de las HU. */
+:root {
+  --cil-azul: #10326e;
+  --cil-dorado: #e9bd23;
+  --cil-amarillo-aviso: #fee05b;
+  --fuente-titulos: "Fraunces", Georgia, serif;
+  --fuente-texto: "Public Sans", system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  font-family: var(--fuente-texto);
+  color: var(--cil-azul);
+}
+
+h1 {
+  font-family: var(--fuente-titulos);
+}
+
+.contenedor {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+nav {
+  display: flex;
+  gap: 1.5rem;
+}
+
+nav a {
+  color: var(--cil-azul);
+  border-bottom: 2px solid var(--cil-dorado);
+}

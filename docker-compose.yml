@@ -110,8 +110,8 @@ services:
     build:
       context: .
       dockerfile: api/Dockerfile
-    # Solo lo que la API necesita hoy. KEYCLOAK_API_CLIENT_SECRET e INTERNAL_API_TOKEN se agregan
-    # cuando existan identidad/keycloakAdmin (HU0004/HU0021) y las rutas /internal/* (Etapa C).
+    # Solo lo que la API necesita hoy. KEYCLOAK_API_CLIENT_SECRET se agrega cuando exista
+    # identidad/keycloakAdmin (HU0004/HU0021).
     environment:
       API_PORT: ${API_PORT}
       POSTGRES_HOST: postgres
@@ -125,6 +125,7 @@ services:
       KEYCLOAK_API_CLIENT_ID: ${KEYCLOAK_API_CLIENT_ID}
       DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY}
       DATA_HMAC_KEY: ${DATA_HMAC_KEY}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
       TZ: America/Lima
     depends_on:
       postgres:

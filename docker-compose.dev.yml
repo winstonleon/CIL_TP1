@@ -31,6 +31,26 @@ services:
       # Recarga en caliente del código; las dependencias quedan dentro de la imagen.
       - ./api/src:/app/api/src:ro
 
+  # Servidor de desarrollo de Vue (solo dev; en prod NGINX sirve el build). El puerto coincide con
+  # FRONTEND_PUBLIC_URL, que es también la URL de retorno registrada en el realm.
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      target: dev
+    environment:
+      VITE_API_URL: ${VITE_API_URL}
+      VITE_OIDC_AUTHORITY: ${VITE_OIDC_AUTHORITY}
+      VITE_OIDC_CLIENT_ID_PORTAL: ${VITE_OIDC_CLIENT_ID_PORTAL}
+      VITE_OIDC_CLIENT_ID_GESTION: ${VITE_OIDC_CLIENT_ID_GESTION}
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./frontend/src:/app/frontend/src:ro
+    networks: [interna]
+    restart: unless-stopped
+
   # Captura todo el correo de dev (ADR-07). Ningún correo sale a Internet.
   mailpit:
     image: axllent/mailpit:v1.31.4

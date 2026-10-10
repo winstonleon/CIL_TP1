@@ -19,6 +19,8 @@ const esquema = z.object({
   KEYCLOAK_API_CLIENT_ID: z.string().min(1),
   DATA_ENCRYPTION_KEY: clave32,
   DATA_HMAC_KEY: clave32,
+  // Token de servicio con que n8n llama a /internal/* (ADR-04).
+  INTERNAL_API_TOKEN: z.string().min(32),
 });
 
 export type Config = z.infer<typeof esquema>;

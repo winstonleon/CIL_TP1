@@ -1,0 +1,14 @@
+{
+  "name": "@cil/e2e",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22.23.3"
+  },
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0"
+  }
+}

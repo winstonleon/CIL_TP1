@@ -1,5 +1,5 @@
 // Las pruebas de la API corren desde el host contra la BD admision_test (ADR-09),
-// con claves de cifrado aleatorias propias de la corrida (no las de .env).
+// con claves de cifrado y token de servicio aleatorios propios de la corrida (no los de .env).
 import { randomBytes } from "node:crypto";
 import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
@@ -14,6 +14,7 @@ const entornoPrueba = {
   ADMISION_DB: `${baseAdmision}_test`,
   DATA_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
   DATA_HMAC_KEY: randomBytes(32).toString("base64"),
+  INTERNAL_API_TOKEN: randomBytes(32).toString("hex"),
 };
 Object.assign(process.env, entornoPrueba);
 

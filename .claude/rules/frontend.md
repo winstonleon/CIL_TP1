@@ -12,4 +12,4 @@ paths:
 - Los valores que el mockup muestra entre corchetes (`[horarios]`, `[máx. fracciones]`) son configuración (HU0022). No los fijes en el código.
 - Muestra los estados del trámite con los mismos nombres del mockup: conforme, en revisión, observado, pendiente.
 - En la gestión interna, la navegación lateral muestra solo las opciones del rol de la sesión.
-- Las llamadas HTTP pasan por un único cliente (`src/api/`), y las cookies de sesión se envían con `credentials: 'include'`.
+- Las llamadas HTTP pasan por un único cliente (`src/api/`), que envía el token de acceso obtenido con `oidc-client-ts` en la cabecera `Authorization: Bearer` (ADR-02). El token vive solo en memoria y no se usan cookies de sesión (`credentials: 'omit'`).
