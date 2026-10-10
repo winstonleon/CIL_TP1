@@ -4,13 +4,13 @@
     {
       "id": "be1e515f-87b9-49c7-90e9-1bff56b2466d",
       "name": "Webhook de notificación",
+      "webhookId": "8c0a8fed-3977-4602-b427-bfcd5e11db76",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
         0,
         0
       ],
-      "webhookId": "8c0a8fed-3977-4602-b427-bfcd5e11db76",
       "parameters": {
         "httpMethod": "POST",
         "path": "notificacion-multicanal",
@@ -143,14 +143,14 @@
       "name": "Obtener contacto",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [
-        720,
-        0
-      ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000,
       "onError": "continueErrorOutput",
+      "position": [
+        720,
+        0
+      ],
       "parameters": {
         "method": "GET",
         "url": "={{ $env.API_INTERNAL_URL }}/internal/expedientes/{{ $json.id_expediente }}/contacto",
@@ -198,13 +198,14 @@
     {
       "id": "35480b6c-9023-409e-92d0-e49cd488e807",
       "name": "Enviar correo",
+      "webhookId": "ffba7e6b-de08-43f3-a18f-41981f3421aa",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
+      "onError": "continueErrorOutput",
       "position": [
         960,
         -120
       ],
-      "onError": "continueErrorOutput",
       "parameters": {
         "resource": "email",
         "operation": "send",
@@ -314,13 +315,13 @@
       "name": "Registrar notificación",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "position": [
         1440,
         -120
       ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
       "parameters": {
         "method": "POST",
         "url": "={{ $env.API_INTERNAL_URL }}/internal/notificaciones",
