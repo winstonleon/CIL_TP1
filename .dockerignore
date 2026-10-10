@@ -1,0 +1,11 @@
+# Nada de secretos ni dependencias del host en el contexto de build
+.env
+.env.*
+!.env.example
+**/node_modules
+.git
+coverage
+playwright-report
+test-results
+infra/backups
+docs

@@ -1,0 +1,42 @@
+# Overlay de desarrollo (ADR-08): datos ficticios, sin TLS ni respaldo.
+# Uso: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+# Puertos de host configurables en .env y ligados a 127.0.0.1. En esta PC 5432 y 5678
+# ya están ocupados (Postgres y n8n personales), por eso los valores por defecto son 55432 y 5679.
+
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-55432}:5432"
+
+  keycloak:
+    command: ["start-dev", "--import-realm"]
+    ports:
+      - "127.0.0.1:${KEYCLOAK_HOST_PORT:-8080}:8080"
+
+  n8n:
+    ports:
+      - "127.0.0.1:${N8N_HOST_PORT:-5679}:5678"
+
+  api:
+    build:
+      target: dev
+    ports:
+      - "127.0.0.1:${API_PORT:-3000}:${API_PORT:-3000}"
+    volumes:
+      # Recarga en caliente del código; las dependencias quedan dentro de la imagen.
+      - ./api/src:/app/api/src:ro
+
+  # Captura todo el correo de dev (ADR-07). Ningún correo sale a Internet.
+  mailpit:
+    image: axllent/mailpit:v1.31.4
+    environment:
+      TZ: America/Lima
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [interna]
+    restart: unless-stopped

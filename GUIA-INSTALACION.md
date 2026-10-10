@@ -45,13 +45,16 @@ Verifica con `npx skills ls -a claude-code`.
 
 En PowerShell, reemplaza cada `\` del final de línea por un acento grave (`` ` ``), o escribe cada comando en una sola línea.
 
-## 3. Conectar n8n local a Claude Code (MCP `n8n-mcp`)
+## 3. Conectar el n8n del proyecto a Claude Code (MCP `n8n-mcp`)
 
-1. En tu n8n local: **Settings → n8n API → Create API key**.
+El MCP apunta **solo** al n8n del docker-compose del proyecto (`http://localhost:5679` por defecto,
+`N8N_HOST_PORT` en `.env`), no a un n8n personal que tengas en 5678.
+
+1. Con el entorno dev levantado, abre `http://localhost:5679`, crea el usuario owner y ve a **Settings → n8n API → Create API key**.
 2. En PowerShell (una sola vez por PC), define las variables que lee `.mcp.json`:
    ```powershell
-   setx N8N_API_URL "http://localhost:5678"
-   setx N8N_API_KEY "<tu-api-key>"
+   setx N8N_CIL_API_URL "http://localhost:5679"
+   setx N8N_CIL_API_KEY "<tu-api-key>"
    ```
 3. Cierra **todo** VS Code y vuelve a abrirlo, para que tome las variables.
 4. Al abrir Claude Code en el repo, te pedirá aprobar el servidor `n8n-mcp` del proyecto: acéptalo.

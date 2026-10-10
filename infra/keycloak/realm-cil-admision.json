@@ -1,0 +1,115 @@
+{
+  "realm": "cil-admision",
+  "displayName": "Admisión CIL",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "maxDeltaTimeSeconds": 43200,
+  "quickLoginCheckMilliSeconds": 1000,
+  "minimumQuickLoginWaitSeconds": 60,
+  "roles": {
+    "realm": [
+      { "name": "familia", "description": "Apoderado con Cuenta_Acceso (portal de familias)" },
+      { "name": "secretaria", "description": "Personal de admisión y secretaría" },
+      { "name": "tesoreria", "description": "Tesorería: pagos y documentación financiera" },
+      { "name": "psicologa", "description": "Psicología: evaluaciones, entrevista y dictamen" },
+      { "name": "evaluador_academico", "description": "Evaluación académica" },
+      { "name": "directora", "description": "Dirección: vacantes, indicadores y usuarios" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "portal-familias",
+      "name": "Portal de familias",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": ["${FRONTEND_PUBLIC_URL}/*"],
+      "webOrigins": ["${FRONTEND_PUBLIC_URL}"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${FRONTEND_PUBLIC_URL}/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "audiencia-api-admision",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "api-admision",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "gestion-interna",
+      "name": "Gestión interna",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": ["${FRONTEND_PUBLIC_URL}/*"],
+      "webOrigins": ["${FRONTEND_PUBLIC_URL}"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${FRONTEND_PUBLIC_URL}/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "audiencia-api-admision",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "api-admision",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "api-admision",
+      "name": "API de admisión",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KEYCLOAK_API_CLIENT_SECRET}",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-api-admision",
+      "enabled": true,
+      "serviceAccountClientId": "api-admision",
+      "clientRoles": {
+        "realm-management": ["manage-users", "view-users"]
+      }
+    }
+  ]
+}

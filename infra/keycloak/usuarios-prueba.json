@@ -1,0 +1,8 @@
+[
+  { "username": "familia.prueba@ejemplo.test", "firstName": "Familia", "lastName": "Prueba", "rol": "familia" },
+  { "username": "secretaria.prueba@ejemplo.test", "firstName": "Secretaria", "lastName": "Prueba", "rol": "secretaria" },
+  { "username": "tesoreria.prueba@ejemplo.test", "firstName": "Tesoreria", "lastName": "Prueba", "rol": "tesoreria" },
+  { "username": "psicologa.prueba@ejemplo.test", "firstName": "Psicologa", "lastName": "Prueba", "rol": "psicologa" },
+  { "username": "evaluador.prueba@ejemplo.test", "firstName": "Evaluador", "lastName": "Prueba", "rol": "evaluador_academico" },
+  { "username": "directora.prueba@ejemplo.test", "firstName": "Directora", "lastName": "Prueba", "rol": "directora" }
+]

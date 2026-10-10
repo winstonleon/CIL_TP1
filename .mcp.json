@@ -7,8 +7,8 @@
         "MCP_MODE": "stdio",
         "LOG_LEVEL": "error",
         "DISABLE_CONSOLE_OUTPUT": "true",
-        "N8N_API_URL": "${N8N_API_URL:-http://localhost:5678}",
-        "N8N_API_KEY": "${N8N_API_KEY:-}"
+        "N8N_API_URL": "${N8N_CIL_API_URL:-http://localhost:5679}",
+        "N8N_API_KEY": "${N8N_CIL_API_KEY:-}"
       }
     }
   }
