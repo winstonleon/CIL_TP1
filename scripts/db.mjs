@@ -1,5 +1,6 @@
 // Ejecuta dbmate contra la base admision (o admision_test con --test) desde el host,
 // construyendo la URL con las variables de .env. No imprime la contraseña.
+// Las migraciones las aplica el rol de migración, dueño del esquema (S0-B9), no el usuario de la API.
 // Uso: node scripts/db.mjs <comando dbmate> [--test]     p. ej.: node scripts/db.mjs up
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
@@ -18,8 +19,8 @@ cargarEntorno();
 // Se parte del nombre base aunque el entorno ya traiga *_test (p. ej. cuando lo invoca Vitest).
 const baseAdmision = requerida("ADMISION_DB").replace(/_test$/, "");
 const base = esPrueba ? `${baseAdmision}_test` : baseAdmision;
-const usuario = encodeURIComponent(requerida("ADMISION_DB_USER"));
-const clave = encodeURIComponent(requerida("ADMISION_DB_PASSWORD"));
+const usuario = encodeURIComponent(requerida("ADMISION_MIGRATOR_USER"));
+const clave = encodeURIComponent(requerida("ADMISION_MIGRATOR_PASSWORD"));
 const puerto = process.env.POSTGRES_HOST_PORT || "55432";
 const url = `postgres://${usuario}:${clave}@127.0.0.1:${puerto}/${base}?sslmode=disable`;
 

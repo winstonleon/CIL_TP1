@@ -17,6 +17,11 @@ export function obtenerPool(): pg.Pool {
       password: c.ADMISION_DB_PASSWORD,
       max: 10,
     });
+    // Si Postgres cierra una conexión inactiva (reinicio, failover), pg la descarta del pool y avisa
+    // con este evento. Sin listener, Node terminaría el proceso. Solo se registra el código, sin datos.
+    pool.on("error", (err: Error & { code?: string }) => {
+      console.error(`Conexión inactiva del pool cerrada por la base de datos (${err.code ?? err.name})`);
+    });
   }
   return pool;
 }

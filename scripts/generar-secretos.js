@@ -8,6 +8,7 @@ const b64 = () => crypto.randomBytes(32).toString("base64");
 const valores = {
   POSTGRES_SUPERPASSWORD: hex(),
   ADMISION_DB_PASSWORD: hex(),
+  ADMISION_MIGRATOR_PASSWORD: hex(),
   N8N_DB_PASSWORD: hex(),
   KEYCLOAK_DB_PASSWORD: hex(),
   KEYCLOAK_ADMIN_PASSWORD: hex(12),

@@ -20,6 +20,11 @@ services:
   api:
     build:
       target: dev
+    environment:
+      # Con Docker Desktop en Windows los eventos de cambio del host no llegan al contenedor
+      # (verificado en S0-B9): tsx watch (chokidar) revisa los archivos por sondeo cada segundo.
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "1000"
     ports:
       - "127.0.0.1:${API_PORT:-3000}:${API_PORT:-3000}"
     volumes:

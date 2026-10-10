@@ -11,6 +11,7 @@
   "scripts": {
     "kc:usuarios-prueba": "node scripts/keycloak-usuarios-prueba.mjs",
     "infra:verificar": "node scripts/verificar-infra.mjs",
+    "db:roles": "docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T postgres sh /docker-entrypoint-initdb.d/02-separar-roles.sh",
     "db:migrate": "node scripts/db.mjs up",
     "db:seed": "npm run seed --workspace api",
     "test:api": "npm run test --workspace api"

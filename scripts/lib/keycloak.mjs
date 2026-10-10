@@ -23,18 +23,34 @@ export function urlKeycloak() {
   return requerida("KEYCLOAK_PUBLIC_URL").replace(/\/$/, "");
 }
 
+// El mensaje de error incluye el estado HTTP y error/error_description de Keycloak, o la causa
+// de red (p. ej. ECONNREFUSED). Nunca credenciales ni tokens.
 export async function tokenAdmin() {
-  const res = await fetch(`${urlKeycloak()}/realms/master/protocol/openid-connect/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "password",
-      client_id: "admin-cli",
-      username: requerida("KEYCLOAK_ADMIN"),
-      password: requerida("KEYCLOAK_ADMIN_PASSWORD"),
-    }),
-  });
-  if (!res.ok) throw new Error(`No se obtuvo token de administración de Keycloak (HTTP ${res.status})`);
+  let res;
+  try {
+    res = await fetch(`${urlKeycloak()}/realms/master/protocol/openid-connect/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "password",
+        client_id: "admin-cli",
+        username: requerida("KEYCLOAK_ADMIN"),
+        password: requerida("KEYCLOAK_ADMIN_PASSWORD"),
+      }),
+    });
+  } catch (e) {
+    throw new Error(`Keycloak no responde en ${urlKeycloak()} (${e.cause?.code ?? e.message})`);
+  }
+  if (!res.ok) {
+    let detalle = "";
+    try {
+      const cuerpo = await res.json();
+      detalle = [cuerpo.error, cuerpo.error_description].filter(Boolean).join(": ");
+    } catch {
+      // cuerpo no JSON (p. ej. 502 del proxy): basta el estado HTTP
+    }
+    throw new Error(`No se obtuvo token de administración de Keycloak (HTTP ${res.status}${detalle ? `, ${detalle}` : ""})`);
+  }
   return (await res.json()).access_token;
 }
 

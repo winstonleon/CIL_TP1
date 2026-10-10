@@ -144,6 +144,28 @@ function verificarClaims(claims, rol) {
 
 // ======================================================================================
 
+// Espera inicial (no es una prueba ni un reintento dentro de ellas): Keycloak puede tardar en
+// responder tras un arranque o un reinicio de Postgres. Se obtiene una vez el token de administración
+// que usan S0-A3 y S0-A5, con tiempo límite.
+async function esperarKeycloak(limiteMs = 60_000, cadaMs = 2_000) {
+  const inicio = Date.now();
+  let ultimoError;
+  while (Date.now() - inicio < limiteMs) {
+    try {
+      const token = await tokenAdmin();
+      console.log(`Keycloak listo en ${Math.round((Date.now() - inicio) / 1000)} s`);
+      return { token, error: null };
+    } catch (e) {
+      ultimoError = e;
+      await esperar(cadaMs);
+    }
+  }
+  console.log(`Keycloak no respondió en ${limiteMs / 1000} s: ${ultimoError.message}`);
+  return { token: null, error: ultimoError };
+}
+
+const keycloak = await esperarKeycloak();
+
 await prueba("S0-A1", "los 4 servicios de dev están healthy", async () => {
   const salida = docker(["ps", "--format", "json"]).trim();
   const servicios = salida.startsWith("[") ? JSON.parse(salida) : salida.split(/\r?\n/).filter(Boolean).map((l) => JSON.parse(l));
@@ -185,7 +207,12 @@ await prueba("S0-A2", "cada usuario entra solo a su base; n8n y keycloak no entr
   afirmar(await puertoAbierto(puerto("POSTGRES_HOST_PORT", 55432)), "Postgres no responde en 127.0.0.1:POSTGRES_HOST_PORT");
 });
 
-const api = adminApi(await tokenAdmin().catch(() => "sin-token"));
+// Sin token, las pruebas que usan la Admin API fallan con la causa real, no con un 401 engañoso.
+const api = keycloak.token
+  ? adminApi(keycloak.token)
+  : async () => {
+      throw new Error(`No se pudo obtener el token de administración de Keycloak: ${keycloak.error.message}`);
+    };
 
 await prueba("S0-A3", "el realm tiene los 6 roles, los 3 clientes y la fuerza bruta de 5 intentos", async () => {
   const { datos: realm } = await api("GET", "");
@@ -275,6 +302,7 @@ await prueba("S0-A7", "n8n no recibe secretos ajenos y ningún servicio usa env_
     "KEYCLOAK_ADMIN_PASSWORD",
     "POSTGRES_SUPERPASSWORD",
     "ADMISION_DB_PASSWORD",
+    "ADMISION_MIGRATOR_PASSWORD",
     "KEYCLOAK_DB_PASSWORD",
   ];
   const variables = docker(["exec", "-T", "n8n", "env"])

@@ -12,6 +12,8 @@ Equipo: John León (PM) y Brayan Herhuay (Scrum Master). Idioma del código: ide
 4. `docs/ui/`: 23 mockups aprobados en HTML (P01–P08, G01–G11 y las variantes P03b, P03c, P05b y P07b). El índice pantalla → HU está en `docs/ui/README.md`.
 5. `docs/tesis/diseno-TI.md`: proceso To-Be, arquitectura e inventario de pantallas del TI. Tiene divergencias conocidas con 2–4; están anotadas al inicio del archivo.
 
+Además, `docs/compromisos.md` lista el trabajo ya aprobado y asignado a una HU o etapa futura. Revísalo al planificar cada HU e incluye en el plan los compromisos que le correspondan.
+
 Si dos fuentes se contradicen, **detente y pregunta**. No elijas una por tu cuenta.
 
 @docs/decisiones.md

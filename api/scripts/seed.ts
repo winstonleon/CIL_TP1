@@ -3,7 +3,9 @@
 //   2. Crea un Personal por cada usuario de prueba de Keycloak con rol de personal
 //      (infra/keycloak/usuarios-prueba.json; requiere npm run kc:usuarios-prueba).
 //   3. Crea un apoderado ficticio (DNI 00000001, cifrado) con su consentimiento y un expediente en prospecto.
-// Es idempotente. No imprime datos personales.
+// Es idempotente. No imprime datos personales. Corre con el usuario de la API (le basta INSERT/UPDATE).
+// PENDIENTE (docs/compromisos.md C3): en HU0001 el apoderado ficticio se creará con el repositorio de
+// apoderados, que es donde rules/api.md exige cifrar el DNI; hoy ese repositorio todavía no existe.
 import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { RAIZ, adminApi, cargarEntorno, tokenAdmin } from "../../scripts/lib/keycloak.mjs";
