@@ -85,13 +85,23 @@ infra/         nginx, keycloak (realm versionado y tema de login), backups y con
 
 ## Comandos
 
-> Se completan en el Sprint 0. Mientras estén vacíos, pregunta antes de inventar scripts.
+Todos se ejecutan desde la raíz del repo. No inventes otros scripts: si hace falta uno, propónlo en el plan.
 
 - Levantar dev: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d`
-- Pruebas API: _(Sprint 0)_
-- Pruebas frontend: _(Sprint 0)_
-- E2E: _(Sprint 0)_
-- Importar workflows a n8n: _(Sprint 0)_
+- Primera vez en una PC (en este orden, con dev levantado):
+  1. `node scripts/generar-secretos.js` — rellena los secretos vacíos o con «cambiar» de `.env`.
+  2. `npm run kc:usuarios-prueba` — usuarios ficticios de Keycloak.
+  3. `npm run db:migrate` y luego `npm run db:seed` — esquema y datos ficticios de `admision`.
+  4. `npm run n8n:credenciales` y luego `npm run n8n:importar` — credenciales y flujos de n8n (ver GUIA-INSTALACION.md §3).
+  5. `npx --workspace e2e playwright install chromium` — navegador para el E2E.
+- Separar roles en un volumen de Postgres anterior a S0-B9: `npm run db:roles` (los volúmenes nuevos lo hacen solos).
+- Migraciones: `npm run db:migrate` (las aplica el rol de migración, dueño del esquema).
+- Pruebas API (Vitest + Supertest contra `admision_test`): `npm run test:api`
+- Pruebas frontend (Vitest + Vue Test Utils): `npm run test:front`
+- E2E (Playwright, contra el entorno dev levantado): `npm run test:e2e`
+- Verificación de la infraestructura (S0-A1..A7): `npm run infra:verificar`
+- Importar workflows a n8n: `npm run n8n:importar` (crea o actualiza por nombre, verifica las credenciales de cada nodo y exporta de vuelta al repo)
+- Crear o actualizar las credenciales de n8n desde `.env`: `npm run n8n:credenciales`
 
 ## Seguridad y datos
 

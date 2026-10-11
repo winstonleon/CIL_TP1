@@ -19,7 +19,8 @@
     "test:api": "npm run test --workspace api",
     "test:front": "npm run test --workspace frontend",
     "test:e2e": "npm run test --workspace e2e",
-    "n8n:importar": "node scripts/importar-workflows.mjs"
+    "n8n:importar": "node scripts/importar-workflows.mjs",
+    "n8n:credenciales": "node scripts/n8n-credenciales.mjs"
   },
   "devDependencies": {
     "dbmate": "2.36.0"

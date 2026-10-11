@@ -31,8 +31,8 @@ services:
       # Recarga en caliente del código; las dependencias quedan dentro de la imagen.
       - ./api/src:/app/api/src:ro
 
-  # Servidor de desarrollo de Vue (solo dev; en prod NGINX sirve el build). El puerto coincide con
-  # FRONTEND_PUBLIC_URL, que es también la URL de retorno registrada en el realm.
+  # Servidor de desarrollo de Vue (solo dev; en prod NGINX sirve el build). FRONTEND_HOST_PORT debe
+  # coincidir con el puerto de FRONTEND_PUBLIC_URL, que es también la URL de retorno registrada en el realm.
   frontend:
     build:
       context: .
@@ -45,7 +45,7 @@ services:
       VITE_OIDC_CLIENT_ID_GESTION: ${VITE_OIDC_CLIENT_ID_GESTION}
       CHOKIDAR_USEPOLLING: "true"
     ports:
-      - "127.0.0.1:5173:5173"
+      - "127.0.0.1:${FRONTEND_HOST_PORT:-5173}:5173"
     volumes:
       - ./frontend/src:/app/frontend/src:ro
     networks: [interna]

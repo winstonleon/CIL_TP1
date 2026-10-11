@@ -67,7 +67,7 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
 ## ADR-06 Workflows de n8n versionados
 - **[EQUIPO]** Los workflows se generan como JSON en `n8n/workflows/` y se importan por la API pública de n8n o con el MCP `n8n-mcp`.
 - **[TI]** Son siete flujos: `captacion`, `recepcion-registro`, `verificacion-completitud`, `agendamiento`, `generacion-carta`, `notificacion-multicanal`, `seguimiento-recordatorios`. No se crean flujos adicionales sin aprobación. Sí se permiten sub-workflows internos de un flujo, si el plan los justifica.
-- **[PROPUESTA]** Las credenciales **nunca** van en el JSON: se referencian por nombre y Las credenciales de n8n se crean o actualizan en cada instancia con npm run n8n:credenciales, que toma los valores de .env y los envía a la API pública de n8n sin imprimirlos. Los workflows las referencian solo por nombre; ningún secreto ni ID de credencial entra al repositorio. Los workflows se identifican por nombre, no por ID, porque los IDs cambian entre instancias.
+- **[EQUIPO]** Las credenciales **nunca** van en el JSON: los workflows las referencian solo por nombre. En cada instancia (dev o VPS) se crean o actualizan con `npm run n8n:credenciales`, que toma los valores de `.env` y los envía a la API pública de n8n sin imprimirlos; ningún secreto ni ID de credencial entra al repositorio. Los workflows se identifican por nombre, no por ID, porque los IDs cambian entre instancias.
 - **[PROPUESTA]** El repo es la fuente de verdad. Un cambio hecho en la interfaz de n8n se exporta al repo antes de hacer commit.
 
 ## ADR-07 Notificaciones multicanal
