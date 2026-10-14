@@ -57,6 +57,8 @@ services:
       TZ: America/Lima
     volumes:
       - ./infra/keycloak/realm-cil-admision.json:/opt/keycloak/data/import/realm-cil-admision.json:ro
+      # Tema de login del CIL (G01 en HU0021); el cliente lo elige con su atributo login_theme
+      - ./infra/keycloak/themes/cil:/opt/keycloak/themes/cil:ro
     depends_on:
       postgres:
         condition: service_healthy

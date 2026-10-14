@@ -1,0 +1,290 @@
+/* G01 · Acceso del personal (mockup docs/ui/G01-Acceso.dc.html). Identidad visual del CIL (TI 6.4).
+   Fuentes alojadas en el tema (sin Google Fonts). */
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 600 700;
+  font-display: swap;
+  src: url("../fonts/Fraunces-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Public Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../fonts/PublicSans-latin.woff2") format("woff2");
+}
+
+:root {
+  --cil-azul: #10326e;
+  --cil-azul-hover: #0b2552;
+  --cil-dorado: #e9bd23;
+  --fondo: #f6f4ee;
+  --superficie: #ffffff;
+  --borde: #dcd8cc;
+  --borde-campo: #b9b4a6;
+  --texto: #1b2433;
+  --texto-suave: #535d6e;
+  --texto-panel: #d9e1f0;
+  --aviso-fondo: #e4eaf5;
+  --observado: #8a4b08;
+  --error-fondo: #fbeee2;
+  --fuente-titulos: "Fraunces", Georgia, serif;
+  --fuente-texto: "Public Sans", "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--fuente-texto);
+  color: var(--texto);
+  background: var(--fondo);
+}
+
+.g01 {
+  min-height: 100vh;
+  display: flex;
+}
+
+/* Panel azul con las funciones de cada rol */
+.g01-roles {
+  width: 640px;
+  flex-shrink: 0;
+  padding: 64px;
+  background: var(--cil-azul);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 28px;
+}
+
+.g01-colegio {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cil-dorado);
+}
+
+.g01-lema {
+  margin: 0;
+  font-family: var(--fuente-titulos);
+  font-size: 40px;
+  line-height: 1.15;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.g01-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.g01-lista li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 16px;
+  color: var(--texto-panel);
+}
+
+.g01-lista svg {
+  flex-shrink: 0;
+  color: var(--cil-dorado);
+}
+
+/* Tarjeta de acceso */
+.g01-principal {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.g01-tarjeta {
+  width: 500px;
+  max-width: 100%;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 16px;
+  padding: 44px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.g01-cabecera {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.g01-cabecera h1 {
+  margin: 0;
+  font-family: var(--fuente-titulos);
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--cil-azul);
+}
+
+.g01-cabecera p {
+  margin: 0;
+  font-size: 15px;
+  color: var(--texto-suave);
+}
+
+#kc-form-login {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.g01-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.g01-campo label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.g01-obligatorio {
+  color: var(--observado);
+}
+
+.g01-campo input {
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--borde-campo);
+  border-radius: 10px;
+  background: var(--superficie);
+  font-family: var(--fuente-texto);
+  font-size: 15px;
+  color: var(--texto);
+  width: 100%;
+}
+
+.g01-campo input:focus {
+  outline: 2px solid var(--cil-dorado);
+  outline-offset: 1px;
+}
+
+.g01-campo input[aria-invalid="true"] {
+  border-color: var(--observado);
+}
+
+.g01-boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 46px;
+  padding: 0 22px;
+  border-radius: 10px;
+  font-family: var(--fuente-texto);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  background: var(--cil-azul);
+  color: #ffffff;
+  border: 1px solid var(--cil-azul);
+}
+
+.g01-boton:hover {
+  background: var(--cil-azul-hover);
+}
+
+.g01-boton:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.g01-error {
+  margin: -10px 0 0;
+  font-size: 14px;
+  color: var(--observado);
+}
+
+.g01-mensaje {
+  padding: 14px 18px;
+  border-radius: 12px;
+  font-size: 15px;
+  line-height: 1.5;
+  background: var(--aviso-fondo);
+  color: var(--cil-azul);
+}
+
+.g01-mensaje-error {
+  background: var(--error-fondo);
+  color: var(--observado);
+}
+
+.g01-aviso {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: var(--aviso-fondo);
+  color: var(--cil-azul);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.g01-aviso svg {
+  flex-shrink: 0;
+}
+
+.g01-aviso p {
+  margin: 0;
+}
+
+.g01-olvido {
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--cil-azul);
+}
+
+.g01-olvido:hover {
+  color: var(--cil-azul-hover);
+}
+
+/* Pantallas angostas: el panel de roles pasa arriba y se compacta */
+@media (max-width: 1100px) {
+  .g01 {
+    flex-direction: column;
+  }
+
+  .g01-roles {
+    width: auto;
+    padding: 32px 24px;
+    gap: 18px;
+  }
+
+  .g01-lema {
+    font-size: 28px;
+  }
+
+  .g01-principal {
+    padding: 24px 16px;
+  }
+
+  .g01-tarjeta {
+    padding: 28px 20px;
+  }
+}

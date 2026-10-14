@@ -25,6 +25,21 @@
   administradores). La API crea las cuentas del personal con `origen=api-personal`: así reconoce un usuario
   huérfano de un alta fallida y lo adopta en el siguiente intento con el mismo correo (plan HU0021, Q4).
 
+## Tema de login `cil` (`themes/cil/`)
+
+- **G01 (HU0021):** `themes/cil/login/login.ftl` reproduce el acceso del personal del mockup G01. Se asigna
+  **solo al cliente `gestion-interna`** con su atributo `login_theme = cil`. `portal-familias` sigue con el tema por
+  defecto hasta HU0023, que agregará P03, P03b y P03c al mismo tema.
+- Hereda de `keycloak.v2`: solo se sobrescribe `login.ftl`. Las demás páginas (definir la contraseña con el enlace,
+  enlace vencido, errores) son las del tema padre, en español.
+- Conserva los ids que esperan Keycloak y las pruebas: `kc-form-login`, `username`, `password` y `kc-login`.
+- Las fuentes (Fraunces y Public Sans, OFL) están en `themes/cil/login/resources/fonts/`: la página no pide nada
+  fuera del servidor.
+- «¿Olvidaste tu contraseña?» solo aparece si el realm habilita la recuperación (`resetPasswordAllowed`, HU0023).
+- El texto «Colegio Internacional de Lima · Campaña 2027» está fijo: HU0022 lo reemplaza por la campaña activa (C23).
+- El tema se monta de solo lectura en `/opt/keycloak/themes/cil` (`docker-compose.yml`). En dev (`start-dev`)
+  Keycloak no guarda los temas en caché: un cambio en `login.ftl` o en el CSS se ve al recargar la página.
+
 ## Cuentas del personal (HU0021)
 
 La API (`api/src/identidad/keycloakAdmin.ts`) gestiona las cuentas con la *service account* de `api-admision`:
@@ -71,8 +86,7 @@ reactivar (brecha del backlog, C21). Para recuperar el acceso:
 | Reinicio del contador (`maxDeltaTimeSeconds`) | 12 h | **Provisional**: valor por defecto de Keycloak |
 | Política de contraseñas | ninguna | **Provisional**: pendiente con el colegio (P03b) |
 
-Fuera de este realm por ahora: tema de login (`themes/cil/`, HU0023 y HU0021) y recuperación de contraseña
-(HU0023).
+Fuera de este realm por ahora: las pantallas P03, P03b y P03c del tema y la recuperación de contraseña (HU0023).
 
 ## Reimportar después de cambiar el JSON
 
