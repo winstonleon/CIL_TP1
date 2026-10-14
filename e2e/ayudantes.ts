@@ -64,12 +64,33 @@ export async function correoConEnlace(request: APIRequestContext, correo: string
   return { mensaje, enlace: enlace! };
 }
 
+// Datos del token de acción que lleva el enlace (?key=…), sin el enlace ni la clave, para comparar sin imprimirlos.
+// No se verifica la firma: lo firma Keycloak con la clave del realm y aquí solo se leen sus datos.
+export function datosDelEnlace(enlace: string) {
+  const clave = new URL(enlace).searchParams.get("key") ?? "";
+  let carga: { azp?: string; rqac?: string[]; reduri?: string; exp?: number; iat?: number } = {};
+  try {
+    carga = JSON.parse(Buffer.from(clave.split(".")[1] ?? "", "base64url").toString("utf8"));
+  } catch {
+    // carga vacía: la comparación fallará mostrando campos indefinidos, no el enlace
+  }
+  return {
+    cliente: carga.azp,
+    acciones: carga.rqac,
+    redireccion: carga.reduri,
+    vigencia_s: carga.exp !== undefined && carga.iat !== undefined ? carga.exp - carga.iat : undefined,
+  };
+}
+
 // Abre el enlace del correo y define la contraseña (acción UPDATE_PASSWORD) en las páginas de Keycloak.
 export async function definirContrasena(browser: Browser, enlace: string, contrasena: string): Promise<void> {
   const contexto = await browser.newContext();
   const pagina = await contexto.newPage();
   try {
-    await pagina.goto(enlace);
+    // El mensaje de error de Playwright incluiría la URL: se reemplaza por uno genérico.
+    await pagina.goto(enlace).catch(() => {
+      throw new Error("No se pudo abrir el enlace de acción de Keycloak");
+    });
     const nueva = pagina.locator("#password-new");
     // Keycloak puede mostrar antes «Realice las siguientes acciones… Haga clic aquí para continuar».
     if (!(await nueva.waitFor({ state: "visible", timeout: 5_000 }).then(() => true, () => false))) {

@@ -78,7 +78,7 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
 - **[MODELO R22]** Un rebote del correo de la carpeta informativa pasa el expediente a `contacto_no_entregado` y aparece en G04 («Prospectos con contacto no entregado»).
 - **[PENDIENTE]** Cómo se detecta un rebote de correo: por *webhook* del proveedor SMTP o leyendo el buzón de rebotes. Mailpit no simula rebotes. Resolverlo en el plan de HU0002.
 - **[PROPUESTA]** En desarrollo, el correo va a **Mailpit** (contenedor que captura los correos, visible en el navegador). Ningún correo sale a Internet desde dev.
-- **[EQUIPO] Excepción:**: el enlace para definir la contraseña del personal lo envía Keycloak (ADR-02) y no se registra en notificacion, porque esa tabla exige un expediente. La evidencia queda en registro_auditoria (gestion_usuario).
+- **[EQUIPO] Excepción:** el enlace para definir la contraseña del personal lo envía Keycloak (ADR-02) y no se registra en notificacion, porque esa tabla exige un expediente. La evidencia queda en registro_auditoria (gestion_usuario).
 
 ## ADR-08 Entornos y portabilidad al VPS
 - **[TI 6.2.6]** Los mismos cuatro artefactos (build de Vue, código de la API, JSON de flujos y esquema de BD) se despliegan en dev (Docker Desktop, datos ficticios, sin TLS ni respaldo) y en prod (VPS con NGINX, TLS, red interna y `pg_dump` diario).

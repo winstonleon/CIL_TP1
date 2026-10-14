@@ -9,7 +9,9 @@ import {
   contrasenaE2E,
   correoConEnlace,
   correoE2E,
+  datosDelEnlace,
   definirContrasena,
+  FRONTEND,
   iniciarSesion,
   llamarApi,
   rolesDeApp,
@@ -52,7 +54,14 @@ test.describe("HU0021 cuentas del personal por la API (Keycloak y Mailpit reales
     const { mensaje, enlace } = await correoConEnlace(request, correo);
     expect(mensaje.From.Address).toBe(process.env.KEYCLOAK_SMTP_FROM);
     expect(mensaje.To.map((d: { Address: string }) => d.Address)).toEqual([correo]);
-    expect(enlace).toContain("client_id=gestion-interna");
+    // El enlace (?key=<token de acción>) lleva cliente, acción, retorno y vigencia (ADR-02: 72 h).
+    // Si falla, solo se muestran estos datos, nunca el enlace.
+    expect(datosDelEnlace(enlace)).toEqual({
+      cliente: "gestion-interna",
+      acciones: ["UPDATE_PASSWORD"],
+      redireccion: `${FRONTEND}/gestion`,
+      vigencia_s: 259200,
+    });
   });
 
   test("HU0021-1.0 con el enlace la persona define su contraseña, inicia sesión y su token trae solo su rol", async ({ browser, request }) => {

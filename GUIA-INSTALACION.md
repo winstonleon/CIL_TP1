@@ -141,3 +141,11 @@ Antes de aprobar un plan, puedes pedir: «Que guardian-alcance revise este plan�
 ## 8. Limpieza fuera del repo
 
 Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OCR/IA, NoSQL, S3, SMS y PWA. Conviene actualizarlas para que no contradigan `docs/decisiones.md` (ADR-11).
+
+## 9. Notas del entorno de desarrollo
+
+- **`docker compose up -d` recrea contenedores sin que hayas cambiado nada.** Puede deberse a que la letra de unidad se escribe distinto según la terminal: `c:\Users\…` en la terminal de VS Code y `C:\Users\…` en otras.
+  - Compose calcula el *config-hash* de cada servicio con la ruta absoluta de sus montajes *bind* (`./infra/...`, `./api/src`, `./frontend/src`). Si la mayúscula cambia, el hash cambia y el servicio se recrea. Afecta a `postgres`, `keycloak`, `api` y `frontend`, pero no a `n8n` ni a `mailpit`, que no tienen montajes *bind*.
+  - Es inofensivo: los datos se conservan en los volúmenes (`pgdata`, `n8n_data`).
+  - Para comprobarlo antes de levantar, `docker compose -f docker-compose.yml -f docker-compose.dev.yml --dry-run up -d` muestra qué contenedores se recrearían, sin tocar nada.
+  - Para evitarlo, usa siempre la misma terminal para `docker compose`.
