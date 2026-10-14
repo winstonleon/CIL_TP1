@@ -17,6 +17,10 @@ const esquema = z.object({
   KEYCLOAK_INTERNAL_URL: z.url(),
   KEYCLOAK_REALM: z.string().min(1),
   KEYCLOAK_API_CLIENT_ID: z.string().min(1),
+  // Secreto del cliente confidencial api-admision: su service account crea y gestiona usuarios (HU0021).
+  KEYCLOAK_API_CLIENT_SECRET: z.string().min(1),
+  // Destino del enlace para definir la contraseña del personal (execute actions email).
+  FRONTEND_PUBLIC_URL: z.url(),
   DATA_ENCRYPTION_KEY: clave32,
   DATA_HMAC_KEY: clave32,
   // Token de servicio con que n8n llama a /internal/* (ADR-04).

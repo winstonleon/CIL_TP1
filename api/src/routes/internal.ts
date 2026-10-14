@@ -3,8 +3,8 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireTokenServicio } from "../auth/requireTokenServicio";
-import { ErrorApi } from "../errores";
 import { obtenerContactoExpediente, registrarNotificacion } from "../services/notificaciones";
+import { validar } from "../validacion";
 
 export const rutasInternas = Router();
 rutasInternas.use(requireTokenServicio);
@@ -17,15 +17,6 @@ const cuerpoNotificacion = z.object({
   tipo_evento: z.string().trim().min(1).max(60),
   estado_envio: z.enum(["pendiente", "enviado", "fallido"]),
 });
-
-function validar<T>(esquema: z.ZodType<T>, valor: unknown): T {
-  const r = esquema.safeParse(valor);
-  if (!r.success) {
-    const campos = [...new Set(r.error.issues.map((i) => i.path.join(".") || "cuerpo"))].join(", ");
-    throw new ErrorApi(400, "VALIDACION", `Datos inválidos: ${campos}`);
-  }
-  return r.data;
-}
 
 // GET /internal/expedientes/:id/contacto → { id_expediente, correo, autoriza_whatsapp }
 rutasInternas.get("/expedientes/:id/contacto", async (req, res) => {

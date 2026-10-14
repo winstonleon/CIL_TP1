@@ -50,6 +50,10 @@ services:
       # Placeholders que usa infra/keycloak/realm-cil-admision.json al importarse
       KEYCLOAK_API_CLIENT_SECRET: ${KEYCLOAK_API_CLIENT_SECRET}
       FRONTEND_PUBLIC_URL: ${FRONTEND_PUBLIC_URL}
+      # SMTP del realm: Keycloak envía el enlace para definir la contraseña del personal (HU0021, ADR-07 excepción)
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      KEYCLOAK_SMTP_FROM: ${KEYCLOAK_SMTP_FROM}
       TZ: America/Lima
     volumes:
       - ./infra/keycloak/realm-cil-admision.json:/opt/keycloak/data/import/realm-cil-admision.json:ro
@@ -111,8 +115,7 @@ services:
     build:
       context: .
       dockerfile: api/Dockerfile
-    # Solo lo que la API necesita hoy. KEYCLOAK_API_CLIENT_SECRET se agrega cuando exista
-    # identidad/keycloakAdmin (HU0004/HU0021).
+    # Solo lo que la API necesita hoy. KEYCLOAK_API_CLIENT_SECRET lo usa identidad/keycloakAdmin (HU0021).
     environment:
       API_PORT: ${API_PORT}
       POSTGRES_HOST: postgres
@@ -124,6 +127,8 @@ services:
       KEYCLOAK_INTERNAL_URL: ${KEYCLOAK_INTERNAL_URL}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM}
       KEYCLOAK_API_CLIENT_ID: ${KEYCLOAK_API_CLIENT_ID}
+      KEYCLOAK_API_CLIENT_SECRET: ${KEYCLOAK_API_CLIENT_SECRET}
+      FRONTEND_PUBLIC_URL: ${FRONTEND_PUBLIC_URL}
       DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY}
       DATA_HMAC_KEY: ${DATA_HMAC_KEY}
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}

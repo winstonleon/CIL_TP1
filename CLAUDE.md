@@ -80,7 +80,7 @@ infra/         nginx, keycloak (realm versionado y tema de login), backups y con
 - Toda transición de estado del expediente pasa por un único servicio que escribe en `registro_auditoria` dentro de la misma transacción. Las pantallas de personal registran `atencion_inicio` al abrir un ítem y `atencion_fin` al decidir (sección 4.7 del modelo de datos).
 - El DNI se cifra en la API antes de escribirse (`dni_cifrado` + `dni_hash`, ADR-03). La clave nunca va en el código, en la BD ni en el JSON de n8n.
 - La documentación financiera solo la ve `tesoreria`. El informe psicológico lo ven `psicologa` y `directora`. Todo acceso denegado se audita como `acceso_denegado`.
-- Cada notificación pasa por el flujo `notificacion-multicanal` y queda registrada en `notificacion`.
+- Cada notificación pasa por el flujo `notificacion-multicanal` y queda registrada en `notificacion`. Única excepción: el enlace para definir la contraseña del personal lo envía Keycloak y su evidencia queda en `registro_auditoria` (`gestion_usuario`); ver ADR-07 y R22.
 - Nada fijo para el entorno local: URLs, puertos y secretos vienen de variables de entorno, para que el despliegue al VPS sea solo `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d`.
 
 ## Comandos

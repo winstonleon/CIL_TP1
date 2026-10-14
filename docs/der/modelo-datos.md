@@ -507,7 +507,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 |---|---|---|
 | R20 | Cada día se revisan los expedientes con una acción pendiente de la familia. Si no hubo interacción en **48 horas**, se envía un recordatorio por correo y, solo si la familia lo autorizó y el canal está activo, por WhatsApp (se inserta en `Notificacion` con `tipo_evento = 'recordatorio_48h'`). | n8n |
 | R21 | Si venció el **plazo máximo** de la etapa, el expediente pasa a `caducado`, se liberan los cupos o la vacante que tenía reservados y se notifica a la familia. | n8n |
-| R22 | Toda comunicación enviada se registra en `Notificacion`, también los envíos fallidos (`estado_envio = 'fallido'`). Si WhatsApp no está autorizado o el canal está desactivado, no se crea fila para ese canal. Un rebote del correo de la carpeta informativa pasa el expediente a `contacto_no_entregado` (HU0002-2.0). | n8n |
+| R22 | Toda comunicación enviada se registra en `Notificacion`, también los envíos fallidos (`estado_envio = 'fallido'`). Si WhatsApp no está autorizado o el canal está desactivado, no se crea fila para ese canal. Un rebote del correo de la carpeta informativa pasa el expediente a `contacto_no_entregado` (HU0002-2.0). **Excepción:** el enlace para definir la contraseña del personal lo envía Keycloak (ADR-02) y no se registra en `Notificacion`, porque esa tabla exige un expediente; la evidencia queda en `registro_auditoria` (`gestion_usuario`). | n8n (excepción: Keycloak y API) |
 
 ### 4.6 Permisos por rol (resumen)
 | Rol | Puede |
@@ -516,7 +516,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 | `tesoreria` | Validar pagos y la documentación financiera |
 | `psicologa` | Registrar resultados de observación, evaluación psicológica y entrevista; emitir el dictamen |
 | `evaluador_academico` | Registrar el resultado o la inasistencia en la evaluación académica |
-| `directora` | Asignar vacantes, ver el tablero de indicadores, crear y desactivar usuarios del Personal; autoriza la carta (firma) |
+| `directora` | Asignar vacantes, ver el tablero de indicadores, crear, modificar y desactivar usuarios del Personal; autoriza la carta (firma) |
 | Familia (Cuenta_Acceso) | Solo sus propios expedientes: ficha, cuestionario, documentos, pagos y citas |
 
 ---

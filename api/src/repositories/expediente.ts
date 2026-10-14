@@ -1,5 +1,11 @@
-// Lectura y escritura de los tres estados del expediente. Solo lo usa transicionarExpediente.
+// Lectura y escritura de los tres estados del expediente (solo las usa transicionarExpediente)
+// y comprobación de existencia (la usa la política de acceso restringido, HU0021-2.0).
 import type { Consultable } from "../db/pool";
+
+export async function existeExpediente(db: Consultable, idExpediente: number): Promise<boolean> {
+  const { rowCount } = await db.query("SELECT 1 FROM expediente WHERE id_expediente = $1", [idExpediente]);
+  return (rowCount ?? 0) > 0;
+}
 
 export type CampoEstado = "estado" | "estado_documental" | "estado_financiero";
 

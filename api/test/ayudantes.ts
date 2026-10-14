@@ -1,8 +1,29 @@
 // Fixtures con valores únicos para que las pruebas no choquen entre sí sobre la misma BD.
 import { randomUUID } from "node:crypto";
+import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
+import type { OpcionesToken } from "../src/auth/verificarToken";
 import type { Consultable } from "../src/db/pool";
 
 export const unico = () => randomUUID().slice(0, 8);
+
+// Emisor de tokens de prueba con un par de claves local: las pruebas no dependen de Keycloak.
+export async function crearFirmante() {
+  const emisor = "http://keycloak.prueba/realms/cil-admision";
+  const audiencia = "api-admision";
+  const par = await generateKeyPair("RS256");
+  const jwk: JWK = { ...(await exportJWK(par.publicKey)), kid: "prueba", alg: "RS256" };
+  const opcionesToken: OpcionesToken = { jwks: createLocalJWKSet({ keys: [jwk] }), emisor, audiencia };
+  const token = (sub: string, roles: string[]) =>
+    new SignJWT({ realm_access: { roles } })
+      .setProtectedHeader({ alg: "RS256", kid: "prueba" })
+      .setSubject(sub)
+      .setIssuer(emisor)
+      .setAudience([audiencia, "account"])
+      .setIssuedAt()
+      .setExpirationTime("5m")
+      .sign(par.privateKey);
+  return { opcionesToken, token };
+}
 
 export async function crearGrado(db: Consultable, valores: Partial<{ autorizadas: number; disponibles: number }> = {}) {
   const { rows } = await db.query<{ id_grado: number }>(
