@@ -1,20 +1,70 @@
-/* Identidad visual del CIL (TI 6.4). Las tipografías se cargarán con las pantallas de las HU. */
+/* Identidad visual del CIL (TI 6.4) y colores de los mockups aprobados (docs/ui/). */
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 600 700;
+  font-display: swap;
+  src: url("../assets/fuentes/Fraunces-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Public Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../assets/fuentes/PublicSans-latin.woff2") format("woff2");
+}
+
 :root {
   --cil-azul: #10326e;
+  --cil-azul-hover: #0b2552;
   --cil-dorado: #e9bd23;
   --cil-amarillo-aviso: #fee05b;
   --fuente-titulos: "Fraunces", Georgia, serif;
-  --fuente-texto: "Public Sans", system-ui, sans-serif;
+  --fuente-texto: "Public Sans", "Segoe UI", sans-serif;
+
+  /* Neutros y estados (G01–G11) */
+  --fondo: #f6f4ee;
+  --superficie: #ffffff;
+  --superficie-tenue: #fbfaf6;
+  --borde: #dcd8cc;
+  --borde-campo: #b9b4a6;
+  --texto: #1b2433;
+  --texto-suave: #535d6e;
+  --chip-fondo: #e4eaf5;
+  --conforme: #1e6b47;
+  --conforme-fondo: #e2f2e9;
+  --observado: #8a4b08;
+  --inactivo: #4a4f5a;
+  --inactivo-fondo: #eceae3;
+  --avatar-fondo: #fcefb8;
+
+  /* Barra lateral de la gestión interna */
+  --nav-texto: #e3e9f4;
+  --nav-icono: #b7c4dd;
+  --nav-seccion: #9fb0d0;
+  --nav-pie-fondo: #1a3f82;
+  --nav-pie-texto: #d5ddec;
 }
 
 body {
   margin: 0;
   font-family: var(--fuente-texto);
+  color: var(--texto);
+  background: var(--fondo);
+}
+
+h1,
+h2 {
+  font-family: var(--fuente-titulos);
+}
+
+a {
   color: var(--cil-azul);
 }
 
-h1 {
-  font-family: var(--fuente-titulos);
+a:hover {
+  color: var(--cil-azul-hover);
 }
 
 .contenedor {
@@ -23,12 +73,25 @@ h1 {
   padding: 2rem 1rem;
 }
 
-nav {
+/* Página técnica de inicio del Sprint 0 (Inicio.vue) */
+.nav-inicio {
   display: flex;
   gap: 1.5rem;
 }
 
-nav a {
-  color: var(--cil-azul);
+.nav-inicio a {
   border-bottom: 2px solid var(--cil-dorado);
+}
+
+/* Texto solo para lectores de pantalla */
+.solo-lector {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

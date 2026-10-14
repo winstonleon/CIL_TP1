@@ -2,7 +2,7 @@
 <template>
   <main class="contenedor">
     <h1>Sistema de tramitación de admisión</h1>
-    <nav>
+    <nav class="nav-inicio">
       <RouterLink to="/portal">Portal de familias</RouterLink>
       <RouterLink to="/gestion">Gestión interna</RouterLink>
     </nav>

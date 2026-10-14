@@ -1,3 +1,5 @@
 * text=auto
 # Scripts que se montan en contenedores Linux: siempre LF
 *.sh text eol=lf
+# Fuentes alojadas (HU0021): binarias, sin conversión de fin de línea
+*.woff2 binary

@@ -1,7 +1,7 @@
 // Ayudantes de los E2E de HU0021: login real con Keycloak, lectura del enlace en Mailpit y Admin API
 // (con la cuenta admin del master, solo para verificar). Nunca imprimen tokens, contraseñas ni enlaces.
 import { randomBytes } from "node:crypto";
-import { expect, type APIRequestContext, type Browser } from "@playwright/test";
+import { expect, type APIRequestContext, type Browser, type Page } from "@playwright/test";
 import { adminApi, tokenAdmin } from "../scripts/lib/keycloak.mjs";
 
 export const FRONTEND = process.env.FRONTEND_PUBLIC_URL!.replace(/\/$/, "");
@@ -43,6 +43,15 @@ export async function iniciarSesion(browser: Browser, usuario: string, contrasen
   } finally {
     await contexto.close();
   }
+}
+
+// Inicia sesión en la gestión interna desde la página dada y espera llegar a /gestion.
+export async function entrarEnGestion(pagina: Page, usuario: string, contrasena: string): Promise<void> {
+  await pagina.goto(`${FRONTEND}/gestion`);
+  await pagina.locator("#username").fill(usuario);
+  await pagina.locator("#password").fill(contrasena);
+  await pagina.locator("#kc-login").click();
+  await expect(pagina).toHaveURL(`${FRONTEND}/gestion`);
 }
 
 // Espera el correo de Keycloak para `correo` en Mailpit y devuelve el mensaje y el enlace de acción.

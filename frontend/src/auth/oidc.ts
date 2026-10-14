@@ -39,6 +39,11 @@ export async function iniciarSesion(cliente: ClienteOidc, destino: string): Prom
   await gestorOidc(cliente).signinRedirect({ state: { destino } });
 }
 
+// Cierra la sesión en Keycloak y vuelve al área, que pide iniciar sesión otra vez (G01 en la gestión interna).
+export async function cerrarSesion(cliente: ClienteOidc, origen = window.location.origin): Promise<void> {
+  await gestorOidc(cliente).signoutRedirect({ post_logout_redirect_uri: `${origen}/${cliente}` });
+}
+
 // Completa el retorno desde Keycloak y devuelve la ruta a la que el usuario quería entrar.
 export async function completarInicioSesion(cliente: ClienteOidc): Promise<string> {
   const usuario = await gestorOidc(cliente).signinRedirectCallback();

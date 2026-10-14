@@ -43,6 +43,8 @@ services:
       VITE_OIDC_AUTHORITY: ${VITE_OIDC_AUTHORITY}
       VITE_OIDC_CLIENT_ID_PORTAL: ${VITE_OIDC_CLIENT_ID_PORTAL}
       VITE_OIDC_CLIENT_ID_GESTION: ${VITE_OIDC_CLIENT_ID_GESTION}
+      # Destino del proxy /api de Vite (vite.config.ts); /api/internal no se reenvía.
+      API_INTERNAL_URL: ${API_INTERNAL_URL}
       CHOKIDAR_USEPOLLING: "true"
     ports:
       - "127.0.0.1:${FRONTEND_HOST_PORT:-5173}:5173"

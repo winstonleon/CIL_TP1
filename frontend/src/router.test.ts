@@ -58,3 +58,19 @@ describe("S0-C4 protección de las áreas con Keycloak", () => {
     expect(envoltorio.text()).toContain("Gestión interna");
   });
 });
+
+describe("HU0021-1.0 pantalla G10 según el rol", () => {
+  it("HU0021-1.0 /gestion/usuarios solo la abre la directora; otro rol vuelve a /gestion", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("[]")));
+    vi.mocked(usuarioActual).mockResolvedValue(usuarioFalso(["secretaria"]));
+    const secretaria = await montarEn("/gestion/usuarios");
+    expect(secretaria.enrutador.currentRoute.value.path).toBe("/gestion");
+    expect(secretaria.envoltorio.find('[data-testid="matriz-permisos"]').exists()).toBe(false);
+
+    vi.mocked(usuarioActual).mockResolvedValue(usuarioFalso(["directora"]));
+    const directora = await montarEn("/gestion/usuarios");
+    expect(directora.enrutador.currentRoute.value.path).toBe("/gestion/usuarios");
+    expect(directora.envoltorio.get('[data-testid="titulo-pantalla"]').text()).toBe("Usuarios y roles");
+    vi.unstubAllGlobals();
+  });
+});
