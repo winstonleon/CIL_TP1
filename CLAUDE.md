@@ -100,6 +100,8 @@ Todos se ejecutan desde la raíz del repo. No inventes otros scripts: si hace fa
 - Pruebas frontend (Vitest + Vue Test Utils): `npm run test:front`
 - E2E (Playwright, contra el entorno dev levantado): `npm run test:e2e`
 - Verificación de la infraestructura (S0-A1..A7): `npm run infra:verificar`
+- Matriz de trazabilidad HU → escenario → prueba → resultado (corre las tres suites y escribe `docs/evidencias/matriz-trazabilidad.md`; con `-- --sin-e2e` omite el E2E): `npm run evidencias:matriz`
+- Solo dev, después de reimportar el realm de Keycloak: `npm run dev:limpiar-personal-huerfano` (desactiva en `personal` las cuentas `@ejemplo.test` que ya no existen en Keycloak)
 - Importar workflows a n8n: `npm run n8n:importar` (crea o actualiza por nombre, verifica las credenciales de cada nodo y exporta de vuelta al repo)
 - Crear o actualizar las credenciales de n8n desde `.env`: `npm run n8n:credenciales`
 

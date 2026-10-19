@@ -21,7 +21,10 @@ todos los correos fueran `@ejemplo.test`.
 - Cuentas de demostración creadas desde G10 para estas capturas, con los nombres ficticios del mockup:
   Rosa Medina Quispe (Secretaría), Jorge Salazar Huamán (Tesorería), Carmen Villanueva Rojas (Psicología) y
   Luis Paredes Díaz (Evaluación académica). Luis Paredes Díaz se usó para las capturas de edición y desactivación,
-  que se cancelaron; sigue activo.
+  que se cancelaron, así que al tomar las capturas seguía activo. Después, al reimportar el realm en el tramo (c),
+  estas cuatro cuentas perdieron su usuario de Keycloak, `npm run dev:limpiar-personal-huerfano` las desactivó y se
+  recrearon en G10 con correos nuevos (`rosa.medina@`, `jorge.salazar@`, `carmen.villanueva@` y
+  `luis.paredes@ejemplo.test`) para las demostraciones.
 - Cuentas `hu0021-e2e-*@ejemplo.test` que dejan las pruebas E2E (todas desactivadas; compromiso C16).
 
 La vista de inicio de la gestión interna («Sesión iniciada») es la vista técnica del Sprint 0, que se reemplazará

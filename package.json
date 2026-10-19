@@ -16,9 +16,11 @@
     "db:roles": "docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T postgres sh /docker-entrypoint-initdb.d/02-separar-roles.sh",
     "db:migrate": "node scripts/db.mjs up",
     "db:seed": "npm run seed --workspace api",
+    "dev:limpiar-personal-huerfano": "npm run limpiar-personal-huerfano --workspace api",
     "test:api": "npm run test --workspace api",
     "test:front": "npm run test --workspace frontend",
     "test:e2e": "npm run test --workspace e2e",
+    "evidencias:matriz": "node scripts/matriz-trazabilidad.mjs",
     "n8n:importar": "node scripts/importar-workflows.mjs",
     "n8n:credenciales": "node scripts/n8n-credenciales.mjs"
   },

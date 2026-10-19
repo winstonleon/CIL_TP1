@@ -29,7 +29,8 @@
 
 - **G01 (HU0021):** `themes/cil/login/login.ftl` reproduce el acceso del personal del mockup G01. Se asigna
   **solo al cliente `gestion-interna`** con su atributo `login_theme = cil`. `portal-familias` sigue con el tema por
-  defecto hasta HU0023, que agregará P03, P03b y P03c al mismo tema.
+  defecto hasta HU0023, que agregará P03, P03b y P03c al mismo tema. Ese día `login.ftl` debe distinguir el
+  cliente (`client.clientId`), como pide ADR-02: hoy reproduce siempre G01 porque solo lo usa `gestion-interna`.
 - Hereda de `keycloak.v2`: solo se sobrescribe `login.ftl`. Las demás páginas (definir la contraseña con el enlace,
   enlace vencido, errores) son las del tema padre, en español.
 - Conserva los ids que esperan Keycloak y las pruebas: `kc-form-login`, `username`, `password` y `kc-login`.
@@ -98,7 +99,9 @@ Como la importación se salta si el realm existe, para aplicar cambios en dev ha
 docker compose -f docker-compose.yml -f docker-compose.dev.yml restart keycloak
 npm run kc:usuarios-prueba
 npm run db:seed   # vuelve a vincular personal con los nuevos keycloak_user_id de los usuarios de prueba
+npm run dev:limpiar-personal-huerfano   # desactiva en personal las cuentas de dev que ya no existen en Keycloak
 ```
 
-Las cuentas del personal creadas en dev desde la API o el E2E no se recrean: sus filas en `personal` quedan sin
-usuario en Keycloak (solo dev, datos ficticios; compromiso C16).
+Las cuentas del personal creadas en dev desde G10, la API o el E2E no se recrean: sus filas en `personal` quedan
+sin usuario en Keycloak (solo dev, datos ficticios; compromiso C16). `dev:limpiar-personal-huerfano` las marca como
+inactivas y deja la baja en la bitácora; no borra filas.

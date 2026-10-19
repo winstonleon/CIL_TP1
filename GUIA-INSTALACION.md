@@ -149,3 +149,10 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
   - Es inofensivo: los datos se conservan en los volúmenes (`pgdata`, `n8n_data`).
   - Para comprobarlo antes de levantar, `docker compose -f docker-compose.yml -f docker-compose.dev.yml --dry-run up -d` muestra qué contenedores se recrearían, sin tocar nada.
   - Para evitarlo, usa siempre la misma terminal para `docker compose`.
+- **Después de reimportar el realm de Keycloak** (procedimiento en `infra/keycloak/README.md`), corre en este orden:
+  `npm run kc:usuarios-prueba`, `npm run db:seed` y `npm run dev:limpiar-personal-huerfano`.
+  - Al borrar el realm desaparecen las cuentas del personal creadas en dev (desde G10, la API o el E2E), pero sus
+    filas siguen en `personal`. El script marca `activo = false` en las filas `@ejemplo.test` sin usuario en
+    Keycloak y deja la baja en la bitácora (`gestion_usuario`, origen `limpieza_dev`). No borra filas.
+  - Solo corre contra el entorno local: aborta si `KEYCLOAK_PUBLIC_URL` o `FRONTEND_PUBLIC_URL` no son locales.
+    Imprime solo cuántas filas cambió.
