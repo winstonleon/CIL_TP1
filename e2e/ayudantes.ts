@@ -55,7 +55,9 @@ export async function entrarEnGestion(pagina: Page, usuario: string, contrasena:
 }
 
 // Espera el correo de Keycloak para `correo` en Mailpit y devuelve el mensaje y el enlace de acción.
-export async function correoConEnlace(request: APIRequestContext, correo: string) {
+// `cantidad`: cuántos correos debe tener esa dirección (p. ej. 2 si la reactivación reenvió el enlace, HU0021-5.0);
+// se devuelve el más reciente (Mailpit los ordena del más nuevo al más antiguo).
+export async function correoConEnlace(request: APIRequestContext, correo: string, cantidad = 1) {
   let id: string | undefined;
   await expect
     .poll(
@@ -66,7 +68,7 @@ export async function correoConEnlace(request: APIRequestContext, correo: string
       },
       { timeout: 30_000 },
     )
-    .toBe(1);
+    .toBe(cantidad);
   const mensaje = await (await request.get(`${MAILPIT}/api/v1/message/${id}`)).json();
   const enlace = String(mensaje.Text ?? "").match(/https?:\/\/\S+\/login-actions\/action-token\?\S+/)?.[0];
   expect(enlace, "el correo no trae el enlace de acción de Keycloak").toBeTruthy();

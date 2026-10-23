@@ -4,7 +4,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { RECURSOS_RESTRINGIDOS } from "../auth/accesoRestringido";
 import { ROLES_PERSONAL, type IdentidadAdmin } from "../identidad/keycloakAdmin";
-import { crearPersonal, desactivarPersonal, listarPersonal, modificarPersonal } from "../services/personal";
+import { crearPersonal, desactivarPersonal, listarPersonal, modificarPersonal, reactivarPersonal } from "../services/personal";
 import { validar } from "../validacion";
 
 const texto = (max: number) => z.string().trim().min(1).max(max);
@@ -55,6 +55,12 @@ export function rutasPersonal(identidad: IdentidadAdmin): Router {
   rutas.post("/:id/desactivacion", async (req, res) => {
     const id = validar(idPersonal, req.params.id);
     res.json(await desactivarPersonal(identidad, req.usuario!.sub, id));
+  });
+
+  // POST /personal/:id/reactivacion → 200 { ...cuenta, enlace_enviado } (HU0021-5.0)
+  rutas.post("/:id/reactivacion", async (req, res) => {
+    const id = validar(idPersonal, req.params.id);
+    res.json(await reactivarPersonal(identidad, req.usuario!.sub, id));
   });
 
   return rutas;

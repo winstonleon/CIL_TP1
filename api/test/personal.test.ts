@@ -1,4 +1,4 @@
-// HU0021-1.0, 3.0 y 4.0: cuentas del personal por HTTP (/personal), con un Keycloak simulado en memoria.
+// HU0021-1.0, 3.0, 4.0 y 5.0: cuentas del personal por HTTP (/personal), con un Keycloak simulado en memoria.
 // La integración con el Keycloak real se prueba en e2e/personal-api.spec.ts.
 import { randomUUID } from "node:crypto";
 import type { Express } from "express";
@@ -40,6 +40,7 @@ const conToken = (r: request.Test, token = tokenDirectora) => r.set("Authorizati
 const alta = (cuerpo: object, token?: string) => conToken(request(app).post("/personal"), token).send(cuerpo);
 const modificar = (id: number, cuerpo: object) => conToken(request(app).patch(`/personal/${id}`)).send(cuerpo);
 const desactivar = (id: number) => conToken(request(app).post(`/personal/${id}/desactivacion`));
+const reactivar = (id: number, token?: string) => conToken(request(app).post(`/personal/${id}/reactivacion`), token);
 
 async function filaPersonal(correo: string) {
   const { rows } = await db().query(
@@ -340,5 +341,133 @@ describe("HU0021-4.0 desactivación de una cuenta del personal", () => {
     expect(await filaPersonal(correo)).toMatchObject({ activo: true });
     expect(await eventosGestionDe(id)).toHaveLength(1);
     expect(log.mock.calls.map((c) => String(c[0])).some((l) => l.includes(usuario.id))).toBe(true);
+  });
+});
+
+describe("HU0021-5.0 reactivación de una cuenta del personal", () => {
+  // Cuenta creada y desactivada. `conContrasena` simula que la persona ya definió su contraseña con el enlace.
+  async function cuentaDesactivada(rol = "tesoreria", conContrasena = true) {
+    const cuenta = await cuentaCreada(rol);
+    if (conContrasena) falsa.usuarios.get(cuenta.usuario.id)!.credenciales = true;
+    expect((await desactivar(cuenta.id)).status).toBe(200);
+    falsa.llamadas.length = 0;
+    return cuenta;
+  }
+
+  it("HU0021-5.0 reactiva la cuenta con el rol que tenía y su contraseña: Keycloak habilitado, activo = true, sin enlace, gestion_usuario y el historial anterior intacto", async () => {
+    const { id, correo, usuario } = await cuentaDesactivada("psicologa");
+    // Deriva en Keycloak (p. ej. un cambio manual): la reactivación deja el rol de personal.
+    falsa.usuarios.get(usuario.id)!.roles = ["secretaria"];
+
+    const res = await reactivar(id);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      id_personal: id,
+      nombres: "Cuenta",
+      apellidos: "Ficticia",
+      correo,
+      rol: "psicologa",
+      activo: true,
+      enlace_enviado: false,
+    });
+    expect(falsa.usuarios.get(usuario.id)).toMatchObject({ habilitado: true, roles: ["psicologa"], enlaces: 1 });
+    expect(falsa.llamadas).toEqual([`tieneCredenciales:${usuario.id}`, `establecerRolUnico:${usuario.id}`, `habilitar:${usuario.id}`]);
+    expect(await filaPersonal(correo)).toMatchObject({ activo: true, rol: "psicologa", keycloak_user_id: usuario.id });
+    const lista = await conToken(request(app).get("/personal"));
+    expect(lista.body).toContainEqual(expect.objectContaining({ id_personal: id, activo: true }));
+    // El historial se conserva y se agrega la reactivación, con la directora como actora y sin datos personales.
+    const eventos = await eventosGestionDe(id);
+    expect(eventos.map((e) => e.detalle.accion)).toEqual(["alta", "desactivacion", "reactivacion"]);
+    expect(eventos[2].id_personal).toBe(idDirectora);
+    expect(eventos[2].detalle).toEqual({ accion: "reactivacion", id_personal_afectado: id, rol: "psicologa" });
+    expect(JSON.stringify(eventos[2].detalle)).not.toContain(correo);
+  });
+
+  it("HU0021-5.0 si la cuenta nunca definió su contraseña, Keycloak le reenvía el enlace y la auditoría lo registra", async () => {
+    const { id, usuario } = await cuentaDesactivada("secretaria", false);
+
+    const res = await reactivar(id);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ activo: true, enlace_enviado: true });
+    expect(falsa.usuarios.get(usuario.id)).toMatchObject({ habilitado: true, roles: ["secretaria"], enlaces: 2 });
+    expect(falsa.llamadas.map((l) => l.split(":")[0])).toEqual([
+      "tieneCredenciales",
+      "establecerRolUnico",
+      "habilitar",
+      "enviarEnlaceDefinirContrasena",
+    ]);
+    const eventos = await eventosGestionDe(id);
+    expect(eventos.at(-1).detalle).toEqual({ accion: "reactivacion", id_personal_afectado: id, rol: "secretaria", enlace_contrasena: "enviado" });
+  });
+
+  it("HU0021-5.0 una cuenta activa responde 409 CUENTA_ACTIVA, una inexistente 404 y un id inválido 400, sin llamar a Keycloak", async () => {
+    const { id } = await cuentaCreada();
+    falsa.llamadas.length = 0;
+
+    const activa = await reactivar(id);
+    expect(activa.status).toBe(409);
+    expect(activa.body).toEqual({ error: { codigo: "CUENTA_ACTIVA", mensaje: expect.any(String) } });
+    expect((await reactivar(999999)).status).toBe(404);
+    expect((await conToken(request(app).post("/personal/abc/reactivacion"))).status).toBe(400);
+    expect(falsa.llamadas).toEqual([]);
+    expect(await eventosGestionDe(id)).toHaveLength(1);
+  });
+
+  it("HU0021-5.0 si falla el envío del enlace, la cuenta vuelve a quedar deshabilitada, personal sigue inactivo y no hay evento", async () => {
+    const { id, correo, usuario } = await cuentaDesactivada("tesoreria", false);
+    falsa.fallarEn("enviarEnlaceDefinirContrasena");
+
+    const res = await reactivar(id);
+
+    expect(res.status).toBe(502);
+    expect(falsa.usuarios.get(usuario.id)!.habilitado).toBe(false);
+    expect(falsa.llamadas.at(-1)).toBe(`deshabilitar:${usuario.id}`);
+    expect(await filaPersonal(correo)).toMatchObject({ activo: false });
+    expect((await eventosGestionDe(id)).map((e) => e.detalle.accion)).toEqual(["alta", "desactivacion"]);
+  });
+
+  it("HU0021-5.0 si falla la habilitación en Keycloak (pudo aplicarse sin respuesta), igual se compensa con deshabilitar y personal sigue inactivo", async () => {
+    const { id, correo, usuario } = await cuentaDesactivada();
+    falsa.fallarEn("habilitar");
+
+    const res = await reactivar(id);
+
+    expect(res.status).toBe(502);
+    expect(falsa.llamadas.slice(-2)).toEqual([`habilitar:${usuario.id}`, `deshabilitar:${usuario.id}`]);
+    expect(falsa.usuarios.get(usuario.id)!.habilitado).toBe(false);
+    expect(await filaPersonal(correo)).toMatchObject({ activo: false });
+    expect((await eventosGestionDe(id)).map((e) => e.detalle.accion)).toEqual(["alta", "desactivacion"]);
+  });
+
+  it("HU0021-5.0 si también falla la compensación, el log trae solo el id de Keycloak y personal sigue inactivo", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { id, correo, usuario } = await cuentaDesactivada("tesoreria", false);
+    falsa.fallarEn("enviarEnlaceDefinirContrasena", "deshabilitar");
+
+    const res = await reactivar(id);
+
+    expect(res.status).toBe(502);
+    expect(await filaPersonal(correo)).toMatchObject({ activo: false });
+    const lineas = log.mock.calls.map((c) => String(c[0]));
+    expect(lineas.some((l) => l.includes(usuario.id) && /Reactivación de personal incompleta/.test(l))).toBe(true);
+    expect(lineas.some((l) => l.includes(correo))).toBe(false);
+  });
+
+  it("HU0021-5.0 un rol distinto de directora recibe 403 y queda acceso_denegado", async () => {
+    const { id, correo } = await cuentaDesactivada();
+    const sub = randomUUID();
+    const idSecretaria = await crearPersonal(db(), "secretaria", sub);
+
+    const res = await reactivar(id, await firmante.token(sub, ["secretaria"]));
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.codigo).toBe("ACCESO_DENEGADO");
+    expect(falsa.llamadas).toEqual([]);
+    expect(await filaPersonal(correo)).toMatchObject({ activo: false });
+    const { rows } = await db().query("SELECT detalle FROM registro_auditoria WHERE tipo_evento = 'acceso_denegado' AND id_personal = $1", [idSecretaria]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].detalle).toMatchObject({ metodo: "POST", ruta: expect.stringMatching(/^\/personal\/\d+\/reactivacion$/), roles_requeridos: ["directora"] });
   });
 });

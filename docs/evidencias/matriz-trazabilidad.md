@@ -1,23 +1,23 @@
 # Matriz de trazabilidad (HU → escenario → prueba → resultado)
 
-> Generada con `npm run evidencias:matriz` el 19/10/26, 6:33 p. m. (America/Lima) sobre el commit `b55b0ed`. No se edita a mano.
+> Generada con `npm run evidencias:matriz` el 22/10/26, 11:24 p. m. (America/Lima) sobre el commit `51b4288` **con cambios sin commit**. No se edita a mano.
 
 ## Resumen
 
 | Suite | Pruebas | Pasan | Fallan | Omitidas o no ejecutadas |
 |---|---|---|---|---|
-| API | 116 | 116 | 0 | 0 |
-| Frontend | 24 | 24 | 0 | 0 |
-| E2E | 28 | 28 | 0 | 0 |
+| API | 123 | 123 | 0 | 0 |
+| Frontend | 27 | 27 | 0 | 0 |
+| E2E | 31 | 31 | 0 | 0 |
 
-- Escenarios del backlog: **54** en 25 HU; con al menos una prueba: **4**.
-- Estados: sin prueba: 50 · cubierto: 3 · mecanismo probado; verificación en ruta real pendiente (C17): 1.
+- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **5**.
+- Estados: sin prueba: 50 · cubierto: 4 · mecanismo probado; verificación en ruta real pendiente (C17): 1.
 - Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.
 - «mecanismo probado; verificación en ruta real pendiente (C17)»: todas las pruebas del escenario llevan la marca `[política, ruta de prueba]` (compromiso C17).
 
 ## HU con pruebas
 
-### HU0021 — Crear, modificar y desactivar las cuentas del personal y asignarles un rol (secretaría, Tesorería, psicóloga, evaluador académico o Directora)
+### HU0021 — Crear, modificar, desactivar y reactivar las cuentas del personal y asignarles un rol (secretaría, Tesorería, psicóloga, evaluador académico o Directora)
 
 | Escenario | Estado | Suite | Archivo | Prueba | Resultado |
 |---|---|---|---|---|---|
@@ -71,10 +71,23 @@
 |  |  | API | `api/test/personal.test.ts` | HU0021-4.0 desactiva la cuenta: Keycloak deshabilitado y sin sesiones, activo = false, gestion_usuario y el historial anterior intacto | pasó |
 |  |  | API | `api/test/personal.test.ts` | HU0021-4.0 una cuenta ya desactivada responde 409 CUENTA_INACTIVA y una inexistente 404 | pasó |
 |  |  | API | `api/test/personal.test.ts` | HU0021-4.0 si falla el cierre de sesiones, la cuenta no se vuelve a habilitar y personal queda sin cambios | pasó |
-|  |  | Frontend | `frontend/src/views/gestion/UsuariosRoles.test.ts` | HU0021-4.0 «Desactivar» pide confirmación; al confirmar la cuenta queda «Desactivado» y sin acciones | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/UsuariosRoles.test.ts` | HU0021-4.0 «Desactivar» pide confirmación; al confirmar la cuenta queda «Desactivado» y sin Editar ni Desactivar | pasó |
 |  |  | E2E | `e2e/acceso-personal.spec.ts` | HU0021-4.0 una cuenta desactivada ve en G01 el mensaje de Keycloak y no entra | pasó |
 |  |  | E2E | `e2e/personal-api.spec.ts` | HU0021-4.0 tras desactivar, Keycloak la deja deshabilitada y sin sesiones, el login es rechazado y la lista la muestra inactiva | pasó |
 |  |  | E2E | `e2e/usuarios-roles.spec.ts` | HU0021-4.0 la directora desactiva la cuenta en G10: su sesión abierta se cierra, no puede volver a entrar y G10 la muestra «Desactivado» | pasó |
+| HU0021-5.0 — Reactivación de una cuenta del personal | cubierto | API | `api/test/personal.test.ts` | HU0021-5.0 reactiva la cuenta con el rol que tenía y su contraseña: Keycloak habilitado, activo = true, sin enlace, gestion_usuario y el historial anterior intacto | pasó |
+|  |  | API | `api/test/personal.test.ts` | HU0021-5.0 si la cuenta nunca definió su contraseña, Keycloak le reenvía el enlace y la auditoría lo registra | pasó |
+|  |  | API | `api/test/personal.test.ts` | HU0021-5.0 una cuenta activa responde 409 CUENTA_ACTIVA, una inexistente 404 y un id inválido 400, sin llamar a Keycloak | pasó |
+|  |  | API | `api/test/personal.test.ts` | HU0021-5.0 si falla el envío del enlace, la cuenta vuelve a quedar deshabilitada, personal sigue inactivo y no hay evento | pasó |
+|  |  | API | `api/test/personal.test.ts` | HU0021-5.0 si falla la habilitación en Keycloak (pudo aplicarse sin respuesta), igual se compensa con deshabilitar y personal sigue inactivo | pasó |
+|  |  | API | `api/test/personal.test.ts` | HU0021-5.0 si también falla la compensación, el log trae solo el id de Keycloak y personal sigue inactivo | pasó |
+|  |  | API | `api/test/personal.test.ts` | HU0021-5.0 un rol distinto de directora recibe 403 y queda acceso_denegado | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/UsuariosRoles.test.ts` | HU0021-5.0 «Reactivar» pide confirmación; al confirmar la cuenta queda «Activo» con Editar y Desactivar | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/UsuariosRoles.test.ts` | HU0021-5.0 si la cuenta nunca definió su contraseña, el aviso indica que se envió el enlace a su correo | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/UsuariosRoles.test.ts` | HU0021-5.0 si la API responde un error, muestra su mensaje y la cuenta sigue «Desactivado» | pasó |
+|  |  | E2E | `e2e/personal-api.spec.ts` | HU0021-5.0 tras reactivar, Keycloak la deja habilitada con el rol que tenía, la persona entra con su contraseña y la lista la muestra activa | pasó |
+|  |  | E2E | `e2e/personal-api.spec.ts` | HU0021-5.0 una cuenta que nunca definió su contraseña recibe al reactivarla un enlace nuevo y con él puede entrar | pasó |
+|  |  | E2E | `e2e/usuarios-roles.spec.ts` | HU0021-5.0 la directora reactiva la cuenta en G10; la persona vuelve a entrar con su contraseña y ve solo las opciones del rol que tenía | pasó |
 
 ## HU sin pruebas
 

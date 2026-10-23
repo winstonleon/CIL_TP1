@@ -1,10 +1,11 @@
-// HU0021-1.0, 3.0 y 4.0 desde la pantalla G10 (Usuarios y roles), con Keycloak, Mailpit y la API reales.
+// HU0021-1.0, 3.0, 4.0 y 5.0 desde la pantalla G10 (Usuarios y roles), con Keycloak, Mailpit y la API reales.
 // Requiere el entorno dev levantado (el frontend con el proxy /api), `npm run kc:usuarios-prueba` y
-// `npm run db:seed`. Deja una cuenta hu0021-e2e-*@ejemplo.test desactivada en dev (compromiso C16).
+// `npm run db:seed`. Deja una cuenta hu0021-e2e-*@ejemplo.test desactivada en dev (compromiso C16): la que
+// reactiva HU0021-5.0 se vuelve a desactivar al final.
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { contrasenaE2E, correoConEnlace, correoE2E, definirContrasena, entrarEnGestion } from "./ayudantes";
+import { contrasenaE2E, correoConEnlace, correoE2E, definirContrasena, entrarEnGestion, iniciarSesion, llamarApi } from "./ayudantes";
 
 const usuarios: { username: string; rol: string }[] = JSON.parse(
   readFileSync(resolve(import.meta.dirname, "../infra/keycloak/usuarios-prueba.json"), "utf8"),
@@ -42,6 +43,24 @@ test.describe("HU0021 cuentas del personal desde G10", () => {
   const correo = correoE2E();
   const contrasena = contrasenaE2E();
   const filaDe = (pagina: Page) => pagina.locator("tbody tr", { hasText: correo });
+
+  // La 5.0 reactiva la cuenta: al final se vuelve a desactivar por la API (C16).
+  test.afterAll(async ({ browser, playwright }) => {
+    test.setTimeout(60_000);
+    const token = await iniciarSesion(browser, DIRECTORA, CONTRASENA_PRUEBA);
+    expect(token, "la directora de prueba no pudo iniciar sesión para la limpieza").toBeTruthy();
+    const request = await playwright.request.newContext();
+    try {
+      const cuentas: { id_personal: number; correo: string; activo: boolean }[] = await (await llamarApi(request, "get", "/personal", token!)).json();
+      const cuenta = cuentas.find((c) => c.correo === correo);
+      if (cuenta?.activo) {
+        const res = await llamarApi(request, "post", `/personal/${cuenta.id_personal}/desactivacion`, token!);
+        expect(res.status(), "no se pudo volver a desactivar la cuenta de la prueba").toBe(200);
+      }
+    } finally {
+      await request.dispose();
+    }
+  });
 
   test("HU0021-1.0 la directora crea la cuenta en G10; la persona define su contraseña con el enlace y al iniciar sesión ve solo las opciones de su rol", async ({ browser, request }) => {
     test.setTimeout(120_000);
@@ -108,7 +127,9 @@ test.describe("HU0021 cuentas del personal desde G10", () => {
       await dialogo.getByRole("button", { name: "Desactivar" }).click();
 
       await expect(filaDe(pagina)).toContainText("Desactivado");
-      await expect(filaDe(pagina).getByRole("button")).toHaveCount(0);
+      // Sin Editar ni Desactivar: solo «Reactivar» (HU0021-5.0).
+      await expect(filaDe(pagina).getByRole("button")).toHaveCount(1);
+      await expect(filaDe(pagina).getByRole("button", { name: "Reactivar Prueba Pantalla" })).toBeVisible();
     } finally {
       await g10.cerrar();
     }
@@ -127,6 +148,28 @@ test.describe("HU0021 cuentas del personal desde G10", () => {
     } finally {
       await contextoPersona.close();
     }
+  });
+
+  test("HU0021-5.0 la directora reactiva la cuenta en G10; la persona vuelve a entrar con su contraseña y ve solo las opciones del rol que tenía", async ({ browser }) => {
+    test.setTimeout(90_000);
+    const g10 = await abrirG10(browser);
+    try {
+      const { pagina } = g10;
+      await filaDe(pagina).getByRole("button", { name: "Reactivar Prueba Pantalla" }).click();
+      const dialogo = pagina.getByRole("dialog");
+      await expect(dialogo).toContainText("¿Reactivar la cuenta de Prueba Pantalla? Podrá volver a iniciar sesión con el rol Tesorería.");
+      await dialogo.getByRole("button", { name: "Reactivar" }).click();
+
+      await expect(filaDe(pagina)).toContainText("Activo");
+      await expect(filaDe(pagina)).toContainText("Tesorería");
+      await expect(filaDe(pagina).getByRole("button", { name: "Desactivar Prueba Pantalla" })).toBeVisible();
+      // Ya había definido su contraseña: no se reenvía el enlace.
+      await expect(pagina.getByRole("status")).toHaveText("Cuenta reactivada.");
+    } finally {
+      await g10.cerrar();
+    }
+
+    expect(await opcionesAlEntrar(browser, correo, contrasena, "Tesorería")).toEqual(["Validaciones de Tesorería"]);
   });
 
   test("G10 la matriz «Permisos por rol» con la API real coincide con el mockup", async ({ browser }) => {

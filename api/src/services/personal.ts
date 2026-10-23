@@ -1,4 +1,4 @@
-// Cuentas del personal (HU0021, pantalla G10). Toda alta, modificación o desactivación se audita como
+// Cuentas del personal (HU0021, pantalla G10). Toda alta, modificación, desactivación o reactivación se audita como
 // gestion_usuario en la misma transacción que el cambio en `personal` (modelo de datos §4.7).
 // Keycloak es la identidad (ADR-02): sus cambios se hacen dentro de la transacción, antes del COMMIT,
 // y si algo falla se compensan. Las compensaciones fallan cerrado: nunca dejan una cuenta habilitada de más.
@@ -14,6 +14,7 @@ import {
   existeCorreo,
   insertarPersonal,
   listarPersonal as listarFilas,
+  marcarActivo,
   marcarInactivo,
   type FilaPersonal,
   type FilaPersonalConIdentidad,
@@ -137,6 +138,13 @@ async function cuentaActiva(db: Consultable, idPersonal: number): Promise<FilaPe
   return actual;
 }
 
+async function cuentaInactiva(db: Consultable, idPersonal: number): Promise<FilaPersonalConIdentidad> {
+  const actual = await bloquearPersonal(db, idPersonal);
+  if (!actual) throw new ErrorApi(404, "NO_ENCONTRADO", "La cuenta no existe");
+  if (actual.activo) throw new ErrorApi(409, "CUENTA_ACTIVA", "La cuenta ya está activa");
+  return actual;
+}
+
 const sinIdentidad = ({ keycloak_user_id: _, ...fila }: FilaPersonalConIdentidad): FilaPersonal => fila;
 
 // HU0021-3.0: cambia nombres, apellidos o rol. El correo no se modifica (plan HU0021, Q1).
@@ -211,6 +219,48 @@ export async function desactivarPersonal(identidad: IdentidadAdmin, keycloakUser
     // Falla cerrado: si Keycloak ya la deshabilitó, no se vuelve a habilitar.
     if (deshabilitado) {
       console.error(`Desactivación de personal incompleta: el usuario de Keycloak ${idIdentidad} quedó deshabilitado; reintentar la desactivación`);
+    }
+    throw e;
+  }
+}
+
+// HU0021-5.0: la persona vuelve a iniciar sesión con el rol que tenía (personal.rol) y con su contraseña. Si nunca
+// definió una (se desactivó antes o le venció el enlace), Keycloak le reenvía el enlace de 72 h (plan HU0021, tramo e).
+// Falla cerrado: si algo falla después de habilitarla en Keycloak, se vuelve a deshabilitar.
+export async function reactivarPersonal(
+  identidad: IdentidadAdmin,
+  keycloakUserIdActor: string,
+  idPersonal: number,
+): Promise<FilaPersonal & { enlace_enviado: boolean }> {
+  let idIdentidad = "";
+  let habilitado = false;
+  try {
+    return await enTransaccion(async (c) => {
+      const actual = await cuentaInactiva(c, idPersonal);
+      idIdentidad = actual.keycloak_user_id;
+      const fila = await marcarActivo(c, idPersonal);
+      const sinContrasena = !(await identidad.tieneCredenciales(idIdentidad));
+      await registrarGestion(c, keycloakUserIdActor, {
+        accion: "reactivacion",
+        id_personal_afectado: idPersonal,
+        rol: actual.rol,
+        ...(sinContrasena ? { enlace_contrasena: "enviado" } : {}),
+      });
+      await identidad.establecerRolUnico(idIdentidad, actual.rol as RolPersonal);
+      // Se marca antes de llamar: si Keycloak aplica el cambio pero la respuesta se pierde (o llega un 5xx), también
+      // se compensa. deshabilitar es idempotente.
+      habilitado = true;
+      await identidad.habilitar(idIdentidad);
+      if (sinContrasena) await identidad.enviarEnlaceDefinirContrasena(idIdentidad);
+      return { ...fila, enlace_enviado: sinContrasena };
+    });
+  } catch (e) {
+    if (habilitado) {
+      try {
+        await identidad.deshabilitar(idIdentidad);
+      } catch {
+        console.error(`Reactivación de personal incompleta: el usuario de Keycloak ${idIdentidad} pudo quedar habilitado; reintentar la reactivación o desactivarlo`);
+      }
     }
     throw e;
   }

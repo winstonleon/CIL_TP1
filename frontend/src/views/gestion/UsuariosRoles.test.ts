@@ -1,5 +1,6 @@
-// G10 · Usuarios y roles: alta (HU0021-1.0), modificación (3.0) y desactivación (4.0) desde la pantalla, con la
-// API simulada en fetch. Así se prueba también el cliente real (llamarApi + api/personal): método, ruta y cuerpo.
+// G10 · Usuarios y roles: alta (HU0021-1.0), modificación (3.0), desactivación (4.0) y reactivación (5.0) desde la
+// pantalla, con la API simulada en fetch. Así se prueba también el cliente real (llamarApi + api/personal): método,
+// ruta y cuerpo.
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { usuarioActual } from "../../auth/oidc";
@@ -30,6 +31,7 @@ let cuentas: Cuenta[];
 let politica: Record<string, string[]>;
 let llamadas: Llamada[];
 let errorSiguiente: { status: number; codigo: string; mensaje: string } | null;
+let enlaceAlReactivar: boolean;
 
 const responder = (status: number, cuerpo: unknown) =>
   new Response(JSON.stringify(cuerpo), { status, headers: { "Content-Type": "application/json" } });
@@ -63,6 +65,12 @@ function apiFalsa(url: string, init: RequestInit = {}): Response {
     c.activo = false;
     return responder(200, c);
   }
+  const reactivacion = url.match(/^\/api\/personal\/(\d+)\/reactivacion$/);
+  if (metodo === "POST" && reactivacion) {
+    const c = cuentas.find((x) => x.id_personal === Number(reactivacion[1]))!;
+    c.activo = true;
+    return responder(200, { ...c, enlace_enviado: enlaceAlReactivar });
+  }
   return responder(404, { error: { codigo: "NO_ENCONTRADO", mensaje: "Recurso no encontrado" } });
 }
 
@@ -74,6 +82,7 @@ beforeEach(() => {
   politica = { documentacion_financiera: ["tesoreria"], informe_psicologico: ["psicologa", "directora"] };
   llamadas = [];
   errorSiguiente = null;
+  enlaceAlReactivar = false;
   vi.stubEnv("VITE_API_URL", "/api");
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => apiFalsa(url, init)));
   vi.mocked(usuarioActual).mockResolvedValue(usuarioFalso(["directora"], "Directora Ficticia"));
@@ -185,11 +194,11 @@ describe("HU0021-3.0 modificación desde G10", () => {
 });
 
 describe("HU0021-4.0 desactivación desde G10", () => {
-  it("HU0021-4.0 «Desactivar» pide confirmación; al confirmar la cuenta queda «Desactivado» y sin acciones", async () => {
+  it("HU0021-4.0 «Desactivar» pide confirmación; al confirmar la cuenta queda «Desactivado» y sin Editar ni Desactivar", async () => {
     const e = await montar();
-    // Una cuenta ya desactivada no muestra acciones (no hay Reactivar en esta HU).
+    // Una cuenta ya desactivada no se edita ni se desactiva: solo ofrece «Reactivar» (HU0021-5.0).
     expect(fila(e, 8).text()).toContain("Desactivado");
-    expect(fila(e, 8).findAll("button")).toHaveLength(0);
+    expect(fila(e, 8).findAll("button").map((b) => b.attributes("aria-label"))).toEqual(["Reactivar Gabriela Ortiz"]);
 
     await fila(e, 7).get('button[aria-label="Desactivar Rosa Medina"]').trigger("click");
     const dialogo = e.get("dialog");
@@ -206,8 +215,62 @@ describe("HU0021-4.0 desactivación desde G10", () => {
 
     expect(escrituras()).toEqual([{ metodo: "POST", url: "/api/personal/7/desactivacion", cuerpo: undefined }]);
     expect(fila(e, 7).text()).toContain("Desactivado");
-    expect(fila(e, 7).findAll("button")).toHaveLength(0);
+    expect(fila(e, 7).findAll("button").map((b) => b.attributes("aria-label"))).toEqual(["Reactivar Rosa Medina"]);
     expect(e.find("dialog").exists()).toBe(false);
+  });
+});
+
+describe("HU0021-5.0 reactivación desde G10", () => {
+  const botonReactivar = (e: VueWrapper) => fila(e, 8).get('button[aria-label="Reactivar Gabriela Ortiz"]');
+  const botonDelDialogo = (e: VueWrapper, texto: string) => e.get("dialog").findAll("button").find((b) => b.text() === texto)!;
+
+  it("HU0021-5.0 «Reactivar» pide confirmación; al confirmar la cuenta queda «Activo» con Editar y Desactivar", async () => {
+    const e = await montar();
+    expect(botonReactivar(e).text()).toBe("Reactivar");
+
+    await botonReactivar(e).trigger("click");
+    expect(e.get("dialog").text()).toContain("¿Reactivar la cuenta de Gabriela Ortiz? Podrá volver a iniciar sesión con el rol Secretaría.");
+
+    // Cancelar no envía nada.
+    await botonDelDialogo(e, "Cancelar").trigger("click");
+    expect(e.find("dialog").exists()).toBe(false);
+    expect(escrituras()).toEqual([]);
+
+    await botonReactivar(e).trigger("click");
+    await botonDelDialogo(e, "Reactivar").trigger("click");
+    await flushPromises();
+
+    expect(escrituras()).toEqual([{ metodo: "POST", url: "/api/personal/8/reactivacion", cuerpo: undefined }]);
+    expect(fila(e, 8).text()).toContain("Activo");
+    expect(fila(e, 8).text()).toContain("Secretaría");
+    expect(fila(e, 8).findAll("button").map((b) => b.attributes("aria-label"))).toEqual([
+      "Editar Gabriela Ortiz",
+      "Desactivar Gabriela Ortiz",
+    ]);
+    expect(e.get('[role="status"]').text()).toBe("Cuenta reactivada.");
+    expect(e.find("dialog").exists()).toBe(false);
+  });
+
+  it("HU0021-5.0 si la cuenta nunca definió su contraseña, el aviso indica que se envió el enlace a su correo", async () => {
+    enlaceAlReactivar = true;
+    const e = await montar();
+    await botonReactivar(e).trigger("click");
+    await botonDelDialogo(e, "Reactivar").trigger("click");
+    await flushPromises();
+
+    expect(e.get('[role="status"]').text()).toBe("Cuenta reactivada. Se envió el enlace para definir la contraseña a gortiz@ejemplo.test.");
+  });
+
+  it("HU0021-5.0 si la API responde un error, muestra su mensaje y la cuenta sigue «Desactivado»", async () => {
+    errorSiguiente = { status: 502, codigo: "IDENTIDAD_NO_DISPONIBLE", mensaje: "El servicio de identidad no respondió; no se guardó ningún cambio" };
+    const e = await montar();
+    await botonReactivar(e).trigger("click");
+    await botonDelDialogo(e, "Reactivar").trigger("click");
+    await flushPromises();
+
+    expect(e.get('[role="alert"]').text()).toBe("El servicio de identidad no respondió; no se guardó ningún cambio");
+    expect(fila(e, 8).text()).toContain("Desactivado");
+    expect(fila(e, 8).findAll("button")).toHaveLength(1);
   });
 });
 

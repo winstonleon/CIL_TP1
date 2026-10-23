@@ -1,6 +1,7 @@
-// HU0021-1.0, 3.0 y 4.0 por la API con Keycloak y Mailpit reales (la pantalla G10 se prueba en el tramo b).
-// Requiere el entorno dev levantado, `npm run kc:usuarios-prueba` y `npm run db:seed` (la directora de prueba
-// tiene fila en personal). Deja cuentas hu0021-e2e-*@ejemplo.test en dev (compromiso C16).
+// HU0021-1.0, 3.0, 4.0 y 5.0 por la API con Keycloak y Mailpit reales (la pantalla G10 se prueba en
+// usuarios-roles.spec.ts). Requiere el entorno dev levantado, `npm run kc:usuarios-prueba` y `npm run db:seed` (la
+// directora de prueba tiene fila en personal). Deja cuentas hu0021-e2e-*@ejemplo.test desactivadas en dev
+// (compromiso C16): las que reactiva HU0021-5.0 se vuelven a desactivar al final.
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
@@ -30,12 +31,31 @@ test.describe("HU0021 cuentas del personal por la API (Keycloak y Mailpit reales
   const contrasena = contrasenaE2E();
   let tokenDirectora: string;
   let idPersonal: number;
+  // Cuentas de las pruebas HU0021-5.0: se vuelven a desactivar al final (C16), también si la prueba falla a mitad.
+  const aDesactivarAlFinal: number[] = [];
 
   test.beforeAll(async ({ browser }) => {
     test.setTimeout(60_000);
     const token = await iniciarSesion(browser, DIRECTORA, process.env.KEYCLOAK_TEST_USER_PASSWORD!);
     expect(token, "la directora de prueba no pudo iniciar sesión").toBeTruthy();
     tokenDirectora = token!;
+  });
+
+  test.afterAll(async ({ browser, playwright }) => {
+    if (!aDesactivarAlFinal.length) return;
+    test.setTimeout(60_000);
+    // Token nuevo: el del beforeAll pudo vencer (5 min).
+    const token = await iniciarSesion(browser, DIRECTORA, process.env.KEYCLOAK_TEST_USER_PASSWORD!);
+    expect(token, "la directora de prueba no pudo iniciar sesión para la limpieza").toBeTruthy();
+    const request = await playwright.request.newContext();
+    try {
+      for (const id of aDesactivarAlFinal) {
+        const res = await llamarApi(request, "post", `/personal/${id}/desactivacion`, token!);
+        expect([200, 409], `no se pudo volver a desactivar la cuenta ${id}`).toContain(res.status());
+      }
+    } finally {
+      await request.dispose();
+    }
   });
 
   test("HU0021-1.0 la API crea la cuenta con su rol y Keycloak envía a Mailpit el enlace para definir la contraseña", async ({ request }) => {
@@ -103,5 +123,58 @@ test.describe("HU0021 cuentas del personal por la API (Keycloak y Mailpit reales
 
     const lista = await llamarApi(request, "get", "/personal", tokenDirectora);
     expect(await lista.json()).toContainEqual(expect.objectContaining({ id_personal: idPersonal, activo: false }));
+  });
+
+  test("HU0021-5.0 tras reactivar, Keycloak la deja habilitada con el rol que tenía, la persona entra con su contraseña y la lista la muestra activa", async ({ browser, request }) => {
+    test.setTimeout(60_000);
+    aDesactivarAlFinal.push(idPersonal);
+    const res = await llamarApi(request, "post", `/personal/${idPersonal}/reactivacion`, tokenDirectora);
+    expect(res.status()).toBe(200);
+    // Rol de la 3.0 (psicologa); ya tenía contraseña, así que no se envía otro enlace.
+    expect(await res.json()).toMatchObject({ id_personal: idPersonal, rol: "psicologa", activo: true, enlace_enviado: false });
+
+    const usuario = await usuarioKeycloak(correo);
+    expect(usuario.enabled).toBe(true);
+    const { datos: roles } = await (await admin())("GET", `/users/${usuario.id}/role-mappings/realm`);
+    expect(roles.map((r: { name: string }) => r.name)).toContain("psicologa");
+
+    const token = await iniciarSesion(browser, correo, contrasena);
+    expect(token, "la cuenta reactivada no pudo iniciar sesión con su contraseña").toBeTruthy();
+    expect(rolesDeApp(token!)).toEqual(["psicologa"]);
+    // Solo el correo del alta: la reactivación no reenvió el enlace.
+    const { enlace } = await correoConEnlace(request, correo, 1);
+    expect(datosDelEnlace(enlace).acciones).toEqual(["UPDATE_PASSWORD"]);
+
+    const lista = await llamarApi(request, "get", "/personal", tokenDirectora);
+    expect(await lista.json()).toContainEqual(expect.objectContaining({ id_personal: idPersonal, activo: true }));
+  });
+
+  test("HU0021-5.0 una cuenta que nunca definió su contraseña recibe al reactivarla un enlace nuevo y con él puede entrar", async ({ browser, request }) => {
+    test.setTimeout(120_000);
+    const correoSinContrasena = correoE2E();
+    const contrasenaNueva = contrasenaE2E();
+    const alta = await llamarApi(request, "post", "/personal", tokenDirectora, { nombres: "Prueba", apellidos: "Sin Clave", correo: correoSinContrasena, rol: "evaluador_academico" });
+    expect(alta.status()).toBe(201);
+    const id = (await alta.json()).id_personal as number;
+    aDesactivarAlFinal.push(id);
+    await correoConEnlace(request, correoSinContrasena, 1);
+    expect((await llamarApi(request, "post", `/personal/${id}/desactivacion`, tokenDirectora)).status()).toBe(200);
+
+    const res = await llamarApi(request, "post", `/personal/${id}/reactivacion`, tokenDirectora);
+    expect(res.status()).toBe(200);
+    expect(await res.json()).toMatchObject({ id_personal: id, rol: "evaluador_academico", activo: true, enlace_enviado: true });
+
+    // Segundo correo de Keycloak, con el mismo tipo de enlace que el alta (72 h, hacia gestion-interna).
+    const { enlace } = await correoConEnlace(request, correoSinContrasena, 2);
+    expect(datosDelEnlace(enlace)).toEqual({
+      cliente: "gestion-interna",
+      acciones: ["UPDATE_PASSWORD"],
+      redireccion: `${FRONTEND}/gestion`,
+      vigencia_s: 259200,
+    });
+    await definirContrasena(browser, enlace, contrasenaNueva);
+    const token = await iniciarSesion(browser, correoSinContrasena, contrasenaNueva);
+    expect(token, "la cuenta reactivada no pudo iniciar sesión con el enlace nuevo").toBeTruthy();
+    expect(rolesDeApp(token!)).toEqual(["evaluador_academico"]);
   });
 });

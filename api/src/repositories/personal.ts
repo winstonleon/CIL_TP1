@@ -92,3 +92,12 @@ export async function marcarInactivo(db: Consultable, idPersonal: number): Promi
   );
   return rows[0]!;
 }
+
+// Reactivación (HU0021-5.0): la fila conserva su rol y su historial.
+export async function marcarActivo(db: Consultable, idPersonal: number): Promise<FilaPersonal> {
+  const { rows } = await db.query<FilaPersonal>(
+    `UPDATE personal SET activo = true WHERE id_personal = $1 RETURNING ${COLUMNAS}`,
+    [idPersonal],
+  );
+  return rows[0]!;
+}

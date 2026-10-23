@@ -20,6 +20,12 @@ export interface DatosCuenta {
 
 export type CambiosCuenta = Partial<Pick<DatosCuenta, "nombres" | "apellidos" | "rol">>;
 
+// Respuesta de la reactivación (HU0021-5.0): enlace_enviado indica si Keycloak reenvió el enlace para definir la
+// contraseña (la cuenta nunca había definido una).
+export interface CuentaReactivada extends CuentaPersonal {
+  enlace_enviado: boolean;
+}
+
 // Error con el formato uniforme de la API: { error: { codigo, mensaje } }.
 export class ErrorApi extends Error {
   constructor(
@@ -69,4 +75,8 @@ export async function modificarCuenta(id: number, cambios: CambiosCuenta): Promi
 
 export async function desactivarCuenta(id: number): Promise<CuentaPersonal> {
   return respuesta(await llamarApi("gestion", `/personal/${id}/desactivacion`, json("POST")));
+}
+
+export async function reactivarCuenta(id: number): Promise<CuentaReactivada> {
+  return respuesta(await llamarApi("gestion", `/personal/${id}/reactivacion`, json("POST")));
 }

@@ -7,7 +7,6 @@ export type TipoEventoAuditoria =
   | "atencion_inicio"
   | "atencion_fin"
   | "acceso_denegado"
-  | "inicio_sesion"
   | "cambio_configuracion"
   | "gestion_usuario"
   | "notificacion_rebotada";

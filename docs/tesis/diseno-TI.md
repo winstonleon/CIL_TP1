@@ -300,7 +300,7 @@ Las interfaces se organizan en dos áreas: el portal de familias y la gestión i
 | G07 | Adjudicación de vacantes | Directora | Asignar vacantes según el inventario por grado |
 | G08 | Tablero de indicadores | Directora | Monitorear el embudo, el lead time y el cycle time |
 | G09 | Configuración de la campaña | Secretaría | Definir grados, vacantes, evaluaciones, requisitos, cuota y horarios |
-| G10 | Usuarios y roles | Directora | Crear, modificar y desactivar cuentas del personal |
+| G10 | Usuarios y roles | Directora | Crear, modificar, desactivar y reactivar cuentas del personal |
 | G11 | Evaluaciones académicas | Evaluador académico | Registrar el resultado o la inasistencia |
 
 *Nota*. Elaboración propia.
@@ -477,7 +477,7 @@ Las interfaces se organizan en dos áreas: el portal de familias y la gestión i
 
 *Nota*. Elaboración propia.
 
-**G10.** Permite crear, modificar y desactivar cuentas del personal, y presenta la matriz de permisos por rol.
+**G10.** Permite crear, modificar, desactivar y reactivar cuentas del personal, y presenta la matriz de permisos por rol.
 
 **Figura 30**
 

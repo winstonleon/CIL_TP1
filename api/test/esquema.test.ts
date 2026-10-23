@@ -151,13 +151,16 @@ describe("S0-B7 restricciones CHECK de las notas del DBML", () => {
   });
 
   it("S0-B7 registro_auditoria: tipo_evento solo admite el catálogo de la sección 4.7", async () => {
-    await esperaRestriccion(
-      db().query("INSERT INTO registro_auditoria (tipo_evento) VALUES ('evento_inventado')"),
-      "ck_auditoria_tipo_evento", CHECK,
-    );
+    // inicio_sesion salió del catálogo (C20 descartado, migración 20261021120000_quitar_inicio_sesion).
+    for (const tipo of ["evento_inventado", "inicio_sesion"]) {
+      await esperaRestriccion(
+        db().query("INSERT INTO registro_auditoria (tipo_evento) VALUES ($1)", [tipo]),
+        "ck_auditoria_tipo_evento", CHECK,
+      );
+    }
     for (const tipo of [
       "transicion_estado", "atencion_inicio", "atencion_fin", "acceso_denegado",
-      "inicio_sesion", "cambio_configuracion", "gestion_usuario", "notificacion_rebotada",
+      "cambio_configuracion", "gestion_usuario", "notificacion_rebotada",
     ]) {
       await expect(db().query("INSERT INTO registro_auditoria (tipo_evento) VALUES ($1)", [tipo])).resolves.toBeDefined();
     }
@@ -261,7 +264,7 @@ describe("S0-B7 unicidades", () => {
 describe("S0-B7 registro_auditoria es de solo inserción", () => {
   it("S0-B7 rechaza UPDATE, DELETE y TRUNCATE sobre registro_auditoria", async () => {
     const { rows } = await db().query<{ id_evento: string }>(
-      "INSERT INTO registro_auditoria (tipo_evento, detalle) VALUES ('inicio_sesion', '{}') RETURNING id_evento",
+      "INSERT INTO registro_auditoria (tipo_evento, detalle) VALUES ('cambio_configuracion', '{}') RETURNING id_evento",
     );
     const id = rows[0]!.id_evento;
     for (const sql of [

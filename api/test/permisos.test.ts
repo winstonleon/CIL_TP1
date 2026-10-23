@@ -32,7 +32,7 @@ async function errorDe(promesa: Promise<unknown>): Promise<ErrorPg> {
 
 async function insertarEvento(c: pg.Pool | pg.Client) {
   const { rows } = await c.query<{ id_evento: string }>(
-    "INSERT INTO registro_auditoria (tipo_evento, detalle) VALUES ('inicio_sesion', '{}') RETURNING id_evento",
+    "INSERT INTO registro_auditoria (tipo_evento, detalle) VALUES ('cambio_configuracion', '{}') RETURNING id_evento",
   );
   return rows[0]!.id_evento;
 }

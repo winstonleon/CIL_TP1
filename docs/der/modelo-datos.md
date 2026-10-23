@@ -394,7 +394,7 @@ Table Notificacion {
 
 Table Registro_Auditoria {
   id_evento bigserial [pk]
-  id_expediente integer [note: 'opcional: hay eventos sin expediente, p. ej. inicio de sesión o cambios de configuración']
+  id_expediente integer [note: 'opcional: hay eventos sin expediente, p. ej. cambios de configuración o gestión de usuarios']
   id_personal integer [note: 'opcional: nulo si el actor es la familia o el sistema (n8n)']
   tipo_evento varchar(60) [not null, note: 'valores del catálogo de la sección 4.7']
   estado_anterior varchar(40)
@@ -412,7 +412,7 @@ Table Personal {
   correo varchar(150) [unique, not null]
   keycloak_user_id uuid [unique, not null, note: 'id del usuario en el realm de Keycloak; su rol de realm coincide con Personal.rol']
   activo boolean [not null, default: true, note: 'las cuentas se desactivan, no se eliminan; se sincroniza con enabled de Keycloak']
-  Note: 'Usuarios internos. Los crea y desactiva el rol directora (G10). La API crea el usuario en Keycloak y Keycloak le envía el enlace para definir su contraseña (G01).'
+  Note: 'Usuarios internos. Los crea, desactiva y reactiva el rol directora (G10). La API crea el usuario en Keycloak y Keycloak le envía el enlace para definir su contraseña (G01).'
 }
 
 // =====================================================================
@@ -516,7 +516,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 | `tesoreria` | Validar pagos y la documentación financiera |
 | `psicologa` | Registrar resultados de observación, evaluación psicológica y entrevista; emitir el dictamen |
 | `evaluador_academico` | Registrar el resultado o la inasistencia en la evaluación académica |
-| `directora` | Asignar vacantes, ver el tablero de indicadores, crear, modificar y desactivar usuarios del Personal; autoriza la carta (firma) |
+| `directora` | Asignar vacantes, ver el tablero de indicadores, crear, modificar, desactivar y reactivar usuarios del Personal; autoriza la carta (firma) |
 | Familia (Cuenta_Acceso) | Solo sus propios expedientes: ficha, cuestionario, documentos, pagos y citas |
 
 ---
@@ -530,7 +530,6 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 | `atencion_inicio` | El personal **abre** un ítem para atenderlo: detalle del expediente (G03), pago o documentación financiera (G05), cita o dictamen (G06), evaluación académica (G11), postulante apto (G07). `detalle` indica el ítem | Personal |
 | `atencion_fin` | El personal **registra su decisión** sobre ese ítem: conforme, observado, resultado, inasistencia, dictamen o asignación de vacante | Personal |
 | `acceso_denegado` | Intento de ver datos restringidos por rol (HU0021-2.0) | Personal |
-| `inicio_sesion` | Inicio de sesión exitoso (para «Último acceso» en G10) | Personal o familia |
 | `cambio_configuracion` | Cambios en Grado, Requisito_Documental u Horario_Disponible | Secretaría |
 | `gestion_usuario` | Alta, cambio, desactivación o reactivación de Personal | Directora |
 | `notificacion_rebotada` | Rebote del correo de un prospecto | Sistema |
@@ -584,7 +583,7 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
   - El registro del admitido en SIEWEB o SIAGIE (el sistema académico existente no se integra ni se modifica).
 - **Almacenamiento de archivos:** las columnas `*_url` apuntan a Google Drive. La BD guarda la referencia, no el archivo.
 - **Por definir con el colegio (v1.1):** la política de contraseñas y el tiempo de bloqueo en Keycloak (P03b, P03c).
-- **Datos derivados, sin columna propia:** el código de la constancia de P07b (`CONST-<código del expediente>-<id_pago>`), la fecha de validación de un pago (P07) y el último acceso del personal (G10) se obtienen de `Registro_Auditoria`.
+- **Datos derivados, sin columna propia:** el código de la constancia de P07b (`CONST-<código del expediente>-<id_pago>`) y la fecha de validación de un pago (P07) se obtienen de `Registro_Auditoria`.
 
 ---
 
@@ -606,3 +605,10 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 | `Cuenta_Acceso` reducida a `keycloak_user_id`; `Personal.hash_contrasena` → `keycloak_user_id`; se elimina el enum `estado_cuenta` | Autenticación con Keycloak (decisión 3A); se mantienen 19 entidades |
 | Sección 4.7: catálogo de `tipo_evento` y definición de inicio y fin de atención | Medición del cycle time (HU0019, OE3; decisión 2A) |
 | Regla R3 confirmada: la Directora ve el informe psicológico | G10 alineado con R3 |
+
+### Ajustes posteriores a v1.1 (21/10/2026), sin cambios en tablas ni columnas
+| Cambio | Motivo |
+|---|---|
+| Sección 4.7: sale `inicio_sesion` del catálogo de `tipo_evento` (y su CHECK, migración `20261021120000_quitar_inicio_sesion.sql`); la nota de `Registro_Auditoria.id_expediente` ya no lo cita | El equipo quitó «Último acceso» de G10 (compromiso C20, descartado); era su único uso |
+| Sección 7: el último acceso del personal deja de figurar entre los datos derivados | Ídem |
+| Sección 4.6 y nota de `Personal`: la directora también reactiva cuentas | Escenario HU0021-5.0 (compromiso C21) |

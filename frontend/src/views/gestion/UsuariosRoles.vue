@@ -1,6 +1,6 @@
-<!-- G10 · Usuarios y roles (Directora): alta (HU0021-1.0), modificación (3.0) y desactivación (4.0) de las cuentas
-     del personal, y la matriz «Permisos por rol». Sin «Último acceso» (brecha del backlog, C20) ni «Reactivar»
-     (C21). Los textos de edición y del diálogo de confirmación los aprobó el equipo (plan HU0021, Q3). -->
+<!-- G10 · Usuarios y roles (Directora): alta (HU0021-1.0), modificación (3.0), desactivación (4.0) y reactivación (5.0)
+     de las cuentas del personal, y la matriz «Permisos por rol». «Último acceso» se quitó del mockup (C20, descartado).
+     Los textos de edición y de los diálogos de confirmación los aprobó el equipo (plan HU0021, Q3 y tramo e). -->
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref } from "vue";
 import {
@@ -10,6 +10,7 @@ import {
   listarCuentas,
   modificarCuenta,
   obtenerPolitica,
+  reactivarCuenta,
   type CuentaPersonal,
 } from "../../api/personal";
 import {
@@ -22,6 +23,7 @@ import {
 } from "../../gestion/menu";
 
 type Campo = "nombres" | "apellidos" | "correo" | "rol";
+type AccionConfirmada = "desactivar" | "reactivar";
 
 const cuentas = ref<CuentaPersonal[]>([]);
 const politica = ref<PoliticaRestringida | null>(null);
@@ -39,8 +41,8 @@ const enviando = ref(false);
 const aviso = ref("");
 const errorEnvio = ref("");
 
-const porDesactivar = ref<CuentaPersonal | null>(null);
-const desactivando = ref(false);
+const confirmacion = ref<{ cuenta: CuentaPersonal; accion: AccionConfirmada } | null>(null);
+const confirmando = ref(false);
 const botonCancelarDialogo = ref<HTMLButtonElement | null>(null);
 
 const matriz = computed(() => (politica.value ? matrizPermisos(politica.value) : []));
@@ -132,28 +134,37 @@ async function enviar() {
   }
 }
 
-async function pedirDesactivacion(cuenta: CuentaPersonal) {
+async function pedirConfirmacion(cuenta: CuentaPersonal, accion: AccionConfirmada) {
   aviso.value = "";
   errorEnvio.value = "";
-  porDesactivar.value = cuenta;
+  confirmacion.value = { cuenta, accion };
   await nextTick();
   botonCancelarDialogo.value?.focus();
 }
 
-async function confirmarDesactivacion() {
-  const cuenta = porDesactivar.value;
-  if (!cuenta) return;
-  desactivando.value = true;
+async function confirmar() {
+  if (!confirmacion.value) return;
+  const { cuenta, accion } = confirmacion.value;
+  confirmando.value = true;
   try {
-    // HU0021-4.0: la persona ya no puede iniciar sesión; la cuenta queda como «Desactivado».
-    reemplazar(await desactivarCuenta(cuenta.id_personal));
-    if (enEdicion.value?.id_personal === cuenta.id_personal) cancelarEdicion();
-    aviso.value = "Cuenta desactivada.";
+    if (accion === "desactivar") {
+      // HU0021-4.0: la persona ya no puede iniciar sesión; la cuenta queda como «Desactivado».
+      reemplazar(await desactivarCuenta(cuenta.id_personal));
+      if (enEdicion.value?.id_personal === cuenta.id_personal) cancelarEdicion();
+      aviso.value = "Cuenta desactivada.";
+    } else {
+      // HU0021-5.0: vuelve a iniciar sesión con el rol que tenía; si nunca definió contraseña, Keycloak reenvía el enlace.
+      const { enlace_enviado, ...reactivada } = await reactivarCuenta(cuenta.id_personal);
+      reemplazar(reactivada);
+      aviso.value = enlace_enviado
+        ? `Cuenta reactivada. Se envió el enlace para definir la contraseña a ${reactivada.correo}.`
+        : "Cuenta reactivada.";
+    }
   } catch (e) {
     errorEnvio.value = mensajeDe(e);
   } finally {
-    desactivando.value = false;
-    porDesactivar.value = null;
+    confirmando.value = false;
+    confirmacion.value = null;
   }
 }
 </script>
@@ -197,7 +208,7 @@ async function confirmarDesactivacion() {
                     </svg>
                   </button>
                   <button type="button" class="boton-icono boton-desactivar" :aria-label="`Desactivar ${nombreCompleto(c)}`"
-                    @click="pedirDesactivacion(c)">
+                    @click="pedirConfirmacion(c, 'desactivar')">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <circle cx="12" cy="12" r="8.5" />
@@ -205,6 +216,15 @@ async function confirmarDesactivacion() {
                     </svg>
                   </button>
                 </div>
+                <button v-else type="button" class="boton-icono boton-reactivar" :aria-label="`Reactivar ${nombreCompleto(c)}`"
+                  @click="pedirConfirmacion(c, 'reactivar')">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M20 11a8 8 0 1 0-2.3 5.7" />
+                    <path d="M20 5v6h-6" />
+                  </svg>
+                  Reactivar
+                </button>
               </td>
             </tr>
           </tbody>
@@ -312,11 +332,13 @@ async function confirmarDesactivacion() {
       <span class="nota">El usuario recibe un enlace para definir su contraseña. Toda alta, cambio o baja queda en la bitácora de auditoría.</span>
     </section>
 
-    <dialog v-if="porDesactivar" open class="dialogo" aria-modal="true" aria-labelledby="g10-dialogo-texto">
-      <p id="g10-dialogo-texto">¿Desactivar la cuenta de {{ nombreCompleto(porDesactivar) }}? No podrá iniciar sesión.</p>
+    <dialog v-if="confirmacion" open class="dialogo" aria-modal="true" aria-labelledby="g10-dialogo-texto">
+      <p v-if="confirmacion.accion === 'desactivar'" id="g10-dialogo-texto">¿Desactivar la cuenta de {{ nombreCompleto(confirmacion.cuenta) }}? No podrá iniciar sesión.</p>
+      <p v-else id="g10-dialogo-texto">¿Reactivar la cuenta de {{ nombreCompleto(confirmacion.cuenta) }}? Podrá volver a iniciar sesión con el rol {{ ETIQUETA_ROL[confirmacion.cuenta.rol] }}.</p>
       <div class="dialogo-acciones">
-        <button ref="botonCancelarDialogo" type="button" class="boton-secundario" @click="porDesactivar = null">Cancelar</button>
-        <button type="button" class="boton-peligro" :disabled="desactivando" @click="confirmarDesactivacion">Desactivar</button>
+        <button ref="botonCancelarDialogo" type="button" class="boton-secundario" @click="confirmacion = null">Cancelar</button>
+        <button v-if="confirmacion.accion === 'desactivar'" type="button" class="boton-peligro" :disabled="confirmando" @click="confirmar">Desactivar</button>
+        <button v-else type="button" class="boton-confirmar" :disabled="confirmando" @click="confirmar">Reactivar</button>
       </div>
     </dialog>
   </div>
@@ -454,6 +476,15 @@ async function confirmarDesactivacion() {
   color: var(--observado);
 }
 
+/* «Reactivar» del mockup: ícono y texto en las cuentas desactivadas. */
+.boton-reactivar {
+  gap: 6px;
+  font-family: var(--fuente-texto);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .tarjeta {
   background: var(--superficie);
   border: 1px solid var(--borde);
@@ -539,7 +570,8 @@ async function confirmarDesactivacion() {
 
 .boton-principal,
 .boton-secundario,
-.boton-peligro {
+.boton-peligro,
+.boton-confirmar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -561,7 +593,8 @@ async function confirmarDesactivacion() {
 }
 
 .boton-principal:disabled,
-.boton-peligro:disabled {
+.boton-peligro:disabled,
+.boton-confirmar:disabled {
   opacity: 0.7;
   cursor: progress;
 }
@@ -576,6 +609,13 @@ async function confirmarDesactivacion() {
   background: var(--observado);
   color: #ffffff;
   border: 1px solid var(--observado);
+}
+
+/* Confirmación de una acción no destructiva (reactivar). */
+.boton-confirmar {
+  background: var(--cil-azul);
+  color: #ffffff;
+  border: 1px solid var(--cil-azul);
 }
 
 .aviso {
