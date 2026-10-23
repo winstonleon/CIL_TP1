@@ -107,6 +107,37 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 - **[EQUIPO]** Una HU por vez. Claude Code presenta el plan y espera aprobación antes de editar.
 - **[PROPUESTA]** Una rama por HU: `hu/HU0001-solicitud-informacion`. Commits con el prefijo de la HU: `HU0001: ...`. Pull request a `main` revisado por el otro integrante.
 
+## ADR-14 Configuración de la campaña
+- **[EQUIPO, HU0022]** La campaña activa es la variable de entorno `CAMPANA_ACTIVA`, por ejemplo `2027`.
+  - La leen la API y el tema de login G01 (`theme.properties` con `${env.CAMPANA_ACTIVA}`).
+  - G09 solo configura los grados, requisitos y horarios de esa campaña (`campana_admision`).
+  - Para cambiarla se edita `.env` y se recrean los contenedores `api` y `keycloak`.
+  - No hay una entidad Campaña ni se le da `manage-realm` a la *service account*.
+  - Brechas abiertas en C26: el alta de una campaña nueva, el cambio de campaña sin un técnico, las campañas superpuestas y el derecho de admisión (S/ 300, R16), que es una constante de la API y no se configura en G09.
+- **[EQUIPO, HU0022]** Las evaluaciones requeridas (`Grado.requiere_*`) se configuran por grado en G09. R11 solo da los valores semilla. La entrevista a los padres aplica siempre.
+- **[EQUIPO, HU0022]** `Requisito_Documental.tipo_documento` guarda el nombre visible que escribe Secretaría (p. ej. «Partida de nacimiento»).
+  - Es único por grado sin distinguir mayúsculas: índice `uq_requisito_grado_tipo_minusculas`.
+- **[EQUIPO, HU0022]** `Grado.monto_cuota_ingreso` admite 0 a propósito, para que la propuesta sirva también a colegios públicos sin cuota de ingreso.
+  - Con cuota 0 no puede registrarse un pago de cuota (`ck_pago_monto > 0`), y R18 dispara la carta con ese pago. Cómo se emite la carta en ese caso lo definen HU0013 a HU0016 (C25).
+- **[EQUIPO, HU0022]** Vacantes adjudicadas = `vacantes_autorizadas − vacantes_disponibles` (R14, R15 y G07).
+  - Al cambiar las autorizadas, las disponibles se mueven con la diferencia y las adjudicadas no cambian.
+  - HU0012 y HU0018 prueban que ese valor coincide con los expedientes en `vacante_asignada` o `carta_emitida` (C25).
+
+## ADR-15 Horarios: sin superposición del mismo responsable y responsable según el tipo de cita
+- **[EQUIPO, HU0022]** No se registra un horario (`Horario_Disponible`) que se cruce con otro del mismo responsable en la misma fecha, en ninguna campaña.
+  - Se rechaza con 409 `HORARIO_SUPERPUESTO`.
+  - Los horarios contiguos (9:00–10:00 y 10:00–11:00) sí se aceptan.
+- **Justificación:** es una regla de diseño del TI: «Unicidad de la cita por persona responsable, fecha y hora, que evita la doble reserva de un mismo horario» (`docs/tesis/diseno-TI.md:259`).
+  - `uq_cita_personal_fecha` solo impide dos citas que empiezan a la misma hora exacta.
+  - Con dos horarios de 9:00–10:00 y 9:30–10:30 de la misma psicóloga, una familia podría reservar el primero y otra el segundo, y la psicóloga quedaría con dos citas cruzadas.
+  - Rechazar la superposición al configurar la agenda cierra ese caso antes de que exista una reserva.
+- **[EQUIPO, HU0022]** El responsable de cada tipo de cita debe ser una cuenta activa con este rol:
+  - `visita`: directora;
+  - `jornada_observacion`, `evaluacion_psicologica` y `entrevista_padres`: psicóloga;
+  - `evaluacion_academica`: evaluador académico.
+  - Fuentes: nota de `Horario_Disponible`, G04, P08, TI 6.1.3 y §4.6.
+- Qué pasa con los horarios de alguien que se desactiva después lo deciden HU0003 y HU0009 (C25).
+
 ## Orden recomendado de implementación
 0. **Sprint 0, base técnica** (no es una HU; se documenta como habilitador):
    - monorepo y docker-compose de dev con PostgreSQL (bases `admision`, `n8n` y `keycloak`), Keycloak, n8n, Mailpit, la API y el frontend;
