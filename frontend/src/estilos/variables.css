@@ -38,6 +38,9 @@
   --inactivo: #4a4f5a;
   --inactivo-fondo: #eceae3;
   --avatar-fondo: #fcefb8;
+  --chip-acento: #fcefb8; /* chips de evaluaciones y condiciones (G09) */
+  --aviso-fondo: #fcebd6; /* aviso de regla incumplida (G09) */
+  --fila-aviso: #fff8dc; /* fila con un dato rechazado (G09) */
 
   /* Barra lateral de la gestión interna */
   --nav-texto: #e3e9f4;

@@ -5,12 +5,14 @@ import Callback from "./views/Callback.vue";
 import Inicio from "./views/Inicio.vue";
 import SesionIniciada from "./views/SesionIniciada.vue";
 import LayoutGestion from "./views/gestion/LayoutGestion.vue";
+import ConfiguracionCampana from "./views/gestion/ConfiguracionCampana.vue";
 import UsuariosRoles from "./views/gestion/UsuariosRoles.vue";
 
 declare module "vue-router" {
   interface RouteMeta {
     cliente?: ClienteOidc; // área protegida y cliente OIDC con que se inicia sesión
     titulo?: string; // título de la pantalla en el encabezado de la gestión interna
+    tituloConCampana?: boolean; // el título lleva la campaña activa al final (G09, C23)
     roles?: string[]; // roles de realm que ven la pantalla (la API vuelve a exigirlos)
   }
 }
@@ -30,6 +32,12 @@ export function crearEnrutador(historial: RouterHistory) {
           { path: "", component: SesionIniciada, meta: { titulo: "Gestión interna" } },
           // G10 (HU0021)
           { path: "usuarios", component: UsuariosRoles, meta: { titulo: "Usuarios y roles", roles: ["directora"] } },
+          // G09 (HU0022)
+          {
+            path: "configuracion",
+            component: ConfiguracionCampana,
+            meta: { titulo: "Configuración de la campaña", tituloConCampana: true, roles: ["secretaria"] },
+          },
         ],
       },
       { path: "/callback/:cliente(portal|gestion)", component: Callback },

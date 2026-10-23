@@ -1,20 +1,28 @@
 <!-- Estructura común de las pantallas G* (mockup G10): barra lateral con solo las opciones del rol de la sesión,
      encabezado con el área, el título de la pantalla, la persona y «Cerrar sesión». Sin logo hasta que el colegio
-     entregue el archivo (plan HU0021, P5). -->
+     entregue el archivo (plan HU0021, P5). La campaña es la activa (GET /campana-activa, C23); si la API no
+     responde, la marca muestra solo «CIL». -->
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { cerrarSesion } from "../../auth/oidc";
 import { AREA_ROL, MENU, rolPersonalDe } from "../../gestion/menu";
+import { useCampanaStore } from "../../stores/campana";
 import { useSesionStore } from "../../stores/sesion";
 
 const sesion = useSesionStore();
+const campanaActiva = useCampanaStore();
 const ruta = useRoute();
 
 const rol = computed(() => rolPersonalDe(sesion.roles));
 const area = computed(() => (rol.value ? AREA_ROL[rol.value] : "Gestión interna"));
 const opciones = computed(() => (rol.value ? MENU[rol.value] : []));
-const titulo = computed(() => ruta.meta.titulo ?? "");
+const marcaCampana = computed(() => (campanaActiva.campana ? `CIL · Campaña ${campanaActiva.campana}` : "CIL"));
+// G09 titula «Configuración de la campaña 2027» con la campaña activa.
+const titulo = computed(() => {
+  const base = ruta.meta.titulo ?? "";
+  return ruta.meta.tituloConCampana && campanaActiva.campana ? `${base} ${campanaActiva.campana}` : base;
+});
 const iniciales = computed(() =>
   sesion.nombre
     .split(/\s+/)
@@ -23,6 +31,10 @@ const iniciales = computed(() =>
     .map((parte) => parte[0]!.toUpperCase())
     .join(""),
 );
+
+onMounted(() => {
+  void campanaActiva.cargar();
+});
 
 function salir() {
   void cerrarSesion("gestion");
@@ -34,7 +46,7 @@ function salir() {
     <nav class="barra" :aria-label="`Menú de ${area}`">
       <div class="marca">
         <span class="marca-nombre">Gestión de Admisión</span>
-        <span class="marca-campana">CIL · Campaña 2027</span>
+        <span class="marca-campana" data-testid="marca-campana">{{ marcaCampana }}</span>
       </div>
 
       <div class="opciones" data-testid="menu-rol">

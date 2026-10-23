@@ -74,3 +74,25 @@ describe("HU0021-1.0 pantalla G10 según el rol", () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe("G09 pantalla de configuración según el rol", () => {
+  it("G09 /gestion/configuracion solo la abre la secretaría, con el título y la campaña activa; otro rol vuelve a /gestion", async () => {
+    vi.stubEnv("VITE_API_URL", "/api");
+    const cuerpo = (url: string) =>
+      url === "/api/campana-activa" ? { campana: "2031" } : url === "/api/configuracion" ? { campana: "2031", derecho_admision: 300, grados: [] } : [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify(cuerpo(url)))));
+
+    vi.mocked(usuarioActual).mockResolvedValue(usuarioFalso(["directora"]));
+    const directora = await montarEn("/gestion/configuracion");
+    expect(directora.enrutador.currentRoute.value.path).toBe("/gestion");
+    expect(directora.envoltorio.find('[role="tablist"]').exists()).toBe(false);
+
+    vi.mocked(usuarioActual).mockResolvedValue(usuarioFalso(["secretaria"]));
+    const secretaria = await montarEn("/gestion/configuracion");
+    expect(secretaria.enrutador.currentRoute.value.path).toBe("/gestion/configuracion");
+    expect(secretaria.envoltorio.get('[data-testid="titulo-pantalla"]').text()).toBe("Configuración de la campaña 2031");
+    expect(secretaria.envoltorio.find('[role="tablist"]').exists()).toBe(true);
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+});

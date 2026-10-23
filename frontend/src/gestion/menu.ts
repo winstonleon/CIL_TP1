@@ -54,7 +54,7 @@ export const MENU: Record<RolPersonal, OpcionMenu[]> = {
   secretaria: [
     { etiqueta: "Bandeja de expedientes", icono: ICONO.bandeja, columnas: ["datos_postulante", "documentos"] },
     { etiqueta: "Visitas guiadas", icono: ICONO.visitas, columnas: ["visitas"] },
-    { etiqueta: "Configuración de campaña", icono: ICONO.configuracion, columnas: ["configuracion"] },
+    { etiqueta: "Configuración de campaña", icono: ICONO.configuracion, ruta: "/gestion/configuracion", columnas: ["configuracion"] },
   ],
   tesoreria: [{ etiqueta: "Validaciones de Tesorería", icono: ICONO.tesoreria, columnas: ["datos_postulante"] }],
   psicologa: [{ etiqueta: "Agenda y dictámenes", icono: ICONO.psicologia, columnas: ["datos_postulante"] }],

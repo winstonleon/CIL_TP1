@@ -1,0 +1,489 @@
+/* G09 · Configuración de la campaña (HU0022). Estilos compartidos por las cuatro pestañas, todos bajo .g09.
+   Medidas y colores tomados de docs/ui/G09-Configuracion.dc.html; las pestañas sin mockup usan los de G09 y G10. */
+
+.g09 {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ---------- pestañas (mockup) ---------- */
+.g09-pestanas {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--borde);
+  overflow-x: auto;
+}
+
+.g09-pestana {
+  height: 48px;
+  padding: 0 16px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  font-family: var(--fuente-texto);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--texto-suave);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.g09-pestana[aria-selected="true"] {
+  border-bottom-color: var(--cil-dorado);
+  font-weight: 700;
+  color: var(--cil-azul);
+}
+
+/* ---------- distribución: contenido + panel lateral ---------- */
+.g09-fila {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.g09-columna {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---------- tablas (mockup) ---------- */
+.g09-tabla-envoltura {
+  overflow-x: auto;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+}
+
+.g09-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--superficie);
+}
+
+.g09-tabla th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+  border-bottom: 1px solid var(--borde);
+  background: var(--superficie-tenue);
+}
+
+.g09-tabla td {
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--texto);
+  border-bottom: 1px solid var(--borde);
+  vertical-align: middle;
+  background: var(--superficie);
+}
+
+.g09-tabla tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.g09-tabla tr.g09-fila-aviso td {
+  background: var(--fila-aviso);
+}
+
+.g09-tenue {
+  color: var(--texto-suave);
+}
+
+.g09-vacio {
+  color: var(--texto-suave);
+}
+
+/* Nombre del grado: elige qué requisitos muestra el panel lateral (plan HU0022, P5). */
+.g09-grado {
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--fuente-texto);
+  font-size: 14px;
+  color: var(--texto);
+  text-align: left;
+  cursor: pointer;
+}
+
+.g09-grado[aria-current="true"] {
+  font-weight: 700;
+  color: var(--cil-azul);
+}
+
+/* ---------- entradas de la tabla (mockup) ---------- */
+.g09-entrada {
+  width: 72px;
+  height: 40px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 1px solid var(--borde-campo);
+  border-radius: 8px;
+  background: var(--superficie);
+  font-family: var(--fuente-texto);
+  font-size: 15px;
+  color: var(--texto);
+}
+
+.g09-entrada-ancha {
+  width: 120px;
+}
+
+.g09-entrada[aria-invalid="true"] {
+  border: 2px solid var(--observado);
+}
+
+.g09-error-celda {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--observado);
+}
+
+/* ---------- chips (mockup) ---------- */
+.g09-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.g09-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--chip-acento);
+  color: var(--cil-azul);
+  font-family: var(--fuente-texto);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.g09-chip-todos {
+  background: var(--chip-fondo);
+}
+
+.g09-chip-financiero {
+  background: var(--inactivo-fondo);
+  color: var(--inactivo);
+}
+
+/* Evaluaciones configurables por grado: botón seleccionable. Sin seleccionar, en contorno (plan HU0022, P5). */
+button.g09-chip {
+  cursor: pointer;
+}
+
+button.g09-chip[aria-pressed="false"] {
+  background: var(--superficie);
+  border-color: var(--borde-campo);
+  color: var(--texto-suave);
+}
+
+/* ---------- aviso de regla incumplida (mockup) ---------- */
+.g09-aviso-regla {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: var(--aviso-fondo);
+  color: var(--observado);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.g09-aviso-regla svg {
+  flex-shrink: 0;
+}
+
+/* ---------- pie con el derecho de admisión y «Guardar» (mockup) ---------- */
+.g09-pie {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.g09-derecho {
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+
+.g09-derecho strong {
+  color: var(--texto);
+}
+
+.g09-boton,
+.g09-boton-secundario,
+.g09-boton-peligro {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 46px;
+  padding: 0 22px;
+  border-radius: 10px;
+  font-family: var(--fuente-texto);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.g09-boton {
+  background: var(--cil-azul);
+  color: #ffffff;
+  border: 1px solid var(--cil-azul);
+}
+
+.g09-boton-secundario {
+  background: var(--superficie);
+  color: var(--cil-azul);
+  border: 1px solid var(--cil-azul);
+}
+
+.g09-boton-peligro {
+  background: var(--observado);
+  color: #ffffff;
+  border: 1px solid var(--observado);
+}
+
+.g09-boton:disabled,
+.g09-boton-peligro:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+/* Acciones de fila (G10). */
+.g09-acciones {
+  display: flex;
+  gap: 8px;
+}
+
+.g09-boton-icono {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid var(--cil-azul);
+  background: var(--superficie);
+  color: var(--cil-azul);
+  cursor: pointer;
+}
+
+.g09-boton-quitar {
+  border-color: var(--observado);
+  color: var(--observado);
+}
+
+/* ---------- tarjeta y panel lateral (mockup y G10) ---------- */
+.g09-tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 16px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 340px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.g09-tarjeta-ancha {
+  width: 360px;
+  gap: 16px;
+}
+
+.g09-tarjeta-titulo {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--fuente-titulos);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--cil-azul);
+}
+
+.g09-tarjeta-subtitulo {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+
+.g09-lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.g09-lista li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 0;
+  border-top: 1px solid var(--borde);
+}
+
+.g09-lista-nombre {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.g09-nota {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--texto-suave);
+}
+
+/* ---------- formularios de los paneles (G10) ---------- */
+.g09-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.g09-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.g09-campo label,
+.g09-campo-etiqueta {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.g09-obligatorio {
+  color: var(--observado);
+}
+
+.g09-campo input:not([type="checkbox"]),
+.g09-campo select,
+.g09-filtro select {
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--borde-campo);
+  border-radius: 10px;
+  background: var(--superficie);
+  font-family: var(--fuente-texto);
+  font-size: 15px;
+  color: var(--texto);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.g09-campo select:disabled,
+.g09-filtro select:disabled {
+  background: var(--superficie-tenue);
+  color: var(--texto-suave);
+}
+
+.g09-campo [aria-invalid="true"] {
+  border-color: var(--observado);
+}
+
+.g09-casilla {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.g09-casilla input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--cil-azul);
+}
+
+.g09-horas {
+  display: flex;
+  gap: 12px;
+}
+
+.g09-horas .g09-campo {
+  flex: 1;
+}
+
+.g09-filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 320px;
+}
+
+.g09-filtro label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.g09-error-campo,
+.g09-error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--observado);
+}
+
+.g09-aviso {
+  margin: 0;
+  font-size: 14px;
+  color: var(--conforme);
+}
+
+.g09-aviso:empty {
+  display: none;
+}
+
+/* ---------- diálogo de confirmación (G10) ---------- */
+.g09-dialogo {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(440px, calc(100% - 32px));
+  height: fit-content;
+  box-sizing: border-box;
+  padding: 24px;
+  border: 1px solid var(--borde);
+  border-radius: 16px;
+  background: var(--superficie);
+  box-shadow: 0 12px 40px rgb(16 50 110 / 0.25);
+  color: var(--texto);
+}
+
+.g09-dialogo p {
+  margin: 0 0 20px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.g09-dialogo-acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+@media (max-width: 1100px) {
+  .g09-fila {
+    flex-direction: column;
+  }
+
+  .g09-tarjeta,
+  .g09-tarjeta-ancha {
+    width: 100%;
+  }
+}

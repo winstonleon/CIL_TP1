@@ -1,6 +1,7 @@
 // Llamadas de G10 (Usuarios y roles) a /personal. Pasan por el cliente único llamarApi (rules/frontend.md).
 import type { PoliticaRestringida, RolPersonal } from "../gestion/menu";
 import { llamarApi } from "./cliente";
+import { json, respuesta } from "./respuesta";
 
 export interface CuentaPersonal {
   id_personal: number;
@@ -26,36 +27,8 @@ export interface CuentaReactivada extends CuentaPersonal {
   enlace_enviado: boolean;
 }
 
-// Error con el formato uniforme de la API: { error: { codigo, mensaje } }.
-export class ErrorApi extends Error {
-  constructor(
-    readonly status: number,
-    readonly codigo: string,
-    mensaje: string,
-  ) {
-    super(mensaje);
-  }
-}
-
-async function respuesta<T>(res: Response): Promise<T> {
-  if (res.ok) return (await res.json()) as T;
-  let codigo = "ERROR";
-  let mensaje = "No se pudo completar la operación. Vuelve a intentarlo.";
-  try {
-    const cuerpo = (await res.json()) as { error?: { codigo?: string; mensaje?: string } };
-    codigo = cuerpo.error?.codigo ?? codigo;
-    mensaje = cuerpo.error?.mensaje ?? mensaje;
-  } catch {
-    // cuerpo no JSON: se usa el mensaje genérico
-  }
-  throw new ErrorApi(res.status, codigo, mensaje);
-}
-
-const json = (metodo: string, cuerpo?: unknown): RequestInit => ({
-  method: metodo,
-  headers: cuerpo === undefined ? undefined : { "Content-Type": "application/json" },
-  body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
-});
+// Error con el formato uniforme de la API (api/respuesta.ts). Se reexporta para G10.
+export { ErrorApi } from "./respuesta";
 
 export async function listarCuentas(): Promise<CuentaPersonal[]> {
   return respuesta(await llamarApi("gestion", "/personal"));

@@ -2,7 +2,7 @@
 // interna (mockups G02–G11). Las etiquetas esperadas se escriben literales, tal como están en los mockups.
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMemoryHistory } from "vue-router";
 import App from "../../App.vue";
 import { cerrarSesion, usuarioActual } from "../../auth/oidc";
@@ -49,9 +49,11 @@ describe("HU0021-1.0 navegación de la gestión interna por rol", () => {
     expect(visibles).toEqual(opciones);
     expect(menu.text()).toContain("Solo ves las opciones de tu rol.");
 
-    // Solo «Usuarios y roles» tiene pantalla en HU0021; las demás se ven pero no navegan (plan HU0021, P4).
+    // Tienen pantalla «Usuarios y roles» (G10, HU0021) y «Configuración de campaña» (G09, HU0022); las demás se ven
+    // pero no navegan (plan HU0021, P4).
     const enlaces = menu.findAll("a.opcion").map((a) => a.text());
-    expect(enlaces).toEqual(rol === "directora" ? ["Usuarios y roles"] : []);
+    const conPantalla: Record<string, string[]> = { directora: ["Usuarios y roles"], secretaria: ["Configuración de campaña"] };
+    expect(enlaces).toEqual(conPantalla[rol] ?? []);
     for (const deshabilitada of menu.findAll('[aria-disabled="true"]')) {
       expect(deshabilitada.element.tagName).toBe("SPAN");
     }
@@ -68,5 +70,37 @@ describe("HU0021-1.0 navegación de la gestión interna por rol", () => {
     const envoltorio = await montarGestion(["secretaria"]);
     await envoltorio.get('button[aria-label="Cerrar sesión"]').trigger("click");
     expect(cerrarSesion).toHaveBeenCalledWith("gestion");
+  });
+});
+
+describe("C23 campaña activa en la barra lateral", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("C23 la barra lateral muestra la campaña de GET /campana-activa", async () => {
+    vi.stubEnv("VITE_API_URL", "/api");
+    const fetchFalso = vi.fn(async () => new Response(JSON.stringify({ campana: "2031" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchFalso);
+
+    const envoltorio = await montarGestion(["tesoreria"]);
+
+    expect(fetchFalso).toHaveBeenCalledWith("/api/campana-activa", expect.anything());
+    expect(envoltorio.get('[data-testid="marca-campana"]').text()).toBe("CIL · Campaña 2031");
+  });
+
+  it.each([
+    ["responde con error", async () => new Response(JSON.stringify({ error: { codigo: "ERROR_INTERNO", mensaje: "x" } }), { status: 500 })],
+    ["no responde", async () => Promise.reject(new TypeError("Failed to fetch"))],
+  ])("C23 si GET /campana-activa %s, la barra lateral muestra solo «CIL», sin error, y el menú sigue disponible", async (_caso, respuesta) => {
+    vi.stubEnv("VITE_API_URL", "/api");
+    vi.stubGlobal("fetch", vi.fn(respuesta));
+
+    const envoltorio = await montarGestion(["secretaria"]);
+
+    expect(envoltorio.get('[data-testid="marca-campana"]').text()).toBe("CIL");
+    expect(envoltorio.find('[role="alert"]').exists()).toBe(false);
+    expect(envoltorio.get("nav").findAll(".opcion").map((o) => o.text())).toContain("Configuración de campaña");
   });
 });
