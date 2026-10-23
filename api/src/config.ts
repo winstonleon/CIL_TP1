@@ -25,6 +25,8 @@ const esquema = z.object({
   DATA_HMAC_KEY: clave32,
   // Token de servicio con que n8n llama a /internal/* (ADR-04).
   INTERNAL_API_TOKEN: z.string().min(32),
+  // Campaña activa (HU0022, C23): G09 solo configura los grados y horarios de esta campaña (grado.campana_admision).
+  CAMPANA_ACTIVA: z.string().regex(/^[0-9A-Za-z-]{1,10}$/),
 });
 
 export type Config = z.infer<typeof esquema>;

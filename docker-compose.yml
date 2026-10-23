@@ -134,6 +134,8 @@ services:
       DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY}
       DATA_HMAC_KEY: ${DATA_HMAC_KEY}
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
+      # Campaña activa (HU0022, C23): G09 solo configura los grados y horarios de esta campaña.
+      CAMPANA_ACTIVA: ${CAMPANA_ACTIVA}
       TZ: America/Lima
     depends_on:
       postgres:

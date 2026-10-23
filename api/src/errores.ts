@@ -6,6 +6,8 @@ export class ErrorApi extends Error {
     readonly status: number,
     readonly codigo: string,
     mensaje: string,
+    // Datos estructurados opcionales (plan HU0022, P11), p. ej. el mínimo de vacantes por grado. Sin datos personales.
+    readonly detalle?: unknown,
   ) {
     super(mensaje);
   }
@@ -17,7 +19,8 @@ export const noEncontrado: RequestHandler = () => {
 
 export const manejadorErrores: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof ErrorApi) {
-    res.status(err.status).json({ error: { codigo: err.codigo, mensaje: err.message } });
+    const detalle = err.detalle === undefined ? {} : { detalle: err.detalle };
+    res.status(err.status).json({ error: { codigo: err.codigo, mensaje: err.message, ...detalle } });
     return;
   }
   // Solo el tipo de error: los mensajes de pg o de librerías pueden incluir datos de la petición.

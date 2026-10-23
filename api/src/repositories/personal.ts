@@ -93,6 +93,26 @@ export async function marcarInactivo(db: Consultable, idPersonal: number): Promi
   return rows[0]!;
 }
 
+// Responsables que G09 puede asignar a un horario (HU0022): cuentas activas con alguno de los roles dados.
+export async function listarResponsables(db: Consultable, roles: readonly string[]): Promise<{ id_personal: number; nombre: string; rol: string }[]> {
+  const { rows } = await db.query<{ id_personal: number; nombre: string; rol: string }>(
+    `SELECT id_personal, nombres || ' ' || apellidos AS nombre, rol::text AS rol FROM personal
+      WHERE activo AND rol::text = ANY($1::text[])
+      ORDER BY nombres, apellidos, id_personal`,
+    [roles],
+  );
+  return rows;
+}
+
+// Rol y estado de una cuenta, con la fila bloqueada para compartir: una desactivación simultánea espera al alta del horario.
+export async function leerRolYEstado(db: Consultable, idPersonal: number): Promise<{ rol: string; activo: boolean } | null> {
+  const { rows } = await db.query<{ rol: string; activo: boolean }>(
+    "SELECT rol::text AS rol, activo FROM personal WHERE id_personal = $1 FOR SHARE",
+    [idPersonal],
+  );
+  return rows[0] ?? null;
+}
+
 // Reactivación (HU0021-5.0): la fila conserva su rol y su historial.
 export async function marcarActivo(db: Consultable, idPersonal: number): Promise<FilaPersonal> {
   const { rows } = await db.query<FilaPersonal>(

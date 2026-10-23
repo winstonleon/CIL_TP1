@@ -156,3 +156,6 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
     Keycloak y deja la baja en la bitácora (`gestion_usuario`, origen `limpieza_dev`). No borra filas.
   - Solo corre contra el entorno local: aborta si `KEYCLOAK_PUBLIC_URL` o `FRONTEND_PUBLIC_URL` no son locales.
     Imprime solo cuántas filas cambió.
+- **`CAMPANA_ACTIVA` es obligatoria** (HU0022). Copia la línea de `.env.example` a tu `.env` (en dev, `2027`).
+  - Sin ella la API no arranca, y fallan `npm run db:seed`, `npm run dev:limpiar-personal-huerfano` y `npm run test:api`, porque cargan la misma configuración.
+  - Si la agregas con los contenedores ya levantados, recrea `api` para que la reciba: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-deps api`.

@@ -19,6 +19,7 @@ import {
   type FilaPersonal,
   type FilaPersonalConIdentidad,
 } from "../repositories/personal";
+import { actor } from "./actor";
 
 export interface DatosAlta {
   nombres: string;
@@ -35,12 +36,7 @@ export interface CambiosPersonal {
 
 const correoDuplicado = () => new ErrorApi(409, "CORREO_DUPLICADO", "Ya existe una cuenta con ese correo");
 
-// Quién actúa (la directora). Si no tiene fila en personal (C18), se guarda su id de Keycloak en el detalle.
-async function actor(db: Consultable, keycloakUserId: string) {
-  const idPersonal = await buscarIdPersonalPorKeycloak(db, keycloakUserId);
-  return { idPersonal, detalle: idPersonal === null ? { actor_keycloak_user_id: keycloakUserId } : {} };
-}
-
+// Quién actúa es la directora (services/actor.ts).
 async function registrarGestion(db: Consultable, keycloakUserIdActor: string, detalle: Record<string, unknown>) {
   const a = await actor(db, keycloakUserIdActor);
   await insertarEvento(db, { tipoEvento: "gestion_usuario", idPersonal: a.idPersonal, detalle: { ...detalle, ...a.detalle } });

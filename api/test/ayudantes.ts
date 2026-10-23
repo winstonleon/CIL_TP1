@@ -25,11 +25,14 @@ export async function crearFirmante() {
   return { opcionesToken, token };
 }
 
-export async function crearGrado(db: Consultable, valores: Partial<{ autorizadas: number; disponibles: number }> = {}) {
+export async function crearGrado(
+  db: Consultable,
+  valores: Partial<{ autorizadas: number; disponibles: number; campana: string; nombre: string }> = {},
+) {
   const { rows } = await db.query<{ id_grado: number }>(
     `INSERT INTO grado (nivel, nombre_grado, campana_admision, vacantes_autorizadas, vacantes_disponibles, monto_cuota_ingreso)
-     VALUES ('primaria', $1, 'T', $2, $3, 7000) RETURNING id_grado`,
-    [`G-${unico()}`, valores.autorizadas ?? 10, valores.disponibles ?? 10],
+     VALUES ('primaria', $1, $4, $2, $3, 7000) RETURNING id_grado`,
+    [valores.nombre ?? `G-${unico()}`, valores.autorizadas ?? 10, valores.disponibles ?? 10, valores.campana ?? "T"],
   );
   return rows[0]!.id_grado;
 }
@@ -62,11 +65,22 @@ export async function crearExpediente(db: Consultable) {
   return { idExpediente: rows[0]!.id_expediente, idGrado, idApoderado };
 }
 
-export async function crearHorario(db: Consultable, idPersonal: number) {
+export async function crearHorario(
+  db: Consultable,
+  idPersonal: number,
+  valores: Partial<{ campana: string; fecha: string; inicio: string; fin: string; tipo: string }> = {},
+) {
   const { rows } = await db.query<{ id_horario: number }>(
     `INSERT INTO horario_disponible (id_personal, tipo_cita, fecha, hora_inicio, hora_fin, campana_admision)
-     VALUES ($1, 'visita', '2027-01-15', '09:00', '10:00', 'T') RETURNING id_horario`,
-    [idPersonal],
+     VALUES ($1, $6::tipo_cita, $3, $4, $5, $2) RETURNING id_horario`,
+    [
+      idPersonal,
+      valores.campana ?? "T",
+      valores.fecha ?? "2027-01-15",
+      valores.inicio ?? "09:00",
+      valores.fin ?? "10:00",
+      valores.tipo ?? "visita",
+    ],
   );
   return rows[0]!.id_horario;
 }
