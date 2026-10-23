@@ -2,7 +2,7 @@
   G01 · Acceso del personal (HU0021). Se usa solo en el cliente gestion-interna (atributo login_theme).
   Conserva los ids que esperan Keycloak y las pruebas: el formulario kc-form-login (con id antes de action,
   S0-A4 y S0-A5), los campos username y password y el botón kc-login (S0-C6).
-  «Colegio Internacional de Lima · Campaña 2027» está fijo: HU0022 lo reemplaza por la campaña activa (C23).
+  La campaña es la activa (CAMPANA_ACTIVA), que theme.properties expone como properties.campanaActiva (HU0022, C23).
   Sin logo hasta que el colegio entregue el archivo (plan HU0021, P5).
 -->
 <#assign errorDeCampos = messagesPerField.existsError('username','password')>
@@ -18,7 +18,7 @@
 <body>
 <div class="g01">
   <aside class="g01-roles" aria-label="Accesos por rol">
-    <span class="g01-colegio">Colegio Internacional de Lima · Campaña 2027</span>
+    <span class="g01-colegio">Colegio Internacional de Lima<#if properties.campanaActiva?has_content> · Campaña ${properties.campanaActiva}</#if></span>
     <p class="g01-lema">Cada rol ve solo lo que le corresponde</p>
     <ul class="g01-lista">
       <li>

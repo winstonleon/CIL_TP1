@@ -54,6 +54,13 @@ test.describe("HU0021 G01 · acceso del personal", () => {
     expect(externos).toEqual([]);
   });
 
+  test("C23 G01 muestra la campaña activa (CAMPANA_ACTIVA): «Colegio Internacional de Lima · Campaña …»", async ({ page }) => {
+    await page.goto(`${FRONTEND}/gestion`);
+    await expect(page.getByRole("complementary", { name: "Accesos por rol" }).locator(".g01-colegio")).toHaveText(
+      `Colegio Internacional de Lima · Campaña ${process.env.CAMPANA_ACTIVA}`,
+    );
+  });
+
   test("G01 con usuario o contraseña incorrectos muestra el error de Keycloak junto a los campos y conserva el correo", async ({ page }) => {
     const usuario = usuarioDeRol("secretaria");
     await page.goto(`${FRONTEND}/gestion`);

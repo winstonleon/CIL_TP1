@@ -159,3 +159,19 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
 - **`CAMPANA_ACTIVA` es obligatoria** (HU0022). Copia la línea de `.env.example` a tu `.env` (en dev, `2027`).
   - Sin ella la API no arranca, y fallan `npm run db:seed`, `npm run dev:limpiar-personal-huerfano` y `npm run test:api`, porque cargan la misma configuración.
   - Si la agregas con los contenedores ya levantados, recrea `api` para que la reciba: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-deps api`.
+
+### Campaña activa (`CAMPANA_ACTIVA`, HU0022)
+
+- **Qué es:** la campaña de admisión que se configura y se atiende (ADR-14), por ejemplo `2027`.
+  - G09 solo configura los grados, requisitos y horarios de esa campaña.
+  - La muestran la barra lateral de la gestión interna («CIL · Campaña 2027») y el acceso del personal G01 («Colegio Internacional de Lima · Campaña 2027»).
+  - La leen dos contenedores: `api` y `keycloak`. El tema G01 la toma de `theme.properties` con `${env.CAMPANA_ACTIVA}`.
+- **Cómo se cambia de campaña:**
+  1. Edita `CAMPANA_ACTIVA` en `.env`.
+  2. Comprueba qué se recrearía: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --dry-run --no-deps api keycloak`.
+  3. Recrea solo esos dos: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-deps api keycloak`. No hace falta reimportar el realm.
+  - En el VPS es lo mismo con `docker-compose.prod.yml`.
+- **Antes de cambiarla**, la campaña nueva debe tener sus grados en la base. Hoy G09 no da de alta grados (brecha C26): en dev los crea `npm run db:seed`, solo para 2027.
+- **Limitaciones conocidas** (compromiso C26, antes del despliegue al VPS):
+  - Cambiar de campaña exige a alguien con acceso al servidor y recrear `api` y `keycloak`. Además, en la realidad las campañas se superponen (2028 empieza mientras se cierra 2027), y hoy solo hay una campaña activa a la vez.
+  - El derecho de admisión (S/ 300, R16) es una constante de la API: cambiarlo exige modificar el código, lo que contradice el «sin modificar su programación» de HU0022.

@@ -59,11 +59,16 @@ onMounted(() => {
   idGrado.value = props.grados[0]?.id_grado ?? null;
 });
 
+// El estado vacío se muestra solo después de recibir la lista del grado elegido (no mientras llega).
+const cargado = ref(false);
+
 watch(idGrado, async (id) => {
   if (id === null) return;
   errorCarga.value = "";
+  cargado.value = false;
   try {
     requisitos.value = await listarRequisitos(id);
+    cargado.value = true;
   } catch (e) {
     requisitos.value = [];
     errorCarga.value = mensajeDe(e);
@@ -224,6 +229,9 @@ async function confirmarQuitar() {
                   </button>
                 </div>
               </td>
+            </tr>
+            <tr v-if="cargado && !requisitos.length">
+              <td colspan="6" class="g09-vacio">Aún no hay requisitos registrados para este grado.</td>
             </tr>
           </tbody>
         </table>

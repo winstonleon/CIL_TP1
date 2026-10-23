@@ -440,3 +440,43 @@ describe("HU0022-1.0 G09 · horarios", () => {
     expect(panel.get('[role="status"]').text()).toBe("Horario quitado.");
   });
 });
+
+// ====================================================================== estado vacío (soporte de G09)
+
+describe("G09 estado vacío de las tablas", () => {
+  it("G09 la tabla de requisitos sin filas muestra «Aún no hay requisitos registrados para este grado.»", async () => {
+    const envoltorio = await montar();
+    await abrirPestana(envoltorio, "Requisitos documentales");
+    const panel = envoltorio.get("#g09-panel-requisitos");
+    expect(panel.text()).not.toContain("Aún no hay requisitos"); // 3 años tiene un requisito
+
+    await panel.get("#g09-req-grado").setValue("10");
+    await flushPromises();
+
+    expect(panel.get("tbody").findAll("tr")).toHaveLength(1);
+    expect(panel.get("tbody td").text()).toBe("Aún no hay requisitos registrados para este grado.");
+    expect(panel.get("tbody td").attributes("colspan")).toBe("6");
+  });
+
+  it("G09 la tabla de horarios sin filas muestra «Aún no hay horarios registrados.»", async () => {
+    horarios = [];
+    const envoltorio = await montar();
+    await abrirPestana(envoltorio, "Horarios");
+    const panel = envoltorio.get("#g09-panel-horarios");
+
+    expect(panel.get("tbody").findAll("tr")).toHaveLength(1);
+    expect(panel.get("tbody td").text()).toBe("Aún no hay horarios registrados.");
+  });
+
+  it("G09 con un filtro de tipo de cita sin horarios, la tabla muestra «Aún no hay horarios registrados para este tipo de cita.»", async () => {
+    const envoltorio = await montar();
+    await abrirPestana(envoltorio, "Horarios");
+    const panel = envoltorio.get("#g09-panel-horarios");
+    expect(panel.text()).not.toContain("Aún no hay horarios"); // hay una visita guiada
+
+    await panel.get("#g09-hor-filtro").setValue("evaluacion_academica");
+
+    expect(panel.get("tbody").findAll("tr")).toHaveLength(1);
+    expect(panel.get("tbody td").text()).toBe("Aún no hay horarios registrados para este tipo de cita.");
+  });
+});

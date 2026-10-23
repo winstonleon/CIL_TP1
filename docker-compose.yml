@@ -54,6 +54,8 @@ services:
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
       KEYCLOAK_SMTP_FROM: ${KEYCLOAK_SMTP_FROM}
+      # Campaña activa que muestra el tema G01 (HU0022, C23): theme.properties la lee con ${env.CAMPANA_ACTIVA}
+      CAMPANA_ACTIVA: ${CAMPANA_ACTIVA}
       TZ: America/Lima
     volumes:
       - ./infra/keycloak/realm-cil-admision.json:/opt/keycloak/data/import/realm-cil-admision.json:ro

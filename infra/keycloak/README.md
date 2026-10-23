@@ -37,7 +37,9 @@
 - Las fuentes (Fraunces y Public Sans, OFL) están en `themes/cil/login/resources/fonts/`: la página no pide nada
   fuera del servidor.
 - «¿Olvidaste tu contraseña?» solo aparece si el realm habilita la recuperación (`resetPasswordAllowed`, HU0023).
-- El texto «Colegio Internacional de Lima · Campaña 2027» está fijo: HU0022 lo reemplaza por la campaña activa (C23).
+- La campaña de «Colegio Internacional de Lima · Campaña 2027» es la activa (HU0022, C23): el contenedor recibe
+  `CAMPANA_ACTIVA` y `theme.properties` la expone como `campanaActiva=${env.CAMPANA_ACTIVA:}`. Si cambia, hay que
+  recrear `keycloak` (y `api`) para que la tomen; no hace falta reimportar el realm.
 - El tema se monta de solo lectura en `/opt/keycloak/themes/cil` (`docker-compose.yml`). En dev (`start-dev`)
   Keycloak no guarda los temas en caché: un cambio en `login.ftl` o en el CSS se ve al recargar la página.
 

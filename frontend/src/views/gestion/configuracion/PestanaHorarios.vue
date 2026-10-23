@@ -46,9 +46,16 @@ watch(
   },
 );
 
+// El estado vacío se muestra solo después de recibir los horarios (no mientras llegan).
+const cargado = ref(false);
+const mensajeVacio = computed(() =>
+  filtro.value ? "Aún no hay horarios registrados para este tipo de cita." : "Aún no hay horarios registrados.",
+);
+
 onMounted(async () => {
   try {
     [horarios.value, responsables.value] = await Promise.all([listarHorarios(), listarResponsables()]);
+    cargado.value = true;
   } catch (e) {
     errorCarga.value = mensajeDe(e);
   }
@@ -176,6 +183,9 @@ const errorHoras = computed(() => errores.value.hora_inicio);
                   </svg>
                 </button>
               </td>
+            </tr>
+            <tr v-if="cargado && !visibles.length">
+              <td colspan="6" class="g09-vacio">{{ mensajeVacio }}</td>
             </tr>
           </tbody>
         </table>

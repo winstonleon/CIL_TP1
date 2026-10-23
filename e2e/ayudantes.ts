@@ -127,7 +127,8 @@ export async function usuarioKeycloak(correo: string) {
   return datos[0] as { id: string; enabled: boolean; attributes?: Record<string, string[]> };
 }
 
-// Llamada a la API con el token de la directora (puerto publicado de dev).
-export function llamarApi(request: APIRequestContext, metodo: "get" | "post" | "patch", ruta: string, token: string, datos?: unknown) {
+// Llamada a la API con el token de quien inició sesión (puerto publicado de dev). «delete» lo usa la limpieza del E2E
+// de G09 (HU0022).
+export function llamarApi(request: APIRequestContext, metodo: "get" | "post" | "patch" | "delete", ruta: string, token: string, datos?: unknown) {
   return request[metodo](`${API}${ruta}`, { headers: { Authorization: `Bearer ${token}` }, data: datos, failOnStatusCode: false });
 }
