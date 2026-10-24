@@ -18,7 +18,7 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
 
 ## ADR-02 Identidad con Keycloak; autorización y auditoría en la API
 - **[BENCHMARKING + EQUIPO]** La identidad la gestiona **Keycloak** autoalojado (OpenID Connect). Es software libre (Apache 2.0), sin costo de licencia.
-  - **Divergencia con el TI:** el capítulo 6.2.4 del TI (arquitectura física) aún no incluye el contenedor de Keycloak. El equipo debe actualizar el TI. Mientras tanto, manda esta decisión.
+  - **TI actualizado (21/10/2026):** 6.2.3, 6.2.4, la Tabla 6 y las Figuras 8, 9 y 11 incluyen el servidor de identidad.
 - **[EQUIPO]** La BD de admisión **no guarda contraseñas**. `Personal` y `Cuenta_Acceso` guardan solo el `keycloak_user_id` (modelo de datos v1.1).
 - **[PROPUESTA]** Configuración de Keycloak:
   - **Realm:** `cil-admision`.
@@ -50,7 +50,7 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
 - Consecuencia: n8n **nunca** lee la BD de negocio directamente (ver ADR-04), porque no tiene la clave.
 
 ## ADR-04 n8n accede a los datos solo a través de la API
-- **[TI 6.2.3, regla 1]** La interfaz y el motor de orquestación acceden a los datos únicamente a través de la capa de servicios. La frase de 6.2.4 ("la consultan la API y n8n") se resuelve a favor de esta regla.
+- **[TI 6.2.3, regla 1]** La interfaz y el motor de orquestación acceden a los datos únicamente a través de la capa de servicios. El TI se corrigió el 21/10/2026: 6.2.4 dice que solo la API accede a la base de admisión.
 - **[PROPUESTA]** El servidor PostgreSQL tiene tres bases: `admision` (negocio), `n8n` (estado interno de n8n) y `keycloak` (identidad). Cada servicio tiene su propio usuario, y ni n8n ni Keycloak tienen permisos sobre `admision`.
 - **[PROPUESTA]** API → n8n: webhooks internos con autenticación por header (`X-Webhook-Secret`). n8n → API: endpoints `/internal/*` protegidos con token de servicio (`INTERNAL_API_TOKEN`) y no expuestos por NGINX.
 
@@ -81,7 +81,7 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
 - **[EQUIPO] Excepción:** el enlace para definir la contraseña del personal lo envía Keycloak (ADR-02) y no se registra en notificacion, porque esa tabla exige un expediente. La evidencia queda en registro_auditoria (gestion_usuario).
 
 ## ADR-08 Entornos y portabilidad al VPS
-- **[TI 6.2.6]** Los mismos cuatro artefactos (build de Vue, código de la API, JSON de flujos y esquema de BD) se despliegan en dev (Docker Desktop, datos ficticios, sin TLS ni respaldo) y en prod (VPS con NGINX, TLS, red interna y `pg_dump` diario).
+- **[TI 6.2.6]** Los mismos cinco artefactos (build de Vue, código de la API, configuración versionada del realm de Keycloak, JSON de flujos y esquema de BD) se despliegan en dev (Docker Desktop, datos ficticios, sin TLS ni respaldo) y en prod (VPS con NGINX, TLS, red interna y `pg_dump` diario).
 - **[PROPUESTA]** `docker-compose.yml` como base, más `docker-compose.dev.yml` y `docker-compose.prod.yml`. Toda URL, puerto y secreto sale de `.env`, sin `localhost` fijo en el código.
 - **[PROPUESTA]** Keycloak en dev corre en modo de desarrollo. En prod corre detrás de NGINX bajo `/auth`, con `KC_HOSTNAME` configurado. En prod solo NGINX publica los puertos 80 y 443.
 
@@ -94,7 +94,7 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
 - **[EQUIPO]** La fuente es `docs/der/modelo-datos.md` (DBML v1.1): 19 entidades, 28 relaciones, reglas R1–R24 y catálogo de eventos de auditoría.
 - **Los tipos y enums siguen siendo propuesta**, salvo los que cambió la v1.1. Si el código depende de un valor de enum, se avisa.
 - **El archivo `DER_Sistema_Tramitacion_Admision.drawio` de 10 entidades está OBSOLETO. No usarlo.**
-- **Divergencia con el TI:** la figura 12 del TI (DER) no refleja la v1.1. El equipo debe actualizarla.
+- **TI actualizado (21/10/2026):** la Figura 12 es el DER v1.1.
 
 ## ADR-11 Fuera de alcance (no implementar aunque parezca útil)
 OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo de devoluciones por retiro · integración o exportación a SIEWEB o SIAGIE · pasarela de pagos en línea · Camunda · NoSQL · S3 · SMS · PWA o app móvil · migración de datos históricos · módulos de ERP escolar (notas, horarios, pensiones).
