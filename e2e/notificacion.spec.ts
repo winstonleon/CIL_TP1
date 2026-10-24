@@ -35,8 +35,16 @@ function idExpedienteFicticio(): number {
 const filasDeEvento = (tipoEvento: string) =>
   Number(consultarAdmision(`SELECT count(*) FROM notificacion WHERE tipo_evento = '${tipoEvento}'`));
 
-function notificar(request: APIRequestContext, cuerpo: unknown, cabeceras: Record<string, string> = { "X-Webhook-Secret": SECRETO }) {
-  return request.post(WEBHOOK, { headers: cabeceras, data: cuerpo, failOnStatusCode: false });
+// Envía el secreto del webhook, una credencial de larga duración (C11). Si la llamada no obtiene respuesta (p. ej. n8n
+// caído), el error de Playwright incluye el registro de la llamada con las cabeceras y el secreto en texto plano (C15):
+// se lanza otro error con solo la causa. Las respuestas HTTP (403, 400, 502…) no lanzan y se devuelven igual.
+async function notificar(request: APIRequestContext, cuerpo: unknown, cabeceras: Record<string, string> = { "X-Webhook-Secret": SECRETO }) {
+  try {
+    return await request.post(WEBHOOK, { headers: cabeceras, data: cuerpo, failOnStatusCode: false });
+  } catch (e) {
+    const causa = String((e as Error)?.message ?? "").split("\n")[0]!;
+    throw new Error(`No se pudo llamar al webhook de n8n (${WEBHOOK}): ${SECRETO && causa.includes(SECRETO) ? "sin respuesta" : causa}`);
+  }
 }
 
 const unico = () => `e2e_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;

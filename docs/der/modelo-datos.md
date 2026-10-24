@@ -227,7 +227,7 @@ Table Postulante_Apoderado {
 Table Grado {
   id_grado serial [pk]
   nivel nivel_educativo [not null]
-  nombre_grado varchar(50) [not null, note: 'p. ej. 3 años, Kindergarten, 1.° de primaria']
+  nombre_grado varchar(50) [not null, note: 'p. ej. 3 años, Kindergarten (5 años), 1.° de primaria (como en §5)']
   campana_admision varchar(10) [not null, note: 'p. ej. 2027']
   vacantes_autorizadas integer [not null]
   vacantes_disponibles integer [not null]
@@ -245,13 +245,14 @@ Table Grado {
 Table Requisito_Documental {
   id_requisito serial [pk]
   id_grado integer [not null]
-  tipo_documento varchar(80) [not null, note: 'p. ej. partida_nacimiento, dni_postulante, libreta_notas, boleta_pago_padre']
+  tipo_documento varchar(80) [not null, note: 'nombre visible del documento, tal como lo registra Secretaría en G09; p. ej. Partida de nacimiento, DNI del postulante, Boletas de pago (últimos 3 meses). Único por grado sin distinguir mayúsculas (ADR-14)']
   categoria categoria_requisito [not null]
   condicion_aplicacion condicion_aplicacion [not null, default: 'todos']
   obligatorio boolean [not null, default: true]
   por_apoderado boolean [not null, default: false, note: 'true = se exige a cada apoderado del postulante (p. ej. boletas); cada archivo se asocia a un apoderado en Documento.id_apoderado']
   indexes {
     (id_grado, tipo_documento) [unique]
+    (id_grado, `lower(tipo_documento)`) [unique, name: 'uq_requisito_grado_tipo_minusculas', note: 'el mismo nombre con otras mayúsculas es el mismo requisito (HU0022)']
   }
   Note: 'Qué documentos exige cada grado y bajo qué condición (G09). CHECK: si condicion_aplicacion es si_dependiente o si_independiente, por_apoderado = true.'
 }
@@ -301,14 +302,14 @@ Table Documento {
 
 Table Horario_Disponible {
   id_horario serial [pk]
-  id_personal integer [not null, note: 'responsable: directora (visita), psicologa o evaluador_academico']
+  id_personal integer [not null, note: 'responsable, cuenta activa con el rol del tipo de cita (ADR-15): directora (visita); psicologa (jornada de observación, evaluación psicológica y entrevista a los padres); evaluador_academico (evaluación académica)']
   tipo_cita tipo_cita [not null]
   fecha date [not null]
   hora_inicio time [not null]
   hora_fin time [not null]
   cupos smallint [not null, default: 1, note: 'la visita guiada es individual en este colegio']
   campana_admision varchar(10) [not null]
-  Note: 'Turnos que ofrece el personal. CHECK: hora_fin > hora_inicio; cupos >= 0.'
+  Note: 'Turnos que ofrece el personal. CHECK: hora_fin > hora_inicio; cupos >= 0. La API rechaza un horario que se superpone con otro del mismo responsable en la misma fecha, en cualquier campaña (ADR-15).'
 }
 
 Table Cita {
@@ -488,7 +489,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 ### 4.3 Evaluaciones
 | # | Regla | Dónde |
 |---|---|---|
-| R11 | Evaluaciones exigidas según el grado (`Grado.requiere_*`): **Inicial** = jornada de observación; **1.° de primaria** = evaluación psicológica; **2.° de primaria en adelante y Secundaria** = evaluación psicológica + evaluación académica, en paralelo. **Todos** = entrevista a los padres al final. | Datos semilla + API |
+| R11 | Evaluaciones exigidas según el grado (`Grado.requiere_*`): **Inicial** = jornada de observación; **1.° de primaria** = evaluación psicológica; **2.° de primaria en adelante y Secundaria** = evaluación psicológica + evaluación académica, en paralelo. **Todos** = entrevista a los padres al final. Son los valores semilla: Secretaría configura en G09 las evaluaciones de cada grado (HU0022, ADR-14); la entrevista no se configura. | Datos semilla + API (configurable en G09) |
 | R12 | No puede haber dos citas del mismo responsable a la misma fecha y hora (índice único `uq_cita_personal_fecha`). Al reservar se descuenta `Horario_Disponible.cupos` dentro de la misma transacción. | BD + API |
 | R13 | El dictamen lo emite la `psicologa` después de la entrevista a los padres. Si es `en_observacion`, secretaría coordina requisitos complementarios y luego se emite un nuevo dictamen. Si es `no_apto`, se notifica y el proceso termina. | API / n8n |
 
@@ -496,7 +497,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 | # | Regla | Dónde |
 |---|---|---|
 | R14 | Solo la `directora` asigna vacantes, y solo a expedientes con dictamen `apto`. Asignar una vacante descuenta 1 de `Grado.vacantes_disponibles`; si es 0, el expediente pasa a `lista_espera` con su `posicion_lista_espera`. | API |
-| R15 | `Grado.vacantes_autorizadas` no puede fijarse por debajo del número de vacantes ya adjudicadas (pantalla G09). | API |
+| R15 | `Grado.vacantes_autorizadas` no puede fijarse por debajo del número de vacantes ya adjudicadas (pantalla G09). Vacantes adjudicadas = `vacantes_autorizadas − vacantes_disponibles`: R14 descuenta las disponibles al asignar y R21 las devuelve (ADR-14). Al cambiar las autorizadas, las disponibles se mueven con la diferencia y las adjudicadas no cambian. | API (y `ck_grado_vacantes` como segunda capa) |
 | R16 | Derecho de admisión: S/ 300, un solo pago (`numero_fraccion = 1`). | API |
 | R17 | Cuota de ingreso: `Grado.monto_cuota_ingreso` (S/ 7000 en Inicial y Primaria, S/ 4000 en Secundaria), en pago único o fraccionado hasta `Grado.max_fracciones`. | API |
 | R18 | **Disparador de la carta:** cuando un Pago con `tipo_pago = 'cuota_ingreso'`, `numero_fraccion = 1` y `estado_validacion = 'conforme'` queda conciliado, n8n genera automáticamente la Carta de Vacante en PDF con la firma escaneada de la Directora, la envía a la familia y el expediente pasa a `carta_emitida`. Las fracciones posteriores no generan una nueva carta. | n8n |
@@ -612,3 +613,13 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 | Sección 4.7: sale `inicio_sesion` del catálogo de `tipo_evento` (y su CHECK, migración `20261021120000_quitar_inicio_sesion.sql`); la nota de `Registro_Auditoria.id_expediente` ya no lo cita | El equipo quitó «Último acceso» de G10 (compromiso C20, descartado); era su único uso |
 | Sección 7: el último acceso del personal deja de figurar entre los datos derivados | Ídem |
 | Sección 4.6 y nota de `Personal`: la directora también reactiva cuentas | Escenario HU0021-5.0 (compromiso C21) |
+
+### Ajustes por HU0022 (23/10/2026), sin tablas ni columnas nuevas
+| Cambio | Motivo |
+|---|---|
+| Nota de `Requisito_Documental.tipo_documento`: guarda el nombre visible (antes, ejemplos en código como `partida_nacimiento`) | G09 muestra nombres, no hay columna para la etiqueta y un tipo nuevo no debe exigir programar (ADR-14) |
+| Índice único `uq_requisito_grado_tipo_minusculas` sobre `(id_grado, lower(tipo_documento))` (migración `20261023120000_requisito_tipo_sin_mayusculas.sql`); `uq_requisito_grado_tipo` se conserva | «Partida de nacimiento» y «partida de nacimiento» son el mismo requisito (plan HU0022, P14) |
+| R11: los valores son la semilla y G09 los configura por grado | Evaluaciones requeridas configurables por grado (ADR-14) |
+| R15: definición de «vacantes adjudicadas» | Mínimo de HU0022-2.0 sin depender de HU0012; coincide con G07 (ADR-14, compromiso C25) |
+| Nota de `Horario_Disponible`: sin superposición del mismo responsable; nota de `id_personal`: rol según el tipo de cita y cuenta activa | Evitar la doble reserva y fijar quién atiende cada cita (ADR-15) |
+| Nota de `Grado.nombre_grado`: el ejemplo pasa a «Kindergarten (5 años)», como §5 y el seed | Plan HU0022, P13 |

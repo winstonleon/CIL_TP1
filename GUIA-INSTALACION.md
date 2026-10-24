@@ -160,6 +160,11 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
   - Sin ella la API no arranca, y fallan `npm run db:seed`, `npm run dev:limpiar-personal-huerfano` y `npm run test:api`, porque cargan la misma configuración.
   - Si la agregas con los contenedores ya levantados, recrea `api` para que la reciba: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-deps api`.
 
+- **Ver el nombre de cada prueba** (para revisar la trazabilidad a mano): `npm run test:api -- -- --reporter=verbose`, y lo mismo con `test:front`.
+  - Hacen falta los dos `--`. `test:api` llama a su vez a `npm run test --workspace api`: el primer `--` pasa el argumento a ese segundo `npm`, y el segundo lo pasa a Vitest.
+  - Con un solo `--` (`npm run test:api -- --reporter=verbose`), el argumento lo toma npm y Vitest usa su reporter por defecto, que no lista las pruebas.
+  - `npm run evidencias:matriz` ya llama a Vitest directamente con el reporter correcto.
+
 ### Campaña activa (`CAMPANA_ACTIVA`, HU0022)
 
 - **Qué es:** la campaña de admisión que se configura y se atiende (ADR-14), por ejemplo `2027`.

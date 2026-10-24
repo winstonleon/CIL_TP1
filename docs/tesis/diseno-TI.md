@@ -299,7 +299,7 @@ Las interfaces se organizan en dos áreas: el portal de familias y la gestión i
 | G06 | Agenda y dictámenes | Psicóloga | Registrar evaluaciones, entrevista y dictamen |
 | G07 | Adjudicación de vacantes | Directora | Asignar vacantes según el inventario por grado |
 | G08 | Tablero de indicadores | Directora | Monitorear el embudo, el lead time y el cycle time |
-| G09 | Configuración de la campaña | Secretaría | Definir grados, vacantes, evaluaciones, requisitos, cuota y horarios |
+| G09 | Configuración de la campaña | Secretaría | Configurar por grado las vacantes, evaluaciones, requisitos y cuota, y los horarios de la campaña |
 | G10 | Usuarios y roles | Directora | Crear, modificar, desactivar y reactivar cuentas del personal |
 | G11 | Evaluaciones académicas | Evaluador académico | Registrar el resultado o la inasistencia |
 

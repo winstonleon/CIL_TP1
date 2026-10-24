@@ -10,6 +10,7 @@ paths:
 - Cada ruta declara el rol requerido con un middleware (`requireRol('tesoreria')`). Si no hay rol declarado, es un error de revisión.
 - Las altas de usuarios (familia en HU0004, personal en HU0021) pasan por un único módulo `identidad/keycloakAdmin`, que usa el *service account* del cliente `api-admision`. Se guarda solo el `keycloak_user_id`.
 - Respuestas de error uniformes: `{ "error": { "codigo": "EXPEDIENTE_INCOMPLETO", "mensaje": "..." } }`. Códigos HTTP: 400 validación, 401 sin sesión, 403 sin rol, 404, 409 conflicto (duplicado o estado inválido), 422 regla de negocio.
+- Un error puede llevar además `"detalle"` con datos estructurados que la pantalla necesita para mostrarlo; solo aparece cuando existe (`ErrorApi`, cuarto parámetro). Ejemplo: HU0022-2.0 responde `"detalle": [{ "id_grado": 5, "minimo": 27 }]`. Nunca lleva datos personales ni secretos (plan HU0022, P11).
 - Las columnas cifradas (`dni_cifrado`) se cifran y descifran solo en `repositories/`, con el módulo `crypto/columnas`. Nunca devuelvas un valor cifrado ni el `dni_hash` al cliente. Para buscar por DNI se usa `dni_hash`.
 - Las pantallas de personal llaman a un endpoint que registra `atencion_inicio` al abrir un ítem. La acción de decisión registra `atencion_fin` en la misma transacción que el cambio (sección 4.7 del modelo de datos).
 - Las rutas `/internal/*` son solo para n8n: exigen `INTERNAL_API_TOKEN` y NGINX no las publica.

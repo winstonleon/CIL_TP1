@@ -4,17 +4,19 @@
 // La salida de cada suite se muestra completa; además se guarda un reporte JSON en test-results/trazabilidad/.
 // Una prueba cubre un escenario si su título empieza con el ID exacto (p. ej. «HU0021-1.0 …»). Las pruebas del
 // Sprint 0 (S0-*) y las de soporte (G10, G01, C19…) cuentan en los totales, pero no se asignan a escenarios.
-// Termina con código 1 si alguna prueba falla, si una suite no genera reporte o si un ID no existe en el backlog;
-// la matriz se escribe igual.
+// Las reglas de estado (C17 y los escenarios por partes de C25) están en scripts/lib/matriz.mjs. npm run
+// evidencias:matriz corre antes sus pruebas (npm run test:scripts): si fallan, este script no se ejecuta.
+// Termina con código 1 si alguna prueba falla, si una suite no genera reporte, si un ID no existe en el backlog o si
+// una prueba marca mal su parte ([parte: …]); la matriz se escribe igual.
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
+import { ESCENARIOS_POR_PARTES, ESTADO_C17, MARCA_C17, SUITES_QUE_VERIFICAN, erroresDePartes, estadoDe } from "./lib/matriz.mjs";
 
 const RAIZ = resolve(import.meta.dirname, "..");
 const SIN_E2E = process.argv.includes("--sin-e2e");
 const DIR_REPORTES = resolve(RAIZ, "test-results", "trazabilidad");
 const SALIDA = resolve(RAIZ, "docs", "evidencias", "matriz-trazabilidad.md");
-const MARCA_C17 = "[política, ruta de prueba]";
 const ID = /^(HU\d{4}-\d+\.\d+)(?=\s|$)/;
 
 // ---------------------------------------------------------------- escenarios del backlog
@@ -128,15 +130,8 @@ for (const p of pruebas) {
   else idsDesconocidos.add(`${id} («${p.titulo}», ${p.archivo})`);
 }
 
-const ESTADO_C17 = "mecanismo probado; verificación en ruta real pendiente (C17)";
-function estadoDe(esc) {
-  if (!esc.pruebas.length) return "sin prueba";
-  if (esc.pruebas.some((p) => p.resultado === "falló")) return "con fallas";
-  const ejecutadas = esc.pruebas.filter((p) => p.resultado.startsWith("pasó"));
-  if (!ejecutadas.length) return "no ejecutado";
-  if (ejecutadas.every((p) => p.titulo.includes(MARCA_C17))) return ESTADO_C17;
-  return "cubierto";
-}
+// Marcado de partes (C25): cada escenario se revisa contra ESCENARIOS_POR_PARTES.
+const erroresPartes = [...escenarios.values()].flatMap((esc) => erroresDePartes(esc));
 
 // ---------------------------------------------------------------- escritura
 const celda = (t) => String(t).replaceAll("|", "\\|");
@@ -167,9 +162,15 @@ md.push(
   `- Estados: ${[...conteo].map(([estado, n]) => `${estado}: ${n}`).join(" · ")}.`,
   "- Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.",
   `- «${ESTADO_C17}»: todas las pruebas del escenario llevan la marca \`${MARCA_C17}\` (compromiso C17).`,
+  `- «verificado: …; pendiente: … (C25)»: escenarios que se verifican por partes (${Object.keys(ESCENARIOS_POR_PARTES).join(", ")}). ` +
+    `Cada prueba declara su \`[parte: …]\`; una parte se verifica solo con pruebas de ${SUITES_QUE_VERIFICAN.join(" o ")} que pasan ` +
+    "(las de frontend usan la API simulada). Las partes pendientes las verifican otras HU (compromiso C25).",
 );
 if (idsDesconocidos.size) {
   md.push("", "**IDs de prueba que no existen en el backlog:**", "", ...[...idsDesconocidos].map((x) => `- ${celda(x)}`));
+}
+if (erroresPartes.length) {
+  md.push("", "**Pruebas con el marcado de partes mal hecho:**", "", ...erroresPartes.map((x) => `- ${celda(x)}`));
 }
 
 const husConPruebas = hus.filter((h) => h.escenarios.some((e) => e.pruebas.length));
@@ -206,7 +207,11 @@ for (const s of suites) console.log(`  ${s.etiqueta}: ${s.generada ? `${s.total}
 console.log(`  Escenarios con prueba: ${conPrueba} de ${todosLosEscenarios.length}`);
 for (const h of husConPruebas) for (const e of h.escenarios) console.log(`  ${e.id}: ${estadoDe(e)}`);
 if (idsDesconocidos.size) console.log(`  IDs desconocidos: ${[...idsDesconocidos].join("; ")}`);
-if (fallas || sinReporte.length || idsDesconocidos.size) {
-  console.log(`\nTermina con error: ${fallas} prueba(s) fallida(s)${sinReporte.length ? `; sin reporte: ${sinReporte.join(", ")}` : ""}${idsDesconocidos.size ? "; IDs desconocidos" : ""}`);
+for (const e of erroresPartes) console.log(`  Marcado de partes: ${e}`);
+if (fallas || sinReporte.length || idsDesconocidos.size || erroresPartes.length) {
+  console.log(
+    `\nTermina con error: ${fallas} prueba(s) fallida(s)${sinReporte.length ? `; sin reporte: ${sinReporte.join(", ")}` : ""}` +
+      `${idsDesconocidos.size ? "; IDs desconocidos" : ""}${erroresPartes.length ? "; marcado de partes" : ""}`,
+  );
   process.exit(1);
 }

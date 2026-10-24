@@ -169,6 +169,17 @@
   border: 1px solid transparent;
 }
 
+/* En la tabla de requisitos (sin mockup) los chips pueden partir su texto, para que las seis columnas entren a 1440 px. */
+.g09-tabla-requisitos .g09-chip {
+  white-space: normal;
+}
+
+.g09-tabla-requisitos th,
+.g09-tabla-requisitos td {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
 .g09-chip-todos {
   background: var(--chip-fondo);
 }

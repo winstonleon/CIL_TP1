@@ -1,19 +1,20 @@
 # Matriz de trazabilidad (HU → escenario → prueba → resultado)
 
-> Generada con `npm run evidencias:matriz` el 22/10/26, 11:30 p. m. (America/Lima) sobre el commit `3f2acbf`. No se edita a mano.
+> Generada con `npm run evidencias:matriz` el 23/10/26, 6:46 p. m. (America/Lima) sobre el commit `4c9736c` **con cambios sin commit**. No se edita a mano.
 
 ## Resumen
 
 | Suite | Pruebas | Pasan | Fallan | Omitidas o no ejecutadas |
 |---|---|---|---|---|
-| API | 123 | 123 | 0 | 0 |
-| Frontend | 27 | 27 | 0 | 0 |
-| E2E | 31 | 31 | 0 | 0 |
+| API | 173 | 173 | 0 | 0 |
+| Frontend | 45 | 45 | 0 | 0 |
+| E2E | 37 | 37 | 0 | 0 |
 
-- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **5**.
-- Estados: sin prueba: 50 · cubierto: 4 · mecanismo probado; verificación en ruta real pendiente (C17): 1.
+- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **7**.
+- Estados: sin prueba: 48 · cubierto: 4 · mecanismo probado; verificación en ruta real pendiente (C17): 1 · verificado: almacenamiento; pendiente: completitud, agendamiento, adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
 - Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.
 - «mecanismo probado; verificación en ruta real pendiente (C17)»: todas las pruebas del escenario llevan la marca `[política, ruta de prueba]` (compromiso C17).
+- «verificado: …; pendiente: … (C25)»: escenarios que se verifican por partes (HU0022-1.0, HU0022-2.0). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifican otras HU (compromiso C25).
 
 ## HU con pruebas
 
@@ -89,6 +90,65 @@
 |  |  | E2E | `e2e/personal-api.spec.ts` | HU0021-5.0 una cuenta que nunca definió su contraseña recibe al reactivarla un enlace nuevo y con él puede entrar | pasó |
 |  |  | E2E | `e2e/usuarios-roles.spec.ts` | HU0021-5.0 la directora reactiva la cuenta en G10; la persona vuelve a entrar con su contraseña y ve solo las opciones del rol que tenía | pasó |
 
+### HU0022 — Configurar por campaña los grados, las vacantes, las evaluaciones requeridas, los requisitos documentales con su condición de aplicación, la cuota de ingreso y los horarios disponibles
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0022-1.0 — Configuración de un grado de la campaña | verificado: almacenamiento; pendiente: completitud, agendamiento, adjudicación (C25) | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] GET /configuracion lista solo los grados de la campaña activa, con sus vacantes adjudicadas y el derecho de admisión de R16 | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] guarda vacantes, evaluaciones, cuota y máximo de fracciones de un grado: ajusta las disponibles sin cambiar las adjudicadas y registra cambio_configuracion con el valor anterior y el nuevo | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] acepta una cuota de ingreso de 0 (plan HU0022, P10: colegios sin cuota) | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] un guardado sin cambios responde 200 y no registra eventos | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] varios grados se guardan juntos, con un evento por grado que cambió; si uno no es de la campaña activa (404), no se guarda ninguno | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un guardado con lista vacía y no cambia el grado | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un guardado con vacantes negativas y no cambia el grado | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un guardado con vacantes no enteras y no cambia el grado | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un guardado con máximo de fracciones 0 y no cambia el grado | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un guardado con cuota negativa y no cambia el grado | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un guardado con cuota con 3 decimales y no cambia el grado | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un guardado con cuota fuera de numeric(10,2) y no cambia el grado | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un guardado con evaluación que no es booleana y no cambia el grado | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un guardado con vacantes disponibles (no se configuran) y no cambia el grado | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un guardado con grado repetido y no cambia el grado | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] registra un requisito con su condición de aplicación, con los valores por defecto del DBML, y audita el alta | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] «si es dependiente» o «si es independiente» sin por_apoderado responde 400, como el CHECK, al registrar y al editar | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] un nombre ya registrado en el grado responde 409 REQUISITO_DUPLICADO, también si solo cambian las mayúsculas (P14); en otro grado sí se acepta | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] edita un requisito sin cambiar su grado y audita solo los campos que cambiaron (P4) | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] quita un requisito sin documentos (204 y baja auditada) y responde 409 EN_USO si ya hay documentos cargados (P4) | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] los requisitos de un grado de otra campaña o inexistente responden 404 | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] registra un horario de visita con un responsable de rol directora y lo audita solo con ids | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] registra un horario de jornada_observacion con un responsable de rol psicologa y lo audita solo con ids | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] registra un horario de evaluacion_psicologica con un responsable de rol psicologa y lo audita solo con ids | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] registra un horario de entrevista_padres con un responsable de rol psicologa y lo audita solo con ids | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] registra un horario de evaluacion_academica con un responsable de rol evaluador_academico y lo audita solo con ids | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 422 un responsable de otro rol, desactivado o inexistente (P2), sin guardar el horario | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 409 HORARIO_SUPERPUESTO un horario que se cruza con otro del mismo responsable, también de otra campaña (P1); acepta uno contiguo y el mismo horario de otra persona | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] quita un horario sin citas (204 y baja auditada) y responde 409 EN_USO si ya tiene citas (P4) | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] lista los horarios de la campaña activa (con filtro por tipo) y solo ofrece como responsables las cuentas activas de directora, psicóloga y evaluador académico | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un horario con hora de fin igual a la de inicio | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un horario con hora de fin anterior a la de inicio | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un horario con hora sin dos dígitos | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un horario con fecha inexistente | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un horario con cupos negativos | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un horario con tipo de cita desconocido | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un horario con campaña en el cuerpo (la pone el servidor) | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-1.0 [parte: almacenamiento] muestra las pestañas y la tabla del mockup con lo que devuelve la API, sin valores fijos | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-1.0 [parte: almacenamiento] edita vacantes y evaluaciones (chips con aria-pressed) y los envía en un solo guardado | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-1.0 [parte: almacenamiento] 0 adjudicadas se muestra como «—» con aria-label «0 adjudicadas», y la entrevista aplica siempre sin poder quitarse | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-1.0 [parte: almacenamiento] el panel lateral muestra los requisitos del grado elegido con los chips del mockup | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-1.0 [parte: almacenamiento] registra un requisito; «Se exige a cada apoderado» queda marcado y bloqueado con «Si es dependiente» | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-1.0 [parte: almacenamiento] edita un requisito sin poder cambiar el grado y muestra junto al campo el 409 de nombre repetido | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-1.0 [parte: almacenamiento] quita un requisito tras confirmar y, si la API responde 409 EN_USO, explica por qué no se quitó | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-1.0 [parte: almacenamiento] guarda la cuota (también 0) y el máximo de fracciones de los grados con lo que devuelve la API | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-1.0 [parte: almacenamiento] solo ofrece los responsables del rol del tipo de cita y registra el horario | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-1.0 [parte: almacenamiento] muestra junto a las horas el 409 de horario superpuesto y quita un horario tras confirmar (409 EN_USO con su motivo) | pasó |
+|  |  | E2E | `e2e/configuracion.spec.ts` | HU0022-1.0 [parte: almacenamiento] la secretaría cambia en G09 vacantes, una evaluación, la cuota y el máximo de fracciones de un grado, y siguen al recargar | pasó |
+|  |  | E2E | `e2e/configuracion.spec.ts` | HU0022-1.0 [parte: almacenamiento] la secretaría registra, edita y quita un requisito con su condición; un nombre repetido (sin distinguir mayúsculas) se rechaza | pasó |
+|  |  | E2E | `e2e/configuracion.spec.ts` | HU0022-1.0 [parte: almacenamiento] la secretaría registra un horario de visita con la directora, se rechaza uno superpuesto y lo quita | pasó |
+| HU0022-2.0 — Intento de fijar menos vacantes que las ya adjudicadas | verificado: regla; pendiente: adjudicación real (C25) | API | `api/test/configuracion.test.ts` | HU0022-2.0 [parte: regla] rechaza fijar menos vacantes que las adjudicadas: 422 con el mínimo permitido, sin cambios ni auditoría | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-2.0 [parte: regla] acepta exactamente el mínimo: las vacantes disponibles quedan en 0 | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-2.0 [parte: regla] en un guardado de varios grados, uno por debajo del mínimo rechaza todo el lote y el mensaje nombra el primero | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-2.0 [parte: regla] no valida la regla en el cliente: envía el cambio y, con el 422 de la API, marca el grado con «Ya hay 27 adjudicadas» y muestra el aviso con el mínimo | pasó |
+
 ## HU sin pruebas
 
 | HU | Escenario | Estado |
@@ -135,8 +195,6 @@
 | HU0019 | HU0019-2.0 — Exportación de reportes consolidados para toma de decisiones | sin prueba |
 | HU0020 | HU0020-1.0 — Consulta del avance de la postulación | sin prueba |
 | HU0020 | HU0020-2.0 — Atención de una acción pendiente desde el panel | sin prueba |
-| HU0022 | HU0022-1.0 — Configuración de un grado de la campaña | sin prueba |
-| HU0022 | HU0022-2.0 — Intento de fijar menos vacantes que las ya adjudicadas | sin prueba |
 | HU0023 | HU0023-1.0 — Primer ingreso con credenciales temporales | sin prueba |
 | HU0023 | HU0023-2.0 — Bloqueo por intentos fallidos de ingreso | sin prueba |
 | HU0024 | HU0024-1.0 — Validación conforme del derecho de admisión | sin prueba |

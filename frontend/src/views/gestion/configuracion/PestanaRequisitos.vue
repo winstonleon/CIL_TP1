@@ -183,15 +183,15 @@ async function confirmarQuitar() {
       <p v-if="errorCarga" class="g09-error" role="alert">{{ errorCarga }}</p>
 
       <div class="g09-tabla-envoltura">
-        <table class="g09-tabla" :aria-label="`Requisitos documentales de ${nombreGrado}`">
+        <table class="g09-tabla g09-tabla-requisitos" :aria-label="`Requisitos documentales de ${nombreGrado}`">
           <thead>
             <tr>
               <th scope="col">Documento</th>
               <th scope="col">Categoría</th>
               <th scope="col">Condición</th>
-              <th scope="col" style="width: 100px">Obligatorio</th>
-              <th scope="col" style="width: 110px">Por apoderado</th>
-              <th scope="col" style="width: 110px">Acciones</th>
+              <th scope="col" style="width: 90px">Obligatorio</th>
+              <th scope="col" style="width: 96px">Por apoderado</th>
+              <th scope="col" style="width: 112px">Acciones</th>
             </tr>
           </thead>
           <tbody>

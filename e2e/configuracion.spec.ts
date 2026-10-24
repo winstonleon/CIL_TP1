@@ -103,7 +103,7 @@ test.describe("HU0022 G09 · configuración de la campaña", () => {
       await abrirG09(page);
       await page.getByRole("tab", { name: "Requisitos documentales" }).click();
       const panel = page.locator("#g09-panel-requisitos");
-      await panel.getByLabel("Grado").selectOption({ label: grado.nombre_grado });
+      await panel.getByLabel("Grado", { exact: true }).selectOption({ label: grado.nombre_grado });
 
       await panel.getByLabel("Documento").fill(documento);
       await panel.getByLabel("Categoría").selectOption({ label: "Financiero · solo Tesorería" });
