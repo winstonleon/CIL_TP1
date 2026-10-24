@@ -2,10 +2,9 @@
 //   1. Aplica db/seeds/*.sql en orden (grados de la campaña 2027).
 //   2. Crea un Personal por cada usuario de prueba de Keycloak con rol de personal
 //      (infra/keycloak/usuarios-prueba.json; requiere npm run kc:usuarios-prueba).
-//   3. Crea un apoderado ficticio (DNI 00000001, cifrado) con su consentimiento y un expediente en prospecto.
+//   3. Crea un apoderado ficticio (DNI 00000001) con su consentimiento y un expediente en prospecto, con los
+//      repositorios de la API: el de apoderados cifra el DNI, como exige rules/api.md (compromiso C3, HU0001).
 // Es idempotente. No imprime datos personales. Corre con el usuario de la API (le basta INSERT/UPDATE).
-// PENDIENTE (docs/compromisos.md C3): en HU0001 el apoderado ficticio se creará con el repositorio de
-// apoderados, que es donde rules/api.md exige cifrar el DNI; hoy ese repositorio todavía no existe.
 import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { RAIZ, adminApi, cargarEntorno, tokenAdmin } from "../../scripts/lib/keycloak.mjs";
@@ -16,7 +15,9 @@ process.env.POSTGRES_HOST = "127.0.0.1";
 process.env.POSTGRES_PORT = process.env.POSTGRES_HOST_PORT || "55432";
 
 const { cerrarPool, enTransaccion, obtenerPool } = await import("../src/db/pool");
-const { columnasDni, hashDni } = await import("../src/crypto/columnas");
+const { existeApoderadoConDni, insertarApoderado } = await import("../src/repositories/apoderado");
+const { insertarConsentimiento } = await import("../src/repositories/consentimiento");
+const { insertarExpediente } = await import("../src/repositories/expediente");
 
 interface UsuarioPrueba {
   username: string;
@@ -55,28 +56,24 @@ try {
 
   const dniFicticio = "00000001";
   const familia = usuarios.find((x) => x.rol === "familia")!;
-  const { rowCount } = await pool.query("SELECT 1 FROM apoderado WHERE dni_hash = $1", [hashDni(dniFicticio)]);
-  if (rowCount) {
+  if (await existeApoderadoConDni(pool, dniFicticio)) {
     console.log("familia ficticia: ya existía");
   } else {
     await enTransaccion(async (c) => {
-      const { dni_cifrado, dni_hash } = columnasDni(dniFicticio);
-      const { rows: apo } = await c.query<{ id_apoderado: number }>(
-        `INSERT INTO apoderado (dni_cifrado, dni_hash, nombres, apellidos, telefono, correo)
-         VALUES ($1, $2, $3, $4, '900000000', $5) RETURNING id_apoderado`,
-        [dni_cifrado, dni_hash, familia.firstName, familia.lastName, familia.username],
+      const { rows: grado } = await c.query<{ id_grado: number }>(
+        "SELECT id_grado FROM grado WHERE nombre_grado = '3 años' AND campana_admision = '2027'",
       );
-      const idApoderado = apo[0]!.id_apoderado;
-      await c.query(
-        `INSERT INTO consentimiento (id_apoderado, version_politica, canal_origen, autoriza_whatsapp)
-         VALUES ($1, 'ficticia-v0', 'formulario_web', false)`,
-        [idApoderado],
-      );
-      await c.query(
-        `INSERT INTO expediente (id_apoderado_titular, id_grado)
-         SELECT $1, id_grado FROM grado WHERE nombre_grado = '3 años' AND campana_admision = '2027'`,
-        [idApoderado],
-      );
+      if (!grado[0]) throw new Error("Falta el grado «3 años» de 2027: revisa db/seeds/01-grados-2027.sql");
+      // Teléfono en E.164 (plan HU0001, P3). Una fila creada antes de HU0001 conserva '900000000': el seed no la cambia.
+      const idApoderado = await insertarApoderado(c, {
+        dni: dniFicticio,
+        nombres: familia.firstName,
+        apellidos: familia.lastName,
+        telefono: "+51900000000",
+        correo: familia.username,
+      });
+      await insertarConsentimiento(c, { idApoderado, versionPolitica: "ficticia-v0", canalOrigen: "formulario_web", autorizaWhatsapp: false });
+      await insertarExpediente(c, { idApoderadoTitular: idApoderado, idGrado: grado[0].id_grado });
     });
     console.log("familia ficticia: creada (apoderado, consentimiento y expediente en prospecto)");
   }

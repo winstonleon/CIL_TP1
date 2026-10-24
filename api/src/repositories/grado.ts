@@ -32,6 +32,23 @@ export async function listarGrados(db: Consultable, campana: string): Promise<Fi
   return rows;
 }
 
+// Lo que P01 puede mostrar sin sesión (HU0001): solo id, nivel y nombre. Columnas explícitas a propósito, para que una
+// columna nueva de grado (vacantes, cuotas…) nunca llegue al endpoint público.
+export interface GradoPublico {
+  id_grado: number;
+  nivel: string;
+  nombre_grado: string;
+}
+
+export async function listarGradosPublicos(db: Consultable, campana: string): Promise<GradoPublico[]> {
+  const { rows } = await db.query<GradoPublico>(
+    `SELECT id_grado, nivel::text AS nivel, nombre_grado FROM grado WHERE campana_admision = $1
+      ORDER BY grado.nivel, id_grado`,
+    [campana],
+  );
+  return rows;
+}
+
 export async function existeGrado(db: Consultable, campana: string, idGrado: number): Promise<boolean> {
   const { rowCount } = await db.query("SELECT 1 FROM grado WHERE id_grado = $1 AND campana_admision = $2", [idGrado, campana]);
   return (rowCount ?? 0) > 0;

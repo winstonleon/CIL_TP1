@@ -27,6 +27,10 @@ const esquema = z.object({
   INTERNAL_API_TOKEN: z.string().min(32),
   // Campaña activa (HU0022, C23): G09 solo configura los grados y horarios de esta campaña (grado.campana_admision).
   CAMPANA_ACTIVA: z.string().regex(/^[0-9A-Za-z-]{1,10}$/),
+  // Eventos de la API hacia n8n (ADR-16, HU0001): webhooks internos con el mismo secreto que la credencial
+  // cil-webhook-secret de n8n (al rotarlo hay que recrear api, C11).
+  N8N_WEBHOOK_INTERNAL_URL: z.url(),
+  N8N_WEBHOOK_SECRET: z.string().min(32),
 });
 
 export type Config = z.infer<typeof esquema>;

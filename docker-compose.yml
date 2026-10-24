@@ -138,6 +138,10 @@ services:
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
       # Campaña activa (HU0022, C23): G09 solo configura los grados y horarios de esta campaña.
       CAMPANA_ACTIVA: ${CAMPANA_ACTIVA}
+      # Eventos de la API hacia n8n (ADR-16, HU0001): webhook interno del flujo con X-Webhook-Secret.
+      # Es el mismo secreto que la credencial cil-webhook-secret de n8n: al rotarlo hay que recrear api (C11).
+      N8N_WEBHOOK_INTERNAL_URL: ${N8N_WEBHOOK_INTERNAL_URL}
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET}
       TZ: America/Lima
     depends_on:
       postgres:

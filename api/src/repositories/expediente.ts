@@ -1,6 +1,16 @@
-// Lectura y escritura de los tres estados del expediente (solo las usa transicionarExpediente)
+// Alta del expediente (HU0001), lectura y escritura de los tres estados (solo las usa transicionarExpediente)
 // y comprobación de existencia (la usa la política de acceso restringido, HU0021-2.0).
 import type { Consultable } from "../db/pool";
+
+// Nace en `prospecto`, sin postulante y con fecha_registro = now() (valores por omisión del esquema). La creación no se
+// audita (plan HU0001, P2): la fecha queda en fecha_registro.
+export async function insertarExpediente(db: Consultable, e: { idApoderadoTitular: number; idGrado: number }): Promise<number> {
+  const { rows } = await db.query<{ id_expediente: number }>(
+    "INSERT INTO expediente (id_apoderado_titular, id_grado) VALUES ($1, $2) RETURNING id_expediente",
+    [e.idApoderadoTitular, e.idGrado],
+  );
+  return rows[0]!.id_expediente;
+}
 
 export async function existeExpediente(db: Consultable, idExpediente: number): Promise<boolean> {
   const { rowCount } = await db.query("SELECT 1 FROM expediente WHERE id_expediente = $1", [idExpediente]);

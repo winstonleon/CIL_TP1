@@ -15,6 +15,10 @@ const entornoPrueba = {
   DATA_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
   DATA_HMAC_KEY: randomBytes(32).toString("base64"),
   INTERNAL_API_TOKEN: randomBytes(32).toString("hex"),
+  // Eventos hacia n8n (ADR-16, HU0001): secreto propio de la corrida y un puerto cerrado, para que ninguna prueba use
+  // el secreto real de dev ni llegue al n8n de dev (C15). Las pruebas de HU0001 inyectan su n8n simulado.
+  N8N_WEBHOOK_SECRET: randomBytes(32).toString("hex"),
+  N8N_WEBHOOK_INTERNAL_URL: "http://127.0.0.1:9/webhook",
 };
 Object.assign(process.env, entornoPrueba);
 

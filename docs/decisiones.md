@@ -138,6 +138,35 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
   - Fuentes: nota de `Horario_Disponible`, G04, P08, TI 6.1.3 y §4.6.
 - Qué pasa con los horarios de alguien que se desactiva después lo deciden HU0003 y HU0009 (C25).
 
+## ADR-16 Eventos de la API hacia n8n
+- **[EQUIPO, HU0001]** La API avisa a n8n con un POST al webhook interno del flujo, `${N8N_WEBHOOK_INTERNAL_URL}/<nombre del flujo>`, con la cabecera `X-Webhook-Secret` (ADR-04). La única puerta es `api/src/orquestacion/n8n.ts`.
+  - El cuerpo lleva solo identificadores, p. ej. `{ "id_expediente": 123 }`. n8n pide los datos por `/internal/*`, así sus ejecuciones guardan menos datos personales (C10, C11).
+  - Se envía siempre después del COMMIT y después de responder al cliente: la respuesta no espera a n8n.
+- **[EQUIPO, HU0001]** Fallos:
+  - Un 4xx no se reintenta, porque es definitivo.
+  - Ante errores de red, *timeout* o 5xx: hasta 3 intentos de 5 s, con esperas de 1 s y 3 s.
+  - El fallo queda en el log solo con el id y la causa, nunca con el secreto ni el cuerpo. El trámite sigue, porque el registro ya está confirmado.
+- No hay *outbox*: el modelo no tiene una tabla para eso. Un evento no entregado se deduce de los datos, y cómo se recupera lo decide el plan del flujo receptor (para `captacion`, HU0002: C27).
+- La API lee el mismo `N8N_WEBHOOK_SECRET` que la credencial `cil-webhook-secret` de n8n. Para rotarlo hay que correr `npm run n8n:credenciales` y recrear `api` (C11).
+
+## ADR-17 Rutas públicas y formulario P01
+- **[EQUIPO, HU0001]** Las rutas `/publico/*` no llevan token ni rol, porque la familia no tiene cuenta hasta HU0004.
+  - Es una excepción a «cada ruta declara el rol requerido» (ADR-02), igual que `/salud`.
+  - Cada ruta se comenta en el código como pública a propósito.
+- **[EQUIPO, HU0001]** Protecciones técnicas, sin servicios de terceros:
+  - cuerpo de 4 kB como máximo (413);
+  - 5 envíos por IP cada 10 minutos, contados en memoria (429 con `Retry-After`). La API usa `trust proxy = 1`; en prod, NGINX fija `X-Forwarded-For` (C19);
+  - un campo trampa oculto: si llega con texto, la respuesta es la misma y no se guarda nada;
+  - sin CORS: P01 llama a `/api` desde el mismo origen;
+  - la respuesta es la misma en todos los casos, así que no revela si un correo ya existe.
+- **[EQUIPO, HU0001]** Teléfono: celular peruano (9 dígitos que empiezan con 9) o número E.164 internacional (`+` y de 8 a 15 dígitos). Siempre se guarda en E.164, p. ej. `+51987654321`. Un número con `+51` debe ser un celular (supuesto S8 del plan, pendiente de confirmar).
+- **[EQUIPO, HU0001]** Política de privacidad:
+  - La versión y el texto viven en `api/src/services/politicaPrivacidad.ts`, y P01 los recibe del GET público.
+  - El servidor guarda en `consentimiento.version_politica` su versión vigente, y la hora la pone la BD.
+  - Hasta que el colegio entregue la política (C29), la versión es `borrador-1` y el texto va entre corchetes.
+- **[EQUIPO, HU0001]** Canal de origen: los enlaces que publica el colegio llevan `?origen=facebook` u `?origen=instagram`. Sin parámetro, el canal es `formulario_web`.
+- **[EQUIPO, HU0001]** Si la misma familia envía P01 dos veces, se crean filas nuevas (brecha C28).
+
 ## Orden recomendado de implementación
 0. **Sprint 0, base técnica** (no es una HU; se documenta como habilitador):
    - monorepo y docker-compose de dev con PostgreSQL (bases `admision`, `n8n` y `keycloak`), Keycloak, n8n, Mailpit, la API y el frontend;

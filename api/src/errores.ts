@@ -17,7 +17,14 @@ export const noEncontrado: RequestHandler = () => {
   throw new ErrorApi(404, "NO_ENCONTRADO", "Recurso no encontrado");
 };
 
+// Errores del parser JSON de Express (body-parser), según su `type`. Antes de HU0001 caían en el 500 genérico.
+const ERRORES_DEL_CUERPO = new Map<unknown, ErrorApi>([
+  ["entity.too.large", new ErrorApi(413, "CUERPO_DEMASIADO_GRANDE", "El cuerpo de la petición es demasiado grande")],
+  ["entity.parse.failed", new ErrorApi(400, "JSON_INVALIDO", "El cuerpo de la petición no es un JSON válido")],
+]);
+
 export const manejadorErrores: ErrorRequestHandler = (err, _req, res, _next) => {
+  err = ERRORES_DEL_CUERPO.get((err as { type?: unknown } | null)?.type) ?? err;
   if (err instanceof ErrorApi) {
     const detalle = err.detalle === undefined ? {} : { detalle: err.detalle };
     res.status(err.status).json({ error: { codigo: err.codigo, mensaje: err.message, ...detalle } });
