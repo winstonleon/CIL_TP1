@@ -8,3 +8,8 @@ export async function llamarApi(cliente: ClienteOidc, ruta: string, init: Reques
   if (usuario) cabeceras.set("Authorization", `Bearer ${usuario.access_token}`);
   return fetch(`${import.meta.env.VITE_API_URL}${ruta}`, { ...init, headers: cabeceras, credentials: "omit" });
 }
+
+// Rutas PÚBLICAS de la API (/publico/*, ADR-17): P01 no tiene sesión, así que no se busca ni se envía ningún token.
+export function llamarApiPublica(ruta: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(`${import.meta.env.VITE_API_URL}${ruta}`, { ...init, credentials: "omit" });
+}

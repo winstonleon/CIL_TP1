@@ -48,6 +48,11 @@
   --nav-seccion: #9fb0d0;
   --nav-pie-fondo: #1a3f82;
   --nav-pie-texto: #d5ddec;
+
+  /* Panel azul de P01 (docs/ui/Main.dc.html) */
+  --panel-texto: #d9e1f0;
+  --panel-linea: #2b4c8c;
+  --panel-detalle: #c9d3e6;
 }
 
 body {

@@ -25,3 +25,55 @@ export function normalizarTelefono(telefono: string): string | null {
   if (limpio.startsWith("+51")) return null;
   return /^\+[1-9]\d{7,14}$/.test(limpio) ? limpio : null;
 }
+
+// ---------------------------------------------------------------- solo del cliente (pantalla P01)
+
+// Mensajes de los campos (plan HU0001, S1; G10 para «obligatorio» y el correo). El mockup no muestra errores.
+export const MENSAJES = {
+  obligatorio: "Este campo es obligatorio.",
+  telefono: "Ingresa un celular válido: 9 dígitos que empiecen con 9, o el número internacional con +código de país.",
+  correo: "Ingresa un correo válido.",
+  grado: "Selecciona el nivel y grado de interés.",
+  consentimiento: "El consentimiento es obligatorio para continuar.", // texto de HU0001-3.0
+} as const;
+
+export type CampoSolicitud = "nombres" | "apellidos" | "telefono" | "correo" | "id_grado" | "acepta_politica";
+export type ErroresSolicitud = Partial<Record<CampoSolicitud, string>>;
+
+export interface DatosFormulario {
+  nombres: string;
+  apellidos: string;
+  telefono: string;
+  correo: string;
+  id_grado: number | null;
+  acepta_politica: boolean;
+}
+
+// HU0001-2.0 y 3.0: un campo vacío muestra el mensaje de obligatorio antes que el de formato.
+export function validarSolicitud(f: DatosFormulario): ErroresSolicitud {
+  const e: ErroresSolicitud = {};
+  if (!f.nombres.trim()) e.nombres = MENSAJES.obligatorio;
+  if (!f.apellidos.trim()) e.apellidos = MENSAJES.obligatorio;
+  if (!f.telefono.trim()) e.telefono = MENSAJES.obligatorio;
+  else if (normalizarTelefono(f.telefono) === null) e.telefono = MENSAJES.telefono;
+  if (!f.correo.trim()) e.correo = MENSAJES.obligatorio;
+  else if (!correoValido(f.correo)) e.correo = MENSAJES.correo;
+  if (f.id_grado === null) e.id_grado = MENSAJES.grado;
+  if (!f.acepta_politica) e.acepta_politica = MENSAJES.consentimiento;
+  return e;
+}
+
+// Etiquetas del enum nivel_educativo del DBML (ADR-10: si cambian sus valores, cambia este mapa).
+export const ETIQUETA_NIVEL: Readonly<Record<string, string>> = { inicial: "Inicial", primaria: "Primaria", secundaria: "Secundaria" };
+
+// Opción del select: «Nivel · nombre del grado» con el nombre tal como está guardado (plan HU0001).
+export const etiquetaGrado = (g: { nivel: string; nombre_grado: string }) => `${ETIQUETA_NIVEL[g.nivel] ?? g.nivel} · ${g.nombre_grado}`;
+
+// Canal de origen (plan HU0001, S2): los enlaces del colegio llevan ?origen=facebook o ?origen=instagram; cualquier
+// otro valor, o ninguno, es formulario_web.
+export type CanalOrigen = "facebook" | "instagram" | "formulario_web";
+
+export function canalDeOrigen(origen: unknown): CanalOrigen {
+  const valor = Array.isArray(origen) ? origen[0] : origen;
+  return valor === "facebook" || valor === "instagram" ? valor : "formulario_web";
+}

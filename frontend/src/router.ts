@@ -7,6 +7,7 @@ import SesionIniciada from "./views/SesionIniciada.vue";
 import LayoutGestion from "./views/gestion/LayoutGestion.vue";
 import ConfiguracionCampana from "./views/gestion/ConfiguracionCampana.vue";
 import UsuariosRoles from "./views/gestion/UsuariosRoles.vue";
+import SolicitudInformacion from "./views/portal/SolicitudInformacion.vue";
 
 declare module "vue-router" {
   interface RouteMeta {
@@ -22,6 +23,9 @@ export function crearEnrutador(historial: RouterHistory) {
     history: historial,
     routes: [
       { path: "/", component: Inicio },
+      // P01 (HU0001): PÚBLICA, sin meta.cliente, así que no inicia sesión ni envía token (ADR-17). Los enlaces de las
+      // redes del colegio llevan ?origen=facebook o ?origen=instagram.
+      { path: "/solicitud-informacion", component: SolicitudInformacion },
       { path: "/portal", component: SesionIniciada, meta: { cliente: "portal" } },
       {
         path: "/gestion",
