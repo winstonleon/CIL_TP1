@@ -36,6 +36,19 @@ export async function buscarIdPersonalPorKeycloak(db: Consultable, keycloakUserI
   return rows[0]?.id_personal ?? null;
 }
 
+// Rol y estado de la cuenta del usuario de Keycloak (C22), o null si no tiene fila en personal.
+export async function buscarPersonalPorKeycloak(
+  db: Consultable,
+  keycloakUserId: string,
+): Promise<{ id_personal: number; rol: string; activo: boolean } | null> {
+  if (!UUID.test(keycloakUserId)) return null;
+  const { rows } = await db.query<{ id_personal: number; rol: string; activo: boolean }>(
+    "SELECT id_personal, rol::text AS rol, activo FROM personal WHERE keycloak_user_id = $1::uuid",
+    [keycloakUserId],
+  );
+  return rows[0] ?? null;
+}
+
 export async function listarPersonal(db: Consultable): Promise<FilaPersonal[]> {
   const { rows } = await db.query<FilaPersonal>(`SELECT ${COLUMNAS} FROM personal ORDER BY activo DESC, id_personal`);
   return rows;

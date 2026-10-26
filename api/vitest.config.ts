@@ -19,6 +19,9 @@ const entornoPrueba = {
   // el secreto real de dev ni llegue al n8n de dev (C15). Las pruebas de HU0001 inyectan su n8n simulado.
   N8N_WEBHOOK_SECRET: randomBytes(32).toString("hex"),
   N8N_WEBHOOK_INTERNAL_URL: "http://127.0.0.1:9/webhook",
+  // Carpeta informativa (HU0002, ADR-18): clave propia de la corrida y sin URL de la carpeta, para no depender del .env.
+  ENLACE_VISITA_KEY: randomBytes(32).toString("base64"),
+  CARPETA_INFORMATIVA_URL: "",
 };
 Object.assign(process.env, entornoPrueba);
 

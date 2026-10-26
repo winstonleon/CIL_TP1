@@ -13,7 +13,9 @@ export type TransicionesPermitidas = Readonly<Record<CampoEstado, ReadonlyArray<
 // Ninguna fuente define todavía la matriz de transiciones (decisión del Sprint 0):
 // empieza vacía y cada HU agrega solo las transiciones que sus escenarios exigen.
 export const TRANSICIONES_PERMITIDAS: TransicionesPermitidas = {
-  estado: [],
+  estado: [
+    ["prospecto", "contacto_no_entregado"], // HU0002-2.0: rebote del correo de la carpeta informativa
+  ],
   estado_documental: [],
   estado_financiero: [],
 };

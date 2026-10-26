@@ -30,8 +30,12 @@ const errorDe = async (p: Promise<unknown>) => {
 };
 
 describe("S0-B5 transicionarExpediente", () => {
-  it("S0-B5 la lista de transiciones permitidas por defecto está vacía", () => {
-    expect(TRANSICIONES_PERMITIDAS).toEqual({ estado: [], estado_documental: [], estado_financiero: [] });
+  it("S0-B5 la lista de transiciones permitidas por defecto tiene solo las que exigen los escenarios (HU0002-2.0)", () => {
+    expect(TRANSICIONES_PERMITIDAS).toEqual({
+      estado: [["prospecto", "contacto_no_entregado"]],
+      estado_documental: [],
+      estado_financiero: [],
+    });
   });
 
   it("S0-B5 cambia el estado y registra transicion_estado con anterior y nuevo en la misma transacción", async () => {

@@ -20,6 +20,15 @@ export interface EventoAuditoria {
   detalle?: Record<string, unknown> | null;
 }
 
+// ¿Ya se registró el rebote de esta notificación? (HU0002-2.0: repetir el aviso no duplica eventos).
+export async function existeRebote(db: Consultable, idNotificacion: number): Promise<boolean> {
+  const { rowCount } = await db.query(
+    "SELECT 1 FROM registro_auditoria WHERE tipo_evento = 'notificacion_rebotada' AND (detalle->>'id_notificacion')::int = $1",
+    [idNotificacion],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 export async function insertarEvento(db: Consultable, e: EventoAuditoria): Promise<number> {
   const { rows } = await db.query<{ id_evento: string }>(
     `INSERT INTO registro_auditoria (id_expediente, id_personal, tipo_evento, estado_anterior, estado_nuevo, detalle)

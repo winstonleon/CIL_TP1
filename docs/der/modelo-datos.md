@@ -558,7 +558,7 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 
 | Flujo | Disparador | Tablas principales |
 |---|---|---|
-| F1 Captación | Webhook: formulario P01 | Apoderado, Consentimiento, Expediente, Notificacion |
+| F1 Captación | Webhook: evento de la API tras el registro de P01 (ADR-16), más un barrido cada minuto de los prospectos sin carpeta (C27) | Apoderado, Consentimiento, Expediente, Notificacion, Registro_Auditoria |
 | F2 Recepción y registro | Webhook: ficha/documentos | Postulante, Postulante_Apoderado, Cuestionario_Expectativas, Documento |
 | F3 Verificación de completitud | Webhook: carga de documento | Documento, Requisito_Documental, Expediente |
 | F4 Agendamiento | Webhook: reserva de cita | Horario_Disponible, Cita, Notificacion |
@@ -623,3 +623,9 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 | R15: definición de «vacantes adjudicadas» | Mínimo de HU0022-2.0 sin depender de HU0012; coincide con G07 (ADR-14, compromiso C25) |
 | Nota de `Horario_Disponible`: sin superposición del mismo responsable; nota de `id_personal`: rol según el tipo de cita y cuenta activa | Evitar la doble reserva y fijar quién atiende cada cita (ADR-15) |
 | Nota de `Grado.nombre_grado`: el ejemplo pasa a «Kindergarten (5 años)», como §5 y el seed | Plan HU0022, P13 |
+
+### Ajustes por HU0002 (25/10/2026), sin tablas, columnas ni enums nuevos
+| Cambio | Motivo |
+|---|---|
+| §6, F1: el disparador es el evento de la API tras P01 más un barrido cada minuto; suma `Registro_Auditoria` (rebote y transición) | El webhook lo llama la API (ADR-16) y un evento no entregado se recupera sin esperar al barrido diario (C27) |
+| «Notificación rebotada» (HU0002-2.0) = `estado_envio = 'fallido'` más el evento `notificacion_rebotada` de §4.7 | El enum `estado_envio` no tiene «rebotado»; §4.7 ya tenía el evento (ADR-07) |

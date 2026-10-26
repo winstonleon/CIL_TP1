@@ -39,6 +39,10 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
   - **Documentación financiera:** solo `tesoreria`.
   - **Informe psicológico:** `psicologa` y `directora`, como en G10 actualizado.
 - **[HU0021-2.0]** Todo intento bloqueado se registra en auditoría como `acceso_denegado`.
+- **[EQUIPO, HU0002, C22]** Las rutas del personal (`/personal`, `/configuracion`, `/campana-activa`, `/prospectos` y las que se agreguen) exigen, además del rol del token, una fila **activa** en `personal` con ese mismo rol (`requirePersonalActivo`, después de `requireRol`).
+  - Así, una cuenta desactivada o con el rol cambiado deja de entrar aunque su token siga vigente (hasta 5 min).
+  - La negativa responde 403 `ACCESO_DENEGADO` y se audita como `acceso_denegado`.
+  - `verificarToken` sigue aceptando un token sin fila en `personal`: la exigencia es de las rutas del personal, no de la validación del token.
 - **Costo a considerar:** Keycloak necesita alrededor de 1,25 GB de RAM. Hay que dimensionar el VPS con eso en cuenta.
 
 ## ADR-03 Cifrado a nivel de columna
@@ -69,6 +73,10 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
 - **[TI]** Son siete flujos: `captacion`, `recepcion-registro`, `verificacion-completitud`, `agendamiento`, `generacion-carta`, `notificacion-multicanal`, `seguimiento-recordatorios`. No se crean flujos adicionales sin aprobación. Sí se permiten sub-workflows internos de un flujo, si el plan los justifica.
 - **[EQUIPO]** Las credenciales **nunca** van en el JSON: los workflows las referencian solo por nombre. En cada instancia (dev o VPS) se crean o actualizan con `npm run n8n:credenciales`, que toma los valores de `.env` y los envía a la API pública de n8n sin imprimirlos; ningún secreto ni ID de credencial entra al repositorio. Los workflows se identifican por nombre, no por ID, porque los IDs cambian entre instancias.
 - **[PROPUESTA]** El repo es la fuente de verdad. Un cambio hecho en la interfaz de n8n se exporta al repo antes de hacer commit.
+- **[EQUIPO, HU0002, C2]** Además de los siete flujos hay un workflow **técnico**, `registro-errores` (nodo Error Trigger), que no cuenta como flujo del TI.
+  - Cada flujo lo declara como su *Error Workflow*.
+  - A la API (`POST /internal/errores-flujo`) le envía solo el nombre del flujo, el nodo y el id de la ejecución, nunca el mensaje del error, que puede traer datos personales. La API lo deja en su log.
+- **[EQUIPO, HU0002]** `npm run n8n:importar` resuelve **por nombre** el `errorWorkflow` de cada flujo y el flujo que llama cada nodo Execute Workflow. Al exportar vuelve a dejar el nombre, así el repo no guarda IDs de la instancia. Importa en orden de dependencias: `registro-errores`, luego `notificacion-multicanal` y luego el resto.
 
 ## ADR-07 Notificaciones multicanal
 - **[TI]** Canales: correo (SMTP) y WhatsApp. **[memoria del proyecto]** WhatsApp Cloud API oficial, con pago por plantilla.
@@ -76,7 +84,16 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
 - **[PROPUESTA]** Todos los envíos pasan por el flujo `notificacion-multicanal`.
 - **[MODELO R22]** Se envía por WhatsApp solo si `Consentimiento.autoriza_whatsapp = true` **y** `WHATSAPP_ENABLED=true`. Si no se cumplen las dos condiciones, no se crea `Notificacion` para ese canal y el flujo no falla.
 - **[MODELO R22]** Un rebote del correo de la carpeta informativa pasa el expediente a `contacto_no_entregado` y aparece en G04 («Prospectos con contacto no entregado»).
-- **[PENDIENTE]** Cómo se detecta un rebote de correo: por *webhook* del proveedor SMTP o leyendo el buzón de rebotes. Mailpit no simula rebotes. Resolverlo en el plan de HU0002.
+- **[EQUIPO, HU0002] Detección del rebote: solo el rechazo síncrono** (antes PENDIENTE).
+  - Cuenta como rebote el rechazo permanente del destinatario que da el servidor SMTP **durante el envío** (5xx en RCPT, p. ej. «550 5.1.1»).
+  - La notificación queda `fallido` (el enum `estado_envio` no tiene «rebotado»), se audita `notificacion_rebotada` y el expediente pasa de `prospecto` a `contacto_no_entregado` (HU0002-2.0).
+  - **Cubre solo ese caso.** Si el proveedor acepta el correo y avisa del rebote después (Gmail, Google Workspace o un proveedor transaccional), no se detecta. Esa detección asíncrona (webhook del proveedor o buzón de rebotes) queda para antes del despliegue al VPS (C34). Por eso la matriz muestra HU0002-2.0 por partes.
+  - En dev, Mailpit responde 550 a todo destinatario que no sea `@ejemplo.test` (`MP_SMTP_ALLOWED_RECIPIENTS` en `docker-compose.dev.yml`). Las pruebas de rebote usan `@rebota.ejemplo.test`.
+- **[EQUIPO, HU0002] Fallos del envío de la carpeta informativa:**
+  - rechazo permanente del destinatario → `fallido` con rebote (punto anterior);
+  - 400 (entrada inválida) o 502 `CONTACTO_NO_DISPONIBLE` de `notificacion-multicanal`: son deterministas → `fallido`, sin rebote, sin transición y **sin reintento**, con registro en `registro-errores`;
+  - 500 de `notificacion-multicanal` o un error técnico de SMTP (conexión, DNS, *timeout*, 4xx temporal) → la notificación queda `pendiente` y el barrido de `captacion` la retoma a los 10 min (ADR-16).
+  - No hay límite de reintentos, porque no hay columna para contarlos: cada intento fallido deja un aviso en el log.
 - **[PROPUESTA]** En desarrollo, el correo va a **Mailpit** (contenedor que captura los correos, visible en el navegador). Ningún correo sale a Internet desde dev.
 - **[EQUIPO] Excepción:** el enlace para definir la contraseña del personal lo envía Keycloak (ADR-02) y no se registra en notificacion, porque esa tabla exige un expediente. La evidencia queda en registro_auditoria (gestion_usuario).
 
@@ -148,6 +165,14 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
   - El fallo queda en el log solo con el id y la causa, nunca con el secreto ni el cuerpo. El trámite sigue, porque el registro ya está confirmado.
 - No hay *outbox*: el modelo no tiene una tabla para eso. Un evento no entregado se deduce de los datos, y cómo se recupera lo decide el plan del flujo receptor (para `captacion`, HU0002: C27).
 - La API lee el mismo `N8N_WEBHOOK_SECRET` que la credencial `cil-webhook-secret` de n8n. Para rotarlo hay que correr `npm run n8n:credenciales` y recrear `api` (C11).
+- **[EQUIPO, HU0002] Receptor `captacion`:** valida el cuerpo y responde 202 **antes** de procesar. Así la API no llega al *timeout* de 5 s por la demora del SMTP. Si el cuerpo es inválido responde 400, que la API no reintenta.
+- **[EQUIPO, HU0002] Recuperación de `captacion` (C27):** el flujo tiene un segundo disparador, programado cada minuto, que no depende del barrido diario de HU0018. Pide a la API (`GET /internal/captacion/pendientes`):
+  - los prospectos sin carpeta registrados hace más de 1 min;
+  - las carpetas `pendiente` intentadas hace más de 10 min.
+- **[EQUIPO, HU0002] Idempotencia de `captacion`:** antes de enviar, el flujo reserva la carpeta en la API (`POST /internal/expedientes/:id/carpeta-informativa`).
+  - En una transacción, con el expediente bloqueado, la API crea la notificación `pendiente`, retoma una `pendiente` de más de 10 min o responde 409.
+  - Así, un reintento de la API, el barrido y el webhook a la vez no duplican la carpeta.
+  - Se acepta *al menos una vez*: si n8n se cae justo después de enviar, la retoma puede repetir un correo.
 
 ## ADR-17 Rutas públicas y formulario P01
 - **[EQUIPO, HU0001]** Las rutas `/publico/*` no llevan token ni rol, porque la familia no tiene cuenta hasta HU0004.
@@ -167,6 +192,18 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 - **[EQUIPO, HU0001]** Canal de origen: los enlaces que publica el colegio llevan `?origen=facebook` u `?origen=instagram`. Se compara sin distinguir mayúsculas: `Facebook` o `INSTAGRAM` también cuentan. Sin parámetro, o con cualquier otro valor, el canal es `formulario_web`.
 - **[EQUIPO, HU0001]** Si la misma familia envía P01 dos veces, se crean filas nuevas (brecha C28).
 - **[EQUIPO, HU0001]** Los errores de P01 (borde de los campos con error, caja del consentimiento y mensajes) usan el color del estado «observado» de los prototipos, `#8A4B08` (`--observado`), el mismo de P06, G03, G05 y P07b (HU0001-2.0).
+
+## ADR-18 Carpeta informativa y enlace para agendar la visita
+- **[EQUIPO, HU0002] Carpeta:** el correo lleva un **enlace** a la carpeta digital del colegio, no un adjunto.
+  - La URL es la variable `CARPETA_INFORMATIVA_URL`. Es opcional: si está vacía, el correo lo dice entre corchetes.
+  - Los textos del correo viven en `api/src/services/carpetaInformativa.ts` (versión `borrador-1`). Lo que debe redactar el colegio va entre corchetes hasta que lo entregue (C33).
+  - Arma el asunto y el cuerpo la API, porque `notificacion-multicanal` no redacta mensajes.
+  - No depende de ADR-12: es un enlace (p. ej. a un archivo compartido de Drive), sin integrar la API de Drive.
+- **[EQUIPO, HU0002] Enlace de P02:** `${FRONTEND_PUBLIC_URL}/visita-guiada?t=<token>`.
+  - El token es AES-256-GCM del `id_expediente` con la clave `ENLACE_VISITA_KEY` (32 bytes en base64, en `.env`), en el formato `v1.` + base64url(iv ‖ cifrado ‖ etiqueta).
+  - No muestra el id, no se puede falsificar ni derivar el de otra familia, y no necesita columnas.
+  - No vence ni se revoca uno por uno: HU0003 decide qué estados lo aceptan y si vence (C31).
+  - Rotar `ENLACE_VISITA_KEY` invalida los enlaces ya enviados.
 
 ## Orden recomendado de implementación
 0. **Sprint 0, base técnica** (no es una HU; se documenta como habilitador):

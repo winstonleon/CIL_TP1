@@ -43,11 +43,13 @@ try {
   };
 
   let personal = 0;
+  // Solo las cuentas de usuarios-prueba.json. Si se reimportó el realm, dev:limpiar-personal-huerfano desactivó la fila
+  // vieja: el seed le pone el id nuevo y la deja activa y con su rol. Las rutas del personal exigen eso (C22, HU0002).
   for (const u of usuarios.filter((x) => x.rol !== "familia")) {
     await pool.query(
       `INSERT INTO personal (nombres, apellidos, rol, correo, keycloak_user_id)
        VALUES ($1, $2, $3::rol_personal, $4, $5::uuid)
-       ON CONFLICT (correo) DO UPDATE SET keycloak_user_id = EXCLUDED.keycloak_user_id`,
+       ON CONFLICT (correo) DO UPDATE SET keycloak_user_id = EXCLUDED.keycloak_user_id, rol = EXCLUDED.rol, activo = true`,
       [u.firstName, u.lastName, u.rol, u.username, await idKeycloak(u.username)],
     );
     personal++;

@@ -710,7 +710,10 @@ describe("C23 campaña activa para las pantallas de la gestión interna", () => 
   it.each(["secretaria", "tesoreria", "psicologa", "evaluador_academico", "directora"])(
     "C23 GET /campana-activa responde la campaña activa a %s",
     async (rol) => {
-      const res = await get("/campana-activa", await firmante.token(randomUUID(), [rol]));
+      // C22 (HU0002): las rutas del personal exigen una fila activa en personal con el rol del token.
+      const sub = randomUUID();
+      await crearPersonal(db(), rol, sub);
+      const res = await get("/campana-activa", await firmante.token(sub, [rol]));
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ campana: CAMPANA });

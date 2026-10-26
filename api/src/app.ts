@@ -1,4 +1,5 @@
 import express, { type Express } from "express";
+import { requirePersonalActivo } from "./auth/requirePersonalActivo";
 import { requireRol } from "./auth/requireRol";
 import { crearVerificarToken, opcionesTokenDesdeConfig, type OpcionesToken } from "./auth/verificarToken";
 import { obtenerConfig } from "./config";
@@ -10,6 +11,7 @@ import { rutaCampanaActiva } from "./routes/campana";
 import { rutasConfiguracion } from "./routes/configuracion";
 import { rutasInternas } from "./routes/internal";
 import { rutasPersonal } from "./routes/personal";
+import { rutasProspectos } from "./routes/prospectos";
 import { rutasPublicas } from "./routes/publico";
 import { rutaSalud } from "./routes/salud";
 
@@ -42,10 +44,18 @@ export function crearApp(dependencias: Dependencias = {}): Express {
   app.use("/internal", rutasInternas);
   // PÚBLICAS a propósito (ADR-17): P01 no tiene sesión. Sin verificarToken ni rol.
   app.use("/publico", rutasPublicas({ campana: campanaActiva, eventos, limite: dependencias.limitePublico ?? LIMITE_PUBLICO }));
-  // Las rutas de cada HU se montan con verificarToken y el rol que exigen.
-  app.use("/personal", verificarToken, requireRol("directora"), rutasPersonal(identidad));
-  app.use("/campana-activa", verificarToken, requireRol(...ROLES_PERSONAL), rutaCampanaActiva(campanaActiva));
-  app.use("/configuracion", verificarToken, requireRol("secretaria"), rutasConfiguracion(campanaActiva));
+  // Las rutas de cada HU se montan con verificarToken y el rol que exigen. Las del personal llevan además
+  // requirePersonalActivo con los mismos roles: fila activa en personal con el rol del token (C22).
+  app.use("/personal", verificarToken, requireRol("directora"), requirePersonalActivo("directora"), rutasPersonal(identidad));
+  app.use(
+    "/campana-activa",
+    verificarToken,
+    requireRol(...ROLES_PERSONAL),
+    requirePersonalActivo(...ROLES_PERSONAL),
+    rutaCampanaActiva(campanaActiva),
+  );
+  app.use("/configuracion", verificarToken, requireRol("secretaria"), requirePersonalActivo("secretaria"), rutasConfiguracion(campanaActiva));
+  app.use("/prospectos", verificarToken, requireRol("secretaria"), requirePersonalActivo("secretaria"), rutasProspectos(campanaActiva));
 
   app.use(noEncontrado);
   app.use(manejadorErrores);

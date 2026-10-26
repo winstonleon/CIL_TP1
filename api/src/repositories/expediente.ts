@@ -1,5 +1,6 @@
-// Alta del expediente (HU0001), lectura y escritura de los tres estados (solo las usa transicionarExpediente)
-// y comprobación de existencia (la usa la política de acceso restringido, HU0021-2.0).
+// Alta del expediente (HU0001), lectura y escritura de los tres estados (solo las usa transicionarExpediente; el
+// rebote de HU0002 también lee el estado con bloqueo), datos para la carpeta informativa (HU0002) y comprobación de
+// existencia (la usa la política de acceso restringido, HU0021-2.0).
 import type { Consultable } from "../db/pool";
 
 // Nace en `prospecto`, sin postulante y con fecha_registro = now() (valores por omisión del esquema). La creación no se
@@ -10,6 +11,24 @@ export async function insertarExpediente(db: Consultable, e: { idApoderadoTitula
     [e.idApoderadoTitular, e.idGrado],
   );
   return rows[0]!.id_expediente;
+}
+
+// Datos para armar la carpeta informativa (HU0002-1.0), con el expediente bloqueado: serializa las reservas simultáneas
+// del mismo expediente (reintento de la API, barrido y webhook a la vez). El DNI no se lee.
+export async function bloquearDatosCarpeta(
+  db: Consultable,
+  idExpediente: number,
+): Promise<{ estado: string; nombres: string; nombre_grado: string; campana_admision: string } | null> {
+  const { rows } = await db.query<{ estado: string; nombres: string; nombre_grado: string; campana_admision: string }>(
+    `SELECT e.estado::text AS estado, a.nombres, g.nombre_grado, g.campana_admision
+       FROM expediente e
+       JOIN apoderado a ON a.id_apoderado = e.id_apoderado_titular
+       JOIN grado g ON g.id_grado = e.id_grado
+      WHERE e.id_expediente = $1
+        FOR UPDATE OF e`,
+    [idExpediente],
+  );
+  return rows[0] ?? null;
 }
 
 export async function existeExpediente(db: Consultable, idExpediente: number): Promise<boolean> {

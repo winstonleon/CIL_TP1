@@ -31,6 +31,10 @@ const esquema = z.object({
   // cil-webhook-secret de n8n (al rotarlo hay que recrear api, C11).
   N8N_WEBHOOK_INTERNAL_URL: z.url(),
   N8N_WEBHOOK_SECRET: z.string().min(32),
+  // Enlace para agendar la visita guiada (HU0002, ADR-18): cifra el id del expediente en el enlace de P02.
+  ENLACE_VISITA_KEY: clave32,
+  // URL pública de la carpeta informativa (ADR-18). Vacía hasta que el colegio la entregue (C33).
+  CARPETA_INFORMATIVA_URL: z.preprocess((v) => (v === "" ? undefined : v), z.url().optional()),
 });
 
 export type Config = z.infer<typeof esquema>;

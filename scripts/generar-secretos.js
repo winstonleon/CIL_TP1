@@ -19,6 +19,7 @@ const valores = {
   N8N_ENCRYPTION_KEY: hex(32),
   DATA_ENCRYPTION_KEY: b64(),
   DATA_HMAC_KEY: b64(),
+  ENLACE_VISITA_KEY: b64(),
 };
 for (const [clave, valor] of Object.entries(valores)) {
   const re = new RegExp(`^${clave}=(.*)$`, "m");
