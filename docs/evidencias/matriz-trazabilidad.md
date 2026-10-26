@@ -1,6 +1,6 @@
 # Matriz de trazabilidad (HU → escenario → prueba → resultado)
 
-> Generada con `npm run evidencias:matriz` el 25/10/26, 6:59 p. m. (America/Lima) sobre el commit `ad190e5` **con cambios sin commit**. No se edita a mano.
+> Generada con `npm run evidencias:matriz` el 25/10/26, 7:12 p. m. (America/Lima) sobre el commit `f332d91`. No se edita a mano.
 
 ## Resumen
 
