@@ -122,8 +122,8 @@ interface Llamada {
   expedienteVisible: boolean; // el expediente ya se veía desde otra conexión al llegar la llamada
 }
 
-// Responde con el estado que indique `estadoDe(n)` para la llamada n (1, 2, 3…).
-async function crearN8nSimulado(estadoDe: (n: number) => number = () => 200) {
+// Responde con el estado que indique `estadoDe(n)` para la llamada n (1, 2, 3…) y, si se dan, con esas cabeceras.
+async function crearN8nSimulado(estadoDe: (n: number) => number = () => 200, cabecerasRespuesta: Record<string, string> = {}) {
   const llamadas: Llamada[] = [];
   const servidor = createServer(async (req, res) => {
     let cuerpo = "";
@@ -137,6 +137,7 @@ async function crearN8nSimulado(estadoDe: (n: number) => number = () => 200) {
     }
     llamadas.push({ metodo: req.method ?? "", ruta: req.url ?? "", cabeceras: req.headers, cuerpo, expedienteVisible });
     res.statusCode = estadoDe(llamadas.length);
+    for (const [nombre, valor] of Object.entries(cabecerasRespuesta)) res.setHeader(nombre, valor);
     res.end();
   });
   await new Promise<void>((listo) => servidor.listen(0, "127.0.0.1", listo));
@@ -365,18 +366,6 @@ describe("HU0001-2.0 datos obligatorios incompletos o con formato inválido", ()
     }
   });
 
-  it("HU0001-2.0 rechaza un grado que no existe o que es de otra campaña", async () => {
-    for (const idGrado of [2147483647, idGradoOtraCampana]) {
-      const datos = solicitud({ id_grado: idGrado });
-      const antes = await conteos();
-      const res = await enviar(datos);
-      expect(res.status).toBe(400);
-      expect(res.body.error).toEqual({ codigo: "VALIDACION", mensaje: "Datos inválidos: id_grado" });
-      await sinNadaGuardado(datos.correo, antes);
-    }
-    expect(eventos.disparar).not.toHaveBeenCalled();
-  });
-
   it("HU0001-2.0 el cliente y el servidor aplican las mismas reglas", () => {
     expect(reglasCliente.CORREO.source).toBe(reglasServidor.CORREO.source);
     expect(reglasCliente.CORREO.flags).toBe(reglasServidor.CORREO.flags);
@@ -410,9 +399,9 @@ describe("HU0001-2.0 datos obligatorios incompletos o con formato inválido", ()
     }
 
     const correos: [string, boolean][] = [
-      ["mfquispe@correo.com", true],
+      ["mfquispe@ejemplo.test", true],
       ["  nombre.apellido+admision@ejemplo.test ", true],
-      ["o'brien@ejemplo.com.pe", true],
+      ["o'brien@colegio.ejemplo.test", true],
       ["NOMBRE@EJEMPLO.TEST", true],
       ["sin-arroba.ejemplo.test", false],
       ["a@b", false],
@@ -481,6 +470,42 @@ describe("P01 datos públicos y protecciones de la ruta (ADR-17)", () => {
       expect(Object.keys(grado).sort()).toEqual(["id_grado", "nivel", "nombre_grado"]);
     }
     expect(res.body.grados[0].nivel).toBe("inicial");
+  });
+
+  // Fuera del «Cuando» de HU0001-2.0 (campos omitidos o formato de correo o teléfono): es validación de la API.
+  it("P01 un grado que no existe o que es de otra campaña responde 400 y no guarda nada", async () => {
+    for (const idGrado of [2147483647, idGradoOtraCampana]) {
+      const datos = solicitud({ id_grado: idGrado });
+      const antes = await conteos();
+      const res = await enviar(datos);
+      expect(res.status).toBe(400);
+      expect(res.body.error).toEqual({ codigo: "VALIDACION", mensaje: "Datos inválidos: id_grado" });
+      await sinNadaGuardado(datos.correo, antes);
+    }
+    expect(eventos.disparar).not.toHaveBeenCalled();
+  });
+
+  it("P01 el aviso a n8n no sigue redirecciones: un 3xx no se reintenta y el secreto no sale hacia otro destino", async () => {
+    const aviso = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const otroDestino = await crearN8nSimulado();
+    const n8n = await crearN8nSimulado(() => 302, { Location: `${otroDestino.url}/captacion` });
+    const { disparador, terminar } = disparadorDePrueba(n8n.url);
+    try {
+      const datos = solicitud();
+      const res = await enviar(datos, crearApp({ campanaActiva: CAMPANA, eventos: disparador, limitePublico: SIN_LIMITE }));
+      expect(res.status).toBe(201);
+      await terminar();
+
+      expect(n8n.llamadas).toHaveLength(1);
+      expect(otroDestino.llamadas).toHaveLength(0);
+      expect(aviso).toHaveBeenCalledTimes(1);
+      expect(String(aviso.mock.calls[0]![0])).toMatch(/1 intento, HTTP 302\)$/);
+      expect((await guardadoPara(datos.correo)).expedientes).toHaveLength(1);
+    } finally {
+      aviso.mockRestore();
+      await n8n.cerrar();
+      await otroDestino.cerrar();
+    }
   });
 
   it("P01 un canal de origen desconocido responde 400 y no guarda nada", async () => {
@@ -586,7 +611,8 @@ describe("P01 datos públicos y protecciones de la ruta (ADR-17)", () => {
 
 describe("C3 repositorio de apoderados", () => {
   it("C3 el repositorio de apoderados cifra el DNI, guarda su hash y no devuelve el DNI cifrado", async () => {
-    const dni = String(10_000_000 + Math.floor(Math.random() * 89_999_999));
+    // DNI ficticio evidente (rules/db.md): 0000 y cuatro cifras al azar, para no chocar dentro de la corrida.
+    const dni = `0000${String(Math.floor(Math.random() * 10_000)).padStart(4, "0")}`;
     const datos = { nombres: "Con", apellidos: "Dni", telefono: "+51900000000", correo: correoUnico() };
 
     const id = await insertarApoderado(db(), { ...datos, dni });

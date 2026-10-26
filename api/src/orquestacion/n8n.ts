@@ -50,6 +50,8 @@ export function crearDisparadorN8n({ urlBase, secreto, timeoutMs = 5000, esperas
             headers: { "Content-Type": "application/json", "X-Webhook-Secret": secreto },
             body: JSON.stringify(cuerpo),
             signal: AbortSignal.timeout(timeoutMs),
+            // No se siguen redirecciones: fetch reenviaría X-Webhook-Secret al nuevo destino. Un 3xx es un fallo definitivo.
+            redirect: "manual",
           });
           await respuesta.body?.cancel().catch(() => undefined);
           if (respuesta.ok) return;

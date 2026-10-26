@@ -196,11 +196,14 @@ describe("HU0001-1.0 solicitud de información con consentimiento", () => {
     expect(document.activeElement).toBe(confirmacion.element);
   });
 
-  it("HU0001-1.0 el canal de origen es facebook o instagram según ?origen=, y formulario_web en cualquier otro caso", async () => {
+  it("HU0001-1.0 el canal de origen es facebook o instagram según ?origen=, sin distinguir mayúsculas, y formulario_web en cualquier otro caso", async () => {
     const casos: [string, string][] = [
       ["/solicitud-informacion?origen=instagram", "instagram"],
+      ["/solicitud-informacion?origen=Facebook", "facebook"],
+      ["/solicitud-informacion?origen=INSTAGRAM", "instagram"],
       ["/solicitud-informacion?origen=facebook&origen=instagram", "facebook"],
       ["/solicitud-informacion?origen=tiktok", "formulario_web"],
+      ["/solicitud-informacion?origen=TikTok", "formulario_web"],
       ["/solicitud-informacion", "formulario_web"],
     ];
     for (const [ruta, canal] of casos) {
@@ -219,6 +222,8 @@ describe("HU0001-1.0 solicitud de información con consentimiento", () => {
 
 // ---------------------------------------------------------------- HU0001-2.0
 
+// El color del estado «observado» de los prototipos (#8A4B08) no se puede comprobar en jsdom, que no aplica CSS: lo
+// verifica el E2E (e2e/solicitud-informacion.spec.ts). Aquí se comprueban aria-invalid, los mensajes y el foco.
 describe("HU0001-2.0 datos obligatorios incompletos o con formato inválido", () => {
   it("HU0001-2.0 resalta los campos obligatorios vacíos con su mensaje, lleva el foco al primero y no llama a la API", async () => {
     const e = await montar();

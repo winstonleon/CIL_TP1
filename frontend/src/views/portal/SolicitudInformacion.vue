@@ -527,7 +527,8 @@ async function cerrarPolitica() {
   color: var(--texto-suave);
 }
 
-/* Patrón de error de P07b: aviso, borde de 2 px y mensaje bajo el campo, en #8A4B08. */
+/* Patrón de error de P07b: aviso, borde de 2 px y mensaje bajo el campo, con el color del estado «observado» de los
+   prototipos (#8A4B08, HU0001-2.0). */
 .alerta {
   display: flex;
   align-items: flex-start;

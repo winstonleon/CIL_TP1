@@ -91,6 +91,15 @@ npm run n8n:importar       # importa los flujos y comprueba que cada nodo quedó
 
 **Un mismo secreto vive en dos lugares.** `INTERNAL_API_TOKEN` está en `.env` (lo valida la API) y en `cil-api-interna` (lo envía n8n). `N8N_WEBHOOK_SECRET` está en `.env` (lo envía la API al llamar al webhook) y en `cil-webhook-secret` (lo valida n8n). Si cambias uno, por ejemplo al ejecutar `generar-secretos.js` sobre un `.env` nuevo, vuelve a correr `npm run n8n:credenciales`; si no, las llamadas fallan con 401 o 403.
 
+**Al rotar `N8N_WEBHOOK_SECRET`, recrea también `api`** (HU0001, ADR-16). La API lee el secreto y `N8N_WEBHOOK_INTERNAL_URL` al arrancar, para avisar a n8n con el webhook `captacion`. Si solo actualizas la credencial, la API sigue enviando el secreto viejo y n8n responde 403:
+
+```bash
+npm run n8n:credenciales
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-deps api
+```
+
+En el VPS es lo mismo con `docker-compose.prod.yml`. Las dos variables son obligatorias para la API: sin ellas no arranca.
+
 ## 4. Abrir Claude Code y verificar
 
 - Abre la carpeta del repo en VS Code y luego el panel de Claude Code.
@@ -180,3 +189,18 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
 - **Limitaciones conocidas** (compromiso C26, antes del despliegue al VPS):
   - Cambiar de campaña exige a alguien con acceso al servidor y recrear `api` y `keycloak`. Además, en la realidad las campañas se superponen (2028 empieza mientras se cierra 2027), y hoy solo hay una campaña activa a la vez.
   - El derecho de admisión (S/ 300, R16) es una constante de la API: cambiarlo exige modificar el código, lo que contradice el «sin modificar su programación» de HU0022.
+
+### Formulario P01 y enlaces para las redes (HU0001)
+
+- **Qué es:** la solicitud de información y consentimiento (P01). Es pública: no pide iniciar sesión.
+  - Dirección: `<FRONTEND_PUBLIC_URL>/solicitud-informacion` (en dev, `http://localhost:5173/solicitud-informacion`).
+- **Enlaces que publica el colegio** en sus redes:
+  - Facebook: `<FRONTEND_PUBLIC_URL>/solicitud-informacion?origen=facebook`
+  - Instagram: `<FRONTEND_PUBLIC_URL>/solicitud-informacion?origen=instagram`
+  - El parámetro queda como canal de origen del consentimiento (`consentimiento.canal_origen`). Sin `?origen=`, o con otro valor, el canal es `formulario_web`.
+  - Se compara sin distinguir mayúsculas: `?origen=Facebook` o `?origen=INSTAGRAM` también cuentan como `facebook` e `instagram`.
+- **Límite por IP** (ADR-17): 5 envíos cada 10 minutos.
+  - En dev todo el tráfico pasa por el proxy de Vite y comparte un solo contador: si repites el E2E o las pruebas manuales, puede aparecer «Recibimos varias solicitudes desde tu conexión…».
+  - `docker compose -f docker-compose.yml -f docker-compose.dev.yml restart api` lo limpia.
+- **Hasta HU0002**, cada envío deja en el log de la API una línea como `Evento captacion no entregado a n8n (id_expediente=…, 1 intento, HTTP 404)`. Es lo esperado: el flujo `captacion` todavía no existe (C27).
+- **La política de privacidad es provisional** (versión `borrador-1`, texto entre corchetes) hasta que el colegio entregue la real (C29).

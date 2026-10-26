@@ -1,22 +1,45 @@
 # Matriz de trazabilidad (HU → escenario → prueba → resultado)
 
-> Generada con `npm run evidencias:matriz` el 23/10/26, 10:14 p. m. (America/Lima) sobre el commit `d7e83c2` **con cambios sin commit**. No se edita a mano.
+> Generada con `npm run evidencias:matriz` el 25/10/26, 6:59 p. m. (America/Lima) sobre el commit `ad190e5` **con cambios sin commit**. No se edita a mano.
 
 ## Resumen
 
 | Suite | Pruebas | Pasan | Fallan | Omitidas o no ejecutadas |
 |---|---|---|---|---|
-| API | 173 | 173 | 0 | 0 |
-| Frontend | 45 | 45 | 0 | 0 |
-| E2E | 37 | 37 | 0 | 0 |
+| API | 192 | 192 | 0 | 0 |
+| Frontend | 55 | 55 | 0 | 0 |
+| E2E | 42 | 42 | 0 | 0 |
 
-- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **7**.
-- Estados: sin prueba: 48 · cubierto: 4 · mecanismo probado; verificación en ruta real pendiente (C17): 1 · verificado: almacenamiento; pendiente: completitud, agendamiento, adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
+- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **10**.
+- Estados: cubierto: 7 · sin prueba: 45 · mecanismo probado; verificación en ruta real pendiente (C17): 1 · verificado: almacenamiento; pendiente: completitud, agendamiento, adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
 - Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.
 - «mecanismo probado; verificación en ruta real pendiente (C17)»: todas las pruebas del escenario llevan la marca `[política, ruta de prueba]` (compromiso C17).
 - «verificado: …; pendiente: … (C25)»: escenarios que se verifican por partes (HU0022-1.0, HU0022-2.0). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifican otras HU (compromiso C25).
 
 ## HU con pruebas
+
+### HU0001 — Registrar mis datos de contacto inicial (nombres, teléfono, correo electrónico y grado de interés) y otorgar mi consentimiento para el tratamiento de mis datos a través de un formulario web enlazado desde las redes sociales del colegio
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0001-1.0 — Registro exitoso de solicitud de información con consentimiento | cubierto | API | `api/test/solicitudInformacion.test.ts` | HU0001-1.0 registra el apoderado, el consentimiento y el expediente en prospecto sin postulante, y responde 201 sin identificadores | pasó |
+|  |  | API | `api/test/solicitudInformacion.test.ts` | HU0001-1.0 guarda la versión vigente de la política, la hora del servidor, el canal de origen y la autorización de WhatsApp | pasó |
+|  |  | API | `api/test/solicitudInformacion.test.ts` | HU0001-1.0 después del commit envía a /captacion solo el id_expediente, con X-Webhook-Secret (n8n simulado) | pasó |
+|  |  | API | `api/test/solicitudInformacion.test.ts` | HU0001-1.0 con n8n caído, con 404 o con 503 el registro queda, la respuesta sigue siendo 201, solo se reintenta ante red o 5xx y el log no tiene datos personales | pasó |
+|  |  | Frontend | `frontend/src/views/portal/SolicitudInformacion.test.ts` | HU0001-1.0 P01 se abre sin iniciar sesión, pide el formulario a la API sin token y muestra la campaña y los textos del mockup | pasó |
+|  |  | Frontend | `frontend/src/views/portal/SolicitudInformacion.test.ts` | HU0001-1.0 envía los datos normalizados, el canal de ?origen= y el campo trampa vacío, sin token, y muestra la confirmación | pasó |
+|  |  | Frontend | `frontend/src/views/portal/SolicitudInformacion.test.ts` | HU0001-1.0 el canal de origen es facebook o instagram según ?origen=, sin distinguir mayúsculas, y formulario_web en cualquier otro caso | pasó |
+|  |  | E2E | `e2e/solicitud-informacion.spec.ts` | HU0001-1.0 desde un enlace de Instagram, la familia registra sus datos, autoriza WhatsApp y acepta la política: ve la confirmación y quedan el apoderado, el consentimiento y el expediente en prospecto | pasó |
+| HU0001-2.0 — Intento de registro con datos obligatorios incompletos o erróneos | cubierto | API | `api/test/solicitudInformacion.test.ts` | HU0001-2.0 cada campo obligatorio omitido o vacío responde 400 y no guarda nada | pasó |
+|  |  | API | `api/test/solicitudInformacion.test.ts` | HU0001-2.0 rechaza correos y celulares con formato inválido y guarda los válidos normalizados | pasó |
+|  |  | API | `api/test/solicitudInformacion.test.ts` | HU0001-2.0 el cliente y el servidor aplican las mismas reglas | pasó |
+|  |  | Frontend | `frontend/src/views/portal/SolicitudInformacion.test.ts` | HU0001-2.0 resalta los campos obligatorios vacíos con su mensaje, lleva el foco al primero y no llama a la API | pasó |
+|  |  | Frontend | `frontend/src/views/portal/SolicitudInformacion.test.ts` | HU0001-2.0 resalta el correo y el celular con formato inválido con su mensaje y no llama a la API; corregidos, la solicitud se envía | pasó |
+|  |  | E2E | `e2e/solicitud-informacion.spec.ts` | HU0001-2.0 con campos vacíos o con formato inválido, P01 resalta los campos con el color del estado observado de los prototipos, muestra los mensajes y no envía nada | pasó |
+| HU0001-3.0 — Intento de registro sin consentimiento | cubierto | API | `api/test/solicitudInformacion.test.ts` | HU0001-3.0 sin aceptar la política responde 422 y no guarda nada, aunque se salte el formulario y aunque los demás campos sean inválidos | pasó |
+|  |  | API | `api/test/solicitudInformacion.test.ts` | HU0001-3.0 sin consentimiento no se dispara ningún evento hacia n8n | pasó |
+|  |  | Frontend | `frontend/src/views/portal/SolicitudInformacion.test.ts` | HU0001-3.0 sin el consentimiento muestra «El consentimiento es obligatorio para continuar.» y no llama a la API; las dos casillas empiezan desmarcadas | pasó |
+|  |  | E2E | `e2e/solicitud-informacion.spec.ts` | HU0001-3.0 sin marcar el consentimiento, P01 indica que es obligatorio para continuar, no envía nada y no se guarda ningún dato | pasó |
 
 ### HU0021 — Crear, modificar, desactivar y reactivar las cuentas del personal y asignarles un rol (secretaría, Tesorería, psicóloga, evaluador académico o Directora)
 
@@ -153,9 +176,6 @@
 
 | HU | Escenario | Estado |
 |---|---|---|
-| HU0001 | HU0001-1.0 — Registro exitoso de solicitud de información con consentimiento | sin prueba |
-| HU0001 | HU0001-2.0 — Intento de registro con datos obligatorios incompletos o erróneos | sin prueba |
-| HU0001 | HU0001-3.0 — Intento de registro sin consentimiento | sin prueba |
 | HU0002 | HU0002-1.0 — Despacho exitoso de la carpeta informativa automatizada | sin prueba |
 | HU0002 | HU0002-2.0 — Falla en el despacho por rebote de correo electrónico | sin prueba |
 | HU0003 | HU0003-1.0 — Reserva exitosa de visita guiada presencial | sin prueba |

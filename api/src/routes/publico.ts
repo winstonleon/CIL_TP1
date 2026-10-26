@@ -56,11 +56,13 @@ export interface OpcionesRutasPublicas {
 export function rutasPublicas({ campana, eventos, limite }: OpcionesRutasPublicas): Router {
   const rutas = Router();
 
+  // PÚBLICA a propósito (ADR-17), sin límite por IP: solo lee.
   // GET /publico/solicitud-informacion → { campana, politica: { version, texto }, grados: [{ id_grado, nivel, nombre_grado }] }
   rutas.get("/solicitud-informacion", async (_req, res) => {
     res.json(await formularioSolicitud(campana));
   });
 
+  // PÚBLICA a propósito (ADR-17), con límite por IP.
   // POST /publico/solicitud-informacion → 201 { estado: "registrada" } (HU0001-1.0) · 422 sin consentimiento
   // (HU0001-3.0) · 400 con datos faltantes o con formato inválido (HU0001-2.0)
   rutas.post("/solicitud-informacion", limitePorIp(limite), async (req, res) => {

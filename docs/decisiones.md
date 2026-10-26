@@ -159,13 +159,14 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
   - un campo trampa oculto: si llega con texto, la respuesta es la misma y no se guarda nada;
   - sin CORS: P01 llama a `/api` desde el mismo origen;
   - la respuesta es la misma en todos los casos, así que no revela si un correo ya existe.
-- **[EQUIPO, HU0001]** Teléfono: celular peruano (9 dígitos que empiezan con 9) o número E.164 internacional (`+` y de 8 a 15 dígitos). Siempre se guarda en E.164, p. ej. `+51987654321`. Un número con `+51` debe ser un celular (supuesto S8 del plan, pendiente de confirmar).
+- **[EQUIPO, HU0001]** Teléfono: celular peruano (9 dígitos que empiezan con 9) o número E.164 internacional (`+` y de 8 a 15 dígitos). Siempre se guarda en E.164, p. ej. `+51987654321`. Un número con `+51` debe ser un celular de 9 dígitos que empiece con 9 (S8, confirmado por John el 23/10/2026).
 - **[EQUIPO, HU0001]** Política de privacidad:
   - La versión y el texto viven en `api/src/services/politicaPrivacidad.ts`, y P01 los recibe del GET público.
   - El servidor guarda en `consentimiento.version_politica` su versión vigente, y la hora la pone la BD.
   - Hasta que el colegio entregue la política (C29), la versión es `borrador-1` y el texto va entre corchetes.
-- **[EQUIPO, HU0001]** Canal de origen: los enlaces que publica el colegio llevan `?origen=facebook` u `?origen=instagram`. Sin parámetro, el canal es `formulario_web`.
+- **[EQUIPO, HU0001]** Canal de origen: los enlaces que publica el colegio llevan `?origen=facebook` u `?origen=instagram`. Se compara sin distinguir mayúsculas: `Facebook` o `INSTAGRAM` también cuentan. Sin parámetro, o con cualquier otro valor, el canal es `formulario_web`.
 - **[EQUIPO, HU0001]** Si la misma familia envía P01 dos veces, se crean filas nuevas (brecha C28).
+- **[EQUIPO, HU0001]** Los errores de P01 (borde de los campos con error, caja del consentimiento y mensajes) usan el color del estado «observado» de los prototipos, `#8A4B08` (`--observado`), el mismo de P06, G03, G05 y P07b (HU0001-2.0).
 
 ## Orden recomendado de implementación
 0. **Sprint 0, base técnica** (no es una HU; se documenta como habilitador):

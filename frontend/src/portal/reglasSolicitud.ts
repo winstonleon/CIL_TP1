@@ -69,11 +69,13 @@ export const ETIQUETA_NIVEL: Readonly<Record<string, string>> = { inicial: "Inic
 // Opción del select: «Nivel · nombre del grado» con el nombre tal como está guardado (plan HU0001).
 export const etiquetaGrado = (g: { nivel: string; nombre_grado: string }) => `${ETIQUETA_NIVEL[g.nivel] ?? g.nivel} · ${g.nombre_grado}`;
 
-// Canal de origen (plan HU0001, S2): los enlaces del colegio llevan ?origen=facebook o ?origen=instagram; cualquier
-// otro valor, o ninguno, es formulario_web.
+// Canal de origen (plan HU0001, S2 y M2): los enlaces del colegio llevan ?origen=facebook o ?origen=instagram, y se
+// compara sin distinguir mayúsculas (Facebook o INSTAGRAM también cuentan). Cualquier otro valor, o ninguno, es
+// formulario_web.
 export type CanalOrigen = "facebook" | "instagram" | "formulario_web";
 
 export function canalDeOrigen(origen: unknown): CanalOrigen {
   const valor = Array.isArray(origen) ? origen[0] : origen;
-  return valor === "facebook" || valor === "instagram" ? valor : "formulario_web";
+  const canal = typeof valor === "string" ? valor.toLowerCase() : "";
+  return canal === "facebook" || canal === "instagram" ? canal : "formulario_web";
 }
