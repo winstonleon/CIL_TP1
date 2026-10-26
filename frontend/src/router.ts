@@ -7,6 +7,7 @@ import SesionIniciada from "./views/SesionIniciada.vue";
 import LayoutGestion from "./views/gestion/LayoutGestion.vue";
 import ConfiguracionCampana from "./views/gestion/ConfiguracionCampana.vue";
 import UsuariosRoles from "./views/gestion/UsuariosRoles.vue";
+import VisitasGuiadas from "./views/gestion/VisitasGuiadas.vue";
 import SolicitudInformacion from "./views/portal/SolicitudInformacion.vue";
 
 declare module "vue-router" {
@@ -42,6 +43,8 @@ export function crearEnrutador(historial: RouterHistory) {
             component: ConfiguracionCampana,
             meta: { titulo: "Configuración de la campaña", tituloConCampana: true, roles: ["secretaria"] },
           },
+          // G04 (HU0002-2.0): por ahora solo «Prospectos con contacto no entregado»; la agenda llega con HU0003 y HU0004.
+          { path: "visitas", component: VisitasGuiadas, meta: { titulo: "Visitas guiadas", roles: ["secretaria"] } },
         ],
       },
       { path: "/callback/:cliente(portal|gestion)", component: Callback },

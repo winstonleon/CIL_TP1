@@ -53,7 +53,7 @@ const ICONO = {
 export const MENU: Record<RolPersonal, OpcionMenu[]> = {
   secretaria: [
     { etiqueta: "Bandeja de expedientes", icono: ICONO.bandeja, columnas: ["datos_postulante", "documentos"] },
-    { etiqueta: "Visitas guiadas", icono: ICONO.visitas, columnas: ["visitas"] },
+    { etiqueta: "Visitas guiadas", icono: ICONO.visitas, ruta: "/gestion/visitas", columnas: ["visitas"] },
     { etiqueta: "Configuración de campaña", icono: ICONO.configuracion, ruta: "/gestion/configuracion", columnas: ["configuracion"] },
   ],
   tesoreria: [{ etiqueta: "Validaciones de Tesorería", icono: ICONO.tesoreria, columnas: ["datos_postulante"] }],
