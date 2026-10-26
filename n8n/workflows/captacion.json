@@ -1,0 +1,862 @@
+{
+  "name": "captacion",
+  "nodes": [
+    {
+      "id": "bdac2c7a-ea6a-4354-8e8d-05fd065d15d9",
+      "name": "Webhook captacion",
+      "webhookId": "e7163b02-64b5-4588-ba20-164c6459659e",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "captacion",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-webhook-secret"
+        }
+      }
+    },
+    {
+      "id": "a4b10e81-d239-4d1d-a557-289cd6df3d4c",
+      "name": "Validar evento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Valida el evento que envía la API después del registro de P01 (ADR-16, HU0002-1.0): el cuerpo es solo\n// { id_expediente } con un entero mayor que 0. Cualquier otro campo lo invalida: el contrato lleva solo\n// identificadores, así las ejecuciones guardan menos datos personales (C10, C11).\nconst esObjeto = (valor) => valor !== null && typeof valor === 'object' && !Array.isArray(valor);\n\nreturn $input.all().map((item, indice) => {\n  const cuerpo = esObjeto(item.json?.body) ? item.json.body : null;\n  const claves = cuerpo ? Object.keys(cuerpo) : [];\n  const id = cuerpo?.id_expediente;\n  const valido = claves.length === 1 && claves[0] === 'id_expediente' && Number.isSafeInteger(id) && id > 0 && id <= 2147483647;\n  return { json: { valido, id_expediente: valido ? id : null }, pairedItem: { item: indice } };\n});"
+      }
+    },
+    {
+      "id": "ef0bc8bb-6d4a-4285-a88e-a3d3ef9e6935",
+      "name": "¿Evento válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "2d68b48b-c377-469a-9c53-347f1451f77c",
+              "leftValue": "={{ $json.valido }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": false,
+        "options": {}
+      }
+    },
+    {
+      "id": "f182980f-8d5b-4cfa-94f7-074e1e3c413f",
+      "name": "Responder 202",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        720,
+        -80
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ estado: 'recibido' }) }}",
+        "options": {
+          "responseCode": 202
+        }
+      }
+    },
+    {
+      "id": "2de0195c-2eab-4ab8-a99b-801a6346d80d",
+      "name": "Responder 400 (evento inválido)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        720,
+        120
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: { codigo: 'VALIDACION', mensaje: 'El evento debe ser { id_expediente } con un entero mayor que 0.' } }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "d08447bf-57c9-4efd-b7f6-5b181f717555",
+      "name": "Detener: evento inválido",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        960,
+        120
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "captacion: evento inválido; el cuerpo debe ser solo { id_expediente }"
+      }
+    },
+    {
+      "id": "28968f9f-3577-438c-b25b-8dc2bbf2d989",
+      "name": "Cada minuto",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        360
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "fbaef365-a051-4558-af5e-87cb818b33ff",
+      "name": "Pedir pendientes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        240,
+        360
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/captacion/pendientes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "385321f1-36e3-4303-9bea-f2d945155787",
+      "name": "Un ítem por expediente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        360
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Barrido de captacion (C27, HU0002-1.0): un ítem por cada expediente de GET /internal/captacion/pendientes\n// (prospectos sin carpeta registrados hace más de 1 min y carpetas pendientes intentadas hace más de 10 min).\n// Si no hay pendientes no sale ningún ítem y la ejecución termina aquí.\nconst salida = [];\n$input.all().forEach((item, indice) => {\n  const expedientes = Array.isArray(item.json?.expedientes) ? item.json.expedientes : [];\n  for (const e of expedientes) {\n    if (Number.isSafeInteger(e?.id_expediente) && e.id_expediente > 0) {\n      salida.push({ json: { id_expediente: e.id_expediente }, pairedItem: { item: indice } });\n    }\n  }\n});\nreturn salida;"
+      }
+    },
+    {
+      "id": "9057fbb3-a5e8-4b0b-8eb3-cbb52362416c",
+      "name": "Reservar carpeta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        960,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/expedientes/{{ $json.id_expediente }}/carpeta-informativa",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "37c1a99d-8c01-40eb-b689-17d3bb571a2c",
+      "name": "¿Reserva hecha?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1200,
+        200
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "reservada",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "ce4a8296-0d5e-45ce-8b34-6556c9c40197",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 201,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "ya registrada",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "94fd1b2e-1d39-42d8-b135-5a51e28025ff",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 409,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "otro error"
+        }
+      }
+    },
+    {
+      "id": "79c11eb8-0b11-44eb-8549-9a16bd700f87",
+      "name": "Sin acción",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        320
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "86581baf-e81e-4e10-8570-27b5f2e44813",
+      "name": "Detener: reserva fallida",
+      "notes": "Debe quedar más abajo en el lienzo que «Carpeta enviada», «Registrar rebote» y «Marcar fallida» (y «Detener: reserva fallida» más abajo que «Enviar carpeta»): con executionOrder v1 las ramas corren de arriba abajo y un Stop and Error detiene toda la ejecución. Lo comprueba api/test/n8nCaptacion.test.ts.",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        460
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "=captacion: no se pudo reservar la carpeta (HTTP {{ $json.statusCode }}{{ $json.body?.error?.codigo ? ' ' + $json.body.error.codigo : '' }})"
+      }
+    },
+    {
+      "id": "588630e1-ac66-4c0f-bccd-64af95408cd2",
+      "name": "Enviar carpeta",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "onError": "continueRegularOutput",
+      "position": [
+        1440,
+        100
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "notificacion-multicanal",
+          "cachedResultName": "notificacion-multicanal"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id_expediente": "={{ $json.body.id_expediente }}",
+            "tipo_evento": "={{ $json.body.tipo_evento }}",
+            "asunto": "={{ $json.body.asunto }}",
+            "cuerpo": "={{ $json.body.cuerpo }}",
+            "id_notificacion": "={{ $json.body.id_notificacion }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "id_expediente",
+              "displayName": "id_expediente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "tipo_evento",
+              "displayName": "tipo_evento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "asunto",
+              "displayName": "asunto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "cuerpo",
+              "displayName": "cuerpo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "id_notificacion",
+              "displayName": "id_notificacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "234dbc22-9d07-42c2-9529-76a9ae189bbd",
+      "name": "Clasificar resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        100
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Decide qué hace captacion con lo que devolvió notificacion-multicanal (HU0002-1.0 y 2.0, C9, D7 corregido).\n// Entrada: un ítem por carpeta, emparejado con su reserva de la salida «reservada» de «¿Reserva hecha?» por el\n// pairedItem que pone Execute Workflow (el subflujo corre una vez por ítem); si falta, por la posición. Es el\n// resultado del subflujo, { id_expediente, correo: { estado_envio, id_notificacion }, whatsapp }, o, si falló,\n// { error: \"<mensaje>\" } (Execute Workflow que continúa ante errores, n8n 2.42.5).\n//   enviado   <- correo.estado_envio = enviado                                     -> termina\n//   rebote    <- correo.estado_envio = fallido: con la carpeta reservada, notificacion-multicanal solo responde\n//                fallido ante el rechazo permanente del destinatario (D1) y deja la fila pendiente\n//                                                  -> POST /rebote la cierra (HU0002-2.0); si falla, la retoma el barrido\n//   fallido   <- error 400 «notificacion-multicanal: entrada inválida…»: un defecto, la entrada la arma la API\n//                                                                                -> PATCH fallido, sin reintento\n//   pendiente <- correo.estado_envio = pendiente (error técnico de SMTP, o un 5.7.x u otro 5xx que no es rebote),\n//                un 502, un 500 o cualquier otro error\n//                                                                                -> sin PATCH: la retoma el barrido\n// Lo que no se reconoce cae en pendiente: un mensaje desconocido nunca deja la carpeta sin reintento.\nconst ENTRADA_INVALIDA = 'notificacion-multicanal: entrada inválida';\nconst reservas = $('¿Reserva hecha?').all(0);\n\nconst clasificar = (resultado) => {\n  if (resultado.error !== undefined) {\n    const mensaje = typeof resultado.error === 'string' ? resultado.error : String(resultado.error?.message ?? '');\n    return mensaje.startsWith(ENTRADA_INVALIDA)\n      ? { accion: 'fallido', motivo: 'entrada_invalida' }\n      : { accion: 'pendiente', motivo: 'notificacion_no_disponible' };\n  }\n  switch (resultado.correo?.estado_envio) {\n    case 'enviado':\n      return { accion: 'enviado', motivo: 'enviado' };\n    case 'fallido':\n      return { accion: 'rebote', motivo: 'rechazo_destinatario' };\n    case 'pendiente':\n      return { accion: 'pendiente', motivo: 'smtp_pendiente' };\n    default:\n      return { accion: 'pendiente', motivo: 'resultado_desconocido' };\n  }\n};\n\nreturn $input.all().map((item, indice) => {\n  const reserva = reservas[item.pairedItem?.item ?? indice]?.json?.body ?? {};\n  return {\n    json: {\n      ...clasificar(item.json ?? {}),\n      id_expediente: reserva.id_expediente ?? null,\n      id_notificacion: reserva.id_notificacion ?? null,\n    },\n    pairedItem: { item: indice },\n  };\n});"
+      }
+    },
+    {
+      "id": "b775633e-2369-45e0-a666-57172bee89ea",
+      "name": "Según el resultado",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1920,
+        100
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "enviado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "72ca067e-a4e4-4f7d-bc4d-7d4b61fc23a3",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "enviado",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "rebote",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "e3cb5b97-e8c7-4c9c-8996-a4c0c72ef687",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "rebote",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "fallido",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "07dba5ec-5f8e-4e36-8a7d-36da1c1a01a8",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "fallido",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "pendiente",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "5b0c8e2a-6f1d-4c55-9a7e-2c3d4e5f6a70",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "pendiente",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": 3
+        }
+      }
+    },
+    {
+      "id": "8f3c2d1e-4b5a-4c6d-8e7f-9a0b1c2d3e4f",
+      "name": "Carpeta enviada",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        -120
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Registrar rebote",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        2160,
+        20
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/notificaciones/{{ $json.id_notificacion }}/rebote",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ origen: 'smtp_rechazo' }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e",
+      "name": "Rebote registrado",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        20
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "3c4d5e6f-7a8b-4c9d-8e1f-2a3b4c5d6e7f",
+      "name": "Marcar fallida",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        2160,
+        180
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/notificaciones/{{ $json.id_notificacion }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ estado_envio: 'fallido' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "4d5e6f7a-8b9c-4d0e-9f1a-3b4c5d6e7f8a",
+      "name": "Detener: entrada rechazada",
+      "notes": "Debe quedar más abajo en el lienzo que «Carpeta enviada», «Registrar rebote» y «Marcar fallida» (y «Detener: reserva fallida» más abajo que «Enviar carpeta»): con executionOrder v1 las ramas corren de arriba abajo y un Stop and Error detiene toda la ejecución. Lo comprueba api/test/n8nCaptacion.test.ts.",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        180
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "=captacion: notificacion-multicanal rechazó la entrada de la carpeta (expediente {{ $('Clasificar resultado').item.json.id_expediente }}, notificación {{ $('Clasificar resultado').item.json.id_notificacion }}, PATCH fallido: HTTP {{ $json.statusCode }}); {{ $json.statusCode === 200 || $json.statusCode === 409 ? 'no se reintenta' : 'sigue pendiente y la retoma el barrido' }}"
+      }
+    },
+    {
+      "id": "5e6f7a8b-9c0d-4e1f-8a2b-4c5d6e7f8a9b",
+      "name": "Detener: envío pospuesto",
+      "notes": "Debe quedar más abajo en el lienzo que «Carpeta enviada», «Registrar rebote» y «Marcar fallida» (y «Detener: reserva fallida» más abajo que «Enviar carpeta»): con executionOrder v1 las ramas corren de arriba abajo y un Stop and Error detiene toda la ejecución. Lo comprueba api/test/n8nCaptacion.test.ts.",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        340
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "=captacion: envío de la carpeta pospuesto ({{ $json.motivo }}, expediente {{ $json.id_expediente }}, notificación {{ $json.id_notificacion }}); lo retoma el barrido"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook captacion": {
+      "main": [
+        [
+          {
+            "node": "Validar evento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar evento": {
+      "main": [
+        [
+          {
+            "node": "¿Evento válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Evento válido?": {
+      "main": [
+        [
+          {
+            "node": "Responder 202",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 400 (evento inválido)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder 202": {
+      "main": [
+        [
+          {
+            "node": "Reservar carpeta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder 400 (evento inválido)": {
+      "main": [
+        [
+          {
+            "node": "Detener: evento inválido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cada minuto": {
+      "main": [
+        [
+          {
+            "node": "Pedir pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir pendientes": {
+      "main": [
+        [
+          {
+            "node": "Un ítem por expediente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Un ítem por expediente": {
+      "main": [
+        [
+          {
+            "node": "Reservar carpeta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservar carpeta": {
+      "main": [
+        [
+          {
+            "node": "¿Reserva hecha?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Reserva hecha?": {
+      "main": [
+        [
+          {
+            "node": "Enviar carpeta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sin acción",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Detener: reserva fallida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar carpeta": {
+      "main": [
+        [
+          {
+            "node": "Clasificar resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clasificar resultado": {
+      "main": [
+        [
+          {
+            "node": "Según el resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según el resultado": {
+      "main": [
+        [
+          {
+            "node": "Carpeta enviada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar rebote",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar fallida",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Detener: envío pospuesto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar rebote": {
+      "main": [
+        [
+          {
+            "node": "Rebote registrado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar fallida": {
+      "main": [
+        [
+          {
+            "node": "Detener: entrada rechazada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "saveDataSuccessExecution": "none",
+    "errorWorkflow": "registro-errores",
+    "executionOrder": "v1",
+    "executionTimeout": 480
+  }
+}

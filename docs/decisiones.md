@@ -86,14 +86,16 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
 - **[MODELO R22]** Un rebote del correo de la carpeta informativa pasa el expediente a `contacto_no_entregado` y aparece en G04 («Prospectos con contacto no entregado»).
 - **[EQUIPO, HU0002] Detección del rebote: solo el rechazo síncrono** (antes PENDIENTE).
   - Cuenta como rebote el rechazo permanente del destinatario que da el servidor SMTP **durante el envío** (5xx en RCPT, p. ej. «550 5.1.1»).
+  - **[EQUIPO, HU0002, 26/10/2026] Qué 5xx es rebote:** el código extendido 5.1.x o 5.2.x, o 550, 551 o 553 sin código extendido. Un 5.7.x (política del servidor, p. ej. «550 5.7.1») o cualquier otro 5xx **no** es rebote: la notificación queda `pendiente`, con registro en `registro-errores` (punto siguiente). Lo clasifica el nodo «Estado fallido» de `notificacion-multicanal`.
   - La notificación queda `fallido` (el enum `estado_envio` no tiene «rebotado»), se audita `notificacion_rebotada` y el expediente pasa de `prospecto` a `contacto_no_entregado` (HU0002-2.0).
   - **Cubre solo ese caso.** Si el proveedor acepta el correo y avisa del rebote después (Gmail, Google Workspace o un proveedor transaccional), no se detecta. Esa detección asíncrona (webhook del proveedor o buzón de rebotes) queda para antes del despliegue al VPS (C34). Por eso la matriz muestra HU0002-2.0 por partes.
   - En dev, Mailpit responde 550 a todo destinatario que no sea `@ejemplo.test` (`MP_SMTP_ALLOWED_RECIPIENTS` en `docker-compose.dev.yml`). Las pruebas de rebote usan `@rebota.ejemplo.test`.
 - **[EQUIPO, HU0002] Fallos del envío de la carpeta informativa:**
   - rechazo permanente del destinatario → `fallido` con rebote (punto anterior);
-  - 400 (entrada inválida) o 502 `CONTACTO_NO_DISPONIBLE` de `notificacion-multicanal`: son deterministas → `fallido`, sin rebote, sin transición y **sin reintento**, con registro en `registro-errores`;
-  - 500 de `notificacion-multicanal` o un error técnico de SMTP (conexión, DNS, *timeout*, 4xx temporal) → la notificación queda `pendiente` y el barrido de `captacion` la retoma a los 10 min (ADR-16).
-  - No hay límite de reintentos, porque no hay columna para contarlos: cada intento fallido deja un aviso en el log.
+  - 400 (entrada inválida) de `notificacion-multicanal`: es un defecto, porque la entrada la arma la API → `fallido`, sin rebote, sin transición y **sin reintento**, con registro en `registro-errores`;
+  - 502 `CONTACTO_NO_DISPONIBLE` o 500 de `notificacion-multicanal`, un error técnico de SMTP (conexión, DNS, *timeout*, 4xx temporal), o un 5.7.x u otro 5xx que no es rebote → la notificación queda `pendiente`, con registro en `registro-errores`, y el barrido de `captacion` la retoma a los 10 min (ADR-16). Después de una reserva exitosa, un 502 casi siempre es la API caída (S0-C8), porque la reserva ya comprobó que el expediente existe.
+  - No hay límite de reintentos, porque no hay columna para contarlos. Cada ejecución de `captacion` con un intento fallido deja un aviso en el log, con el id de la ejecución. Si el barrido trae varias carpetas, el aviso es uno por ejecución; los demás ítems quedan en la ejecución guardada.
+  - Con la carpeta reservada, `notificacion-multicanal` solo cierra el envío exitoso. Ante el rechazo responde `fallido` y la fila la cierra `POST /rebote`, en la misma transacción que el evento y la transición: si ese POST falla, la fila sigue `pendiente` y el barrido la retoma (revisión de `constructor-n8n`).
 - **[PROPUESTA]** En desarrollo, el correo va a **Mailpit** (contenedor que captura los correos, visible en el navegador). Ningún correo sale a Internet desde dev.
 - **[EQUIPO] Excepción:** el enlace para definir la contraseña del personal lo envía Keycloak (ADR-02) y no se registra en notificacion, porque esa tabla exige un expediente. La evidencia queda en registro_auditoria (gestion_usuario).
 

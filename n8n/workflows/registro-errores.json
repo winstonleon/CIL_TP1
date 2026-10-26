@@ -1,0 +1,88 @@
+{
+  "name": "registro-errores",
+  "nodes": [
+    {
+      "id": "d586a2ff-585a-4994-8925-3f6dde8ff774",
+      "name": "Error en un flujo",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "545f890c-3e58-4430-8ddc-62708aaeb070",
+      "name": "Solo identificadores",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Toma del Error Trigger solo los identificadores del fallo: el flujo, el último nodo y el id de la ejecución (C2,\n// HU0002). El mensaje del error NO se envía: puede traer correos u otros datos personales. La API lo deja en su log y\n// la ejecución fallida se revisa en n8n con su id.\nconst unaLinea = (valor, maximo, porDefecto) => {\n  const texto = String(valor ?? '').replace(/[\\u0000-\\u001f\\u007f-\\u009f]/g, ' ').trim().slice(0, maximo);\n  return texto || porDefecto;\n};\n\nreturn $input.all().map((item, indice) => {\n  const e = item.json ?? {};\n  const id = String(e.execution?.id ?? '');\n  return {\n    json: {\n      flujo: unaLinea(e.workflow?.name, 60, 'desconocido'),\n      nodo: unaLinea(e.execution?.lastNodeExecuted ?? e.trigger?.error?.node?.name, 100, 'desconocido'),\n      id_ejecucion: /^[0-9A-Za-z-]{1,40}$/.test(id) ? id : 'sin-id',\n    },\n    pairedItem: { item: indice },\n  };\n});"
+      }
+    },
+    {
+      "id": "79b64bf2-c6e2-4d2e-9010-67ff5093400e",
+      "name": "Registrar fallo en la API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/errores-flujo",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ flujo: $json.flujo, nodo: $json.nodo, id_ejecucion: $json.id_ejecucion }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Error en un flujo": {
+      "main": [
+        [
+          {
+            "node": "Solo identificadores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Solo identificadores": {
+      "main": [
+        [
+          {
+            "node": "Registrar fallo en la API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "saveDataSuccessExecution": "none",
+    "executionOrder": "v1"
+  }
+}

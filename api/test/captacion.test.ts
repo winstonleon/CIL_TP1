@@ -63,7 +63,13 @@ describe("HU0002-1.0 reserva y armado de la carpeta informativa", () => {
     const res = await reservar(idExpediente);
 
     expect(res.status).toBe(201);
-    expect(res.body).toEqual({ id_notificacion: expect.any(Number), tipo_evento: "carpeta_enviada", asunto: expect.any(String), cuerpo: expect.any(String) });
+    expect(res.body).toEqual({
+      id_expediente: idExpediente,
+      id_notificacion: expect.any(Number),
+      tipo_evento: "carpeta_enviada",
+      asunto: expect.any(String),
+      cuerpo: expect.any(String),
+    });
     expect(res.body.asunto).toBe(`Carpeta informativa · Admisión ${grado.campana_admision}`);
     const lineas = (res.body.cuerpo as string).split("\n");
     expect(lineas[0]).toBe("Hola, Prueba:");
@@ -209,7 +215,7 @@ describe("C27 recuperación e idempotencia de la carpeta", () => {
     expect(lista.length).toBeLessThanOrEqual(20);
   });
 
-  it("C27 (D7) una carpeta pendiente por un 500 o un error técnico de SMTP vuelve al barrido a los 10 minutos y la reserva la retoma con el mismo id_notificacion; antes de los 10 minutos responde 409", async () => {
+  it("C27 (D7) una carpeta pendiente por un 502, un 500 o un error técnico de SMTP vuelve al barrido a los 10 minutos y la reserva la retoma con el mismo id_notificacion; antes de los 10 minutos responde 409", async () => {
     const { idExpediente } = await crearExpediente(db());
     await registradoHace(idExpediente, 30);
     const id = (await reservar(idExpediente)).body.id_notificacion as number;
@@ -232,12 +238,12 @@ describe("C27 recuperación e idempotencia de la carpeta", () => {
     expect((await reservar(idExpediente)).status).toBe(409);
   });
 
-  it("C27 (D7) una carpeta marcada fallida por un 400 o un 502 de notificacion-multicanal queda fallida, sin notificacion_rebotada ni transición, el expediente sigue en prospecto y el barrido no la retoma", async () => {
+  it("C27 (D7) una carpeta marcada fallida por un 400 de notificacion-multicanal queda fallida, sin notificacion_rebotada ni transición, el expediente sigue en prospecto y el barrido no la retoma", async () => {
     const { idExpediente } = await crearExpediente(db());
     await registradoHace(idExpediente, 30);
     const id = (await reservar(idExpediente)).body.id_notificacion as number;
 
-    expect((await cerrar(id, "fallido")).status).toBe(200); // lo que hace captacion ante un 400 o un 502 (D7)
+    expect((await cerrar(id, "fallido")).status).toBe(200); // lo que hace captacion ante un 400 (D7)
     await intentadaHace(id, 60);
 
     expect((await carpetasDe(idExpediente))[0].estado_envio).toBe("fallido");

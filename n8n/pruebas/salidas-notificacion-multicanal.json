@@ -1,0 +1,174 @@
+{
+  "descripcion": "Salidas reales de notificacion-multicanal y del nodo «Enviar correo», capturadas una vez en dev (25/10/2026) para la prueba de D7 (api/test/n8nCaptacion.test.ts, plan HU0002). Sin secretos, tokens ni datos personales: los textos de error se copiaron tal cual, al error de «Enviar correo» se le quitó el campo `correo` (la dirección del destinatario) y no se guardan ids de ejecución. Los ids de expediente y de notificación de los tres primeros casos son de filas ficticias de dev; en los casos de error, la reserva usa ids de ejemplo, porque esos errores salieron de llamadas directas a notificacion-multicanal (S0-C7 y S0-C8), sin reserva. Un caso es redactado, no capturado: el rechazo 5.7.1, escrito con el mismo prefijo de nodemailer que el 550 real de Mailpit, porque Mailpit en dev solo devuelve su 550 5.1.0.",
+  "envoltorio_de_error": "Si el subflujo falla, Execute Workflow con onError «continuar» entrega { json: { error: error.message } } por la salida normal (n8n 2.42.5, ExecuteWorkflow.node.js, rama continueOnFail). Los casos de error usan ese envoltorio con el mensaje real.",
+  "clasificar_resultado": [
+    {
+      "caso": "envío exitoso",
+      "fuente": "prueba manual del tramo (b): P01 con un correo @ejemplo.test; salida de «Responder 200» del subflujo",
+      "salida_subflujo": {
+        "id_expediente": 9,
+        "correo": {
+          "estado_envio": "enviado",
+          "id_notificacion": 35
+        },
+        "whatsapp": "no_aplica"
+      },
+      "reserva": {
+        "id_expediente": 9,
+        "id_notificacion": 35
+      },
+      "accion": "enviado"
+    },
+    {
+      "caso": "rechazo 550 del destinatario",
+      "fuente": "prueba manual del tramo (b): P01 con un correo @rebota.ejemplo.test y Mailpit con MP_SMTP_ALLOWED_RECIPIENTS; salida de «Responder 200» del subflujo",
+      "salida_subflujo": {
+        "id_expediente": 11,
+        "correo": {
+          "estado_envio": "fallido",
+          "id_notificacion": 39
+        },
+        "whatsapp": "no_aplica"
+      },
+      "reserva": {
+        "id_expediente": 11,
+        "id_notificacion": 39
+      },
+      "accion": "rebote"
+    },
+    {
+      "caso": "error de conexión con Mailpit detenido",
+      "fuente": "prueba manual del tramo (b): P01 con Mailpit detenido; salida de «Enviar carpeta» en captacion (resultado del subflujo)",
+      "salida_subflujo": {
+        "id_expediente": 10,
+        "correo": {
+          "estado_envio": "pendiente",
+          "id_notificacion": 36
+        },
+        "whatsapp": "no_aplica"
+      },
+      "reserva": {
+        "id_expediente": 10,
+        "id_notificacion": 36
+      },
+      "accion": "pendiente"
+    },
+    {
+      "caso": "400 entrada inválida",
+      "fuente": "ejecución de S0-C7 «una entrada inválida responde 400 VALIDACION»: mensaje del error de la ejecución",
+      "salida_subflujo": {
+        "error": "notificacion-multicanal: entrada inválida (id_expediente debe ser un entero mayor que 0; tipo_evento debe ser un texto de 1 a 60 caracteres; asunto debe ser un texto no vacío; cuerpo debe ser un texto no vacío)"
+      },
+      "reserva": {
+        "id_expediente": 12,
+        "id_notificacion": 40
+      },
+      "accion": "fallido"
+    },
+    {
+      "caso": "502 contacto inexistente",
+      "fuente": "ejecución de S0-C7 «un expediente inexistente responde 502 CONTACTO_NO_DISPONIBLE»: mensaje del error de la ejecución",
+      "salida_subflujo": {
+        "error": "notificacion-multicanal: no se pudo obtener el contacto del expediente 999999 (404 - \"{\\\"error\\\":{\\\"codigo\\\":\\\"EXPEDIENTE_NO_ENCONTRADO\\\",\\\"mensaje\\\":\\\"El expediente no existe\\\"}}\")"
+      },
+      "reserva": {
+        "id_expediente": 13,
+        "id_notificacion": 41
+      },
+      "accion": "pendiente"
+    },
+    {
+      "caso": "502 con la API detenida",
+      "fuente": "ejecución de S0-C8 «… y API detenida»: mensaje del error de la ejecución (llega el del nodo HTTP, no el del Stop and Error)",
+      "salida_subflujo": {
+        "error": "The connection cannot be established, this usually occurs due to an incorrect host (domain) value"
+      },
+      "reserva": {
+        "id_expediente": 14,
+        "id_notificacion": 42
+      },
+      "accion": "pendiente"
+    },
+    {
+      "caso": "500 registro fallido (nodo HTTP sin conexión)",
+      "fuente": "log de n8n durante S0-C8: mensaje de un nodo HTTP hacia la API detenida (ECONNREFUSED), el mismo con que falla «Registrar notificación» o «Actualizar notificación»",
+      "salida_subflujo": {
+        "error": "The service refused the connection - perhaps it is offline"
+      },
+      "reserva": {
+        "id_expediente": 15,
+        "id_notificacion": 43
+      },
+      "accion": "pendiente"
+    },
+    {
+      "caso": "500 registro fallido (nodo HTTP con 404)",
+      "fuente": "ejecución de S0-C7 «un expediente inexistente…»: mensaje del nodo HTTP ante un 404 de la API",
+      "salida_subflujo": {
+        "error": "The resource you are requesting could not be found"
+      },
+      "reserva": {
+        "id_expediente": 16,
+        "id_notificacion": 44
+      },
+      "accion": "pendiente"
+    }
+  ],
+  "estado_fallido": [
+    {
+      "caso": "rechazo 550, carpeta reservada",
+      "fuente": "prueba manual del tramo (b): salida de error de «Enviar correo» (sin el campo correo)",
+      "error_envio": {
+        "id_expediente": 11,
+        "autoriza_whatsapp": false,
+        "error": "Can't send mail - all recipients were rejected: 550 5.1.0 Requested action not taken: mailbox unavailable"
+      },
+      "id_notificacion": 39,
+      "estado_envio": "fallido"
+    },
+    {
+      "caso": "Mailpit detenido, carpeta reservada",
+      "fuente": "prueba manual del tramo (b): salida de error de «Enviar correo» (sin el campo correo)",
+      "error_envio": {
+        "id_expediente": 10,
+        "autoriza_whatsapp": false,
+        "error": "connect EHOSTUNREACH 172.19.0.2:1025"
+      },
+      "id_notificacion": 36,
+      "estado_envio": "pendiente"
+    },
+    {
+      "caso": "rechazo 5.7.1 (política del servidor), carpeta reservada",
+      "fuente": "REDACTADO en el formato real de nodemailer («Can't send mail - all recipients were rejected: <respuesta del servidor>», el mismo prefijo del 550 real de Mailpit); no es una captura",
+      "error_envio": {
+        "id_expediente": 17,
+        "autoriza_whatsapp": false,
+        "error": "Can't send mail - all recipients were rejected: 550 5.7.1 Relaying denied"
+      },
+      "id_notificacion": 45,
+      "estado_envio": "pendiente"
+    },
+    {
+      "caso": "rechazo 550, llamada del Sprint 0 (sin id_notificacion)",
+      "fuente": "mismo error real del rechazo 550",
+      "error_envio": {
+        "id_expediente": 1,
+        "autoriza_whatsapp": false,
+        "error": "Can't send mail - all recipients were rejected: 550 5.1.0 Requested action not taken: mailbox unavailable"
+      },
+      "id_notificacion": null,
+      "estado_envio": "fallido"
+    },
+    {
+      "caso": "Mailpit detenido, llamada del Sprint 0 (sin id_notificacion)",
+      "fuente": "mismo error real de Mailpit detenido",
+      "error_envio": {
+        "id_expediente": 1,
+        "autoriza_whatsapp": false,
+        "error": "connect EHOSTUNREACH 172.19.0.2:1025"
+      },
+      "id_notificacion": null,
+      "estado_envio": "fallido"
+    }
+  ]
+}

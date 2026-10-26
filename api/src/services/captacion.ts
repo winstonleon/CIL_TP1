@@ -2,7 +2,7 @@
 // pendientes (C27) y registro del rebote síncrono del correo (HU0002-2.0).
 // - La reserva crea la notificación `pendiente` ANTES de enviar, con el expediente bloqueado: un reintento de la API
 //   (ADR-16), el barrido y el webhook a la vez no duplican la carpeta (C27 b).
-// - Una `pendiente` intentada hace más de 10 min se retoma (D7: un 500 o un error técnico de SMTP la dejan pendiente).
+// - Una `pendiente` intentada hace más de 10 min se retoma (D7: un 502, un 500 o un error técnico de SMTP la dejan pendiente).
 //   Se acepta «al menos una vez»: si n8n cae justo después de enviar, la retoma puede repetir un correo (S4).
 // - Orden de bloqueo: expediente y luego notificación, en la reserva y en el rebote (sin interbloqueos).
 import { obtenerConfig } from "../config";
@@ -30,6 +30,7 @@ export const MINUTOS_REINTENTO = 10;
 export const MAXIMO_PENDIENTES = 20;
 
 export interface CarpetaReservada {
+  id_expediente: number; // captacion lo pasa a notificacion-multicanal sin depender del emparejamiento de ítems de n8n
   id_notificacion: number;
   tipo_evento: string;
   asunto: string;
@@ -65,7 +66,7 @@ export async function reservarCarpeta(idExpediente: number): Promise<CarpetaRese
       enlaceVisita: enlaceVisita(idExpediente),
       urlCarpeta: obtenerConfig().CARPETA_INFORMATIVA_URL,
     });
-    return { id_notificacion: idNotificacion, tipo_evento: TIPO_EVENTO_CARPETA, asunto, cuerpo };
+    return { id_expediente: idExpediente, id_notificacion: idNotificacion, tipo_evento: TIPO_EVENTO_CARPETA, asunto, cuerpo };
   });
 }
 

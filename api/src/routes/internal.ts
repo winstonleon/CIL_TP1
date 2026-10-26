@@ -21,7 +21,8 @@ const cuerpoNotificacion = z.object({
   estado_envio: z.enum(["pendiente", "enviado", "fallido"]),
 });
 
-// Un intento reservado se cierra solo con su resultado; `pendiente` no es un resultado (D7: el error técnico la deja así).
+// Un intento reservado se cierra solo con su resultado; `pendiente` no es un resultado (D7: un 502, un 500 o un error
+// técnico la dejan así).
 const cuerpoCierre = z.object({ estado_envio: z.enum(["enviado", "fallido"]) }).strict();
 
 const cuerpoRebote = z.object({ origen: z.enum(ORIGENES_REBOTE) }).strict();
@@ -53,8 +54,8 @@ rutasInternas.post("/notificaciones", async (req, res) => {
   res.status(201).json({ id_notificacion: id });
 });
 
-// HU0002 (flujo captacion): POST /internal/expedientes/:id/carpeta-informativa → 201 { id_notificacion, tipo_evento,
-// asunto, cuerpo } · 409 CARPETA_YA_REGISTRADA o ESTADO_NO_PERMITE_CARPETA · 404
+// HU0002 (flujo captacion): POST /internal/expedientes/:id/carpeta-informativa → 201 { id_expediente, id_notificacion,
+// tipo_evento, asunto, cuerpo } · 409 CARPETA_YA_REGISTRADA o ESTADO_NO_PERMITE_CARPETA · 404
 rutasInternas.post("/expedientes/:id/carpeta-informativa", async (req, res) => {
   res.status(201).json(await reservarCarpeta(validar(idRuta, req.params.id)));
 });

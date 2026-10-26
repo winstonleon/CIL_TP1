@@ -58,6 +58,9 @@ services:
     image: axllent/mailpit:v1.31.4
     environment:
       TZ: America/Lima
+      # Rechazo síncrono para HU0002-2.0 (ADR-07, D1): Mailpit responde 550 a todo destinatario que no sea
+      # @ejemplo.test. Las pruebas de rebote usan @rebota.ejemplo.test. «$$» es un «$» literal para docker compose.
+      MP_SMTP_ALLOWED_RECIPIENTS: '@ejemplo\.test$$'
     ports:
       - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
     healthcheck:
