@@ -1,20 +1,20 @@
 # Matriz de trazabilidad (HU → escenario → prueba → resultado)
 
-> Generada con `npm run evidencias:matriz` el 25/10/26, 7:12 p. m. (America/Lima) sobre el commit `f332d91`. No se edita a mano.
+> Generada con `npm run evidencias:matriz` el 29/10/26, 10:41 p. m. (America/Lima) sobre el commit `3d701d5`. No se edita a mano.
 
 ## Resumen
 
 | Suite | Pruebas | Pasan | Fallan | Omitidas o no ejecutadas |
 |---|---|---|---|---|
-| API | 192 | 192 | 0 | 0 |
-| Frontend | 55 | 55 | 0 | 0 |
-| E2E | 42 | 42 | 0 | 0 |
+| API | 218 | 218 | 0 | 0 |
+| Frontend | 59 | 59 | 0 | 0 |
+| E2E | 50 | 50 | 0 | 0 |
 
-- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **10**.
-- Estados: cubierto: 7 · sin prueba: 45 · mecanismo probado; verificación en ruta real pendiente (C17): 1 · verificado: almacenamiento; pendiente: completitud, agendamiento, adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
+- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **12**.
+- Estados: cubierto: 7 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · sin prueba: 43 · mecanismo probado; verificación en ruta real pendiente (C17): 1 · verificado: almacenamiento; pendiente: completitud, agendamiento, adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
 - Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.
 - «mecanismo probado; verificación en ruta real pendiente (C17)»: todas las pruebas del escenario llevan la marca `[política, ruta de prueba]` (compromiso C17).
-- «verificado: …; pendiente: … (C25)»: escenarios que se verifican por partes (HU0022-1.0, HU0022-2.0). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifican otras HU (compromiso C25).
+- «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
 
 ## HU con pruebas
 
@@ -40,6 +40,26 @@
 |  |  | API | `api/test/solicitudInformacion.test.ts` | HU0001-3.0 sin consentimiento no se dispara ningún evento hacia n8n | pasó |
 |  |  | Frontend | `frontend/src/views/portal/SolicitudInformacion.test.ts` | HU0001-3.0 sin el consentimiento muestra «El consentimiento es obligatorio para continuar.» y no llama a la API; las dos casillas empiezan desmarcadas | pasó |
 |  |  | E2E | `e2e/solicitud-informacion.spec.ts` | HU0001-3.0 sin marcar el consentimiento, P01 indica que es obligatorio para continuar, no envía nada y no se guarda ningún dato | pasó |
+
+### HU0002 — Distribuir automáticamente la carpeta informativa digital de admisión por correo electrónico y mensajería instantánea tras el registro de un prospecto
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0002-1.0 — Despacho exitoso de la carpeta informativa automatizada | verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30) | API | `api/test/captacion.test.ts` | HU0002-1.0 [parte: correo] la reserva crea una notificación pendiente y devuelve el asunto y el cuerpo con la carpeta y el enlace para agendar | pasó |
+|  |  | API | `api/test/captacion.test.ts` | HU0002-1.0 [parte: correo] el enlace identifica al expediente sin mostrar su id; un token alterado, truncado o de otra clave no identifica a nadie | pasó |
+|  |  | API | `api/test/captacion.test.ts` | HU0002-1.0 [parte: correo] los textos del colegio van entre corchetes, y sin CARPETA_INFORMATIVA_URL el cuerpo lo dice | pasó |
+|  |  | API | `api/test/captacion.test.ts` | HU0002-1.0 [parte: correo] marcar enviado o fallido cierra la notificación; repetirlo es idempotente y cambiar un estado cerrado da 409 | pasó |
+|  |  | E2E | `e2e/captacion.spec.ts` | HU0002-1.0 [parte: correo] desde P01, el correo con la carpeta y el enlace llega a Mailpit en menos de un minuto y queda enviado | pasó |
+|  |  | E2E | `e2e/captacion.spec.ts` | HU0002-1.0 [parte: sin WhatsApp] con la casilla marcada y el canal desactivado, o sin marcarla, no hay fila de WhatsApp y el flujo termina bien | pasó |
+| HU0002-2.0 — Falla en el despacho por rebote de correo electrónico | verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34) | API | `api/test/captacion.test.ts` | HU0002-2.0 [parte: rechazo síncrono] el rebote deja la notificación fallida, audita notificacion_rebotada y pasa el expediente a contacto_no_entregado en una transacción | pasó |
+|  |  | API | `api/test/captacion.test.ts` | HU0002-2.0 [parte: rechazo síncrono] repetir el rebote no duplica eventos; fuera de prospecto se registra sin transición | pasó |
+|  |  | API | `api/test/captacionTransaccion.test.ts` | HU0002-2.0 [parte: rechazo síncrono] si la transición falla, el rebote no deja nada: la notificación no cambia ni queda notificacion_rebotada | pasó |
+|  |  | API | `api/test/prospectos.test.ts` | HU0002-2.0 [parte: rechazo síncrono] G04: la secretaria recibe los prospectos con contacto no entregado (nombre, grado, correo, teléfono y fecha), sin DNI | pasó |
+|  |  | API | `api/test/prospectos.test.ts` | HU0002-2.0 [parte: rechazo síncrono] G04: otro rol recibe 403 y el intento se audita como acceso_denegado | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/VisitasGuiadas.test.ts` | HU0002-2.0 [parte: rechazo síncrono] G04 muestra la sección con la insignia, el texto y una fila por prospecto, con el teléfono y la fecha del mockup | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/VisitasGuiadas.test.ts` | HU0002-2.0 [parte: rechazo síncrono] G04 sin prospectos muestra el mensaje vacío | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/VisitasGuiadas.test.ts` | HU0002-2.0 [parte: rechazo síncrono] «Visitas guiadas» aparece y navega solo para secretaria | pasó |
+|  |  | E2E | `e2e/captacion.spec.ts` | HU0002-2.0 [parte: rechazo síncrono] un correo rechazado por el servidor deja la notificación fallida, el rebote auditado y el prospecto en G04 | pasó |
 
 ### HU0021 — Crear, modificar, desactivar y reactivar las cuentas del personal y asignarles un rol (secretaría, Tesorería, psicóloga, evaluador académico o Directora)
 
@@ -176,8 +196,6 @@
 
 | HU | Escenario | Estado |
 |---|---|---|
-| HU0002 | HU0002-1.0 — Despacho exitoso de la carpeta informativa automatizada | sin prueba |
-| HU0002 | HU0002-2.0 — Falla en el despacho por rebote de correo electrónico | sin prueba |
 | HU0003 | HU0003-1.0 — Reserva exitosa de visita guiada presencial | sin prueba |
 | HU0003 | HU0003-2.0 — Intento de reserva en un horario tomado simultáneamente | sin prueba |
 | HU0004 | HU0004-1.0 — Registro de visita conforme y apertura de postulación | sin prueba |
