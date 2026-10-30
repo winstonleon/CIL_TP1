@@ -100,6 +100,12 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-deps a
 
 En el VPS es lo mismo con `docker-compose.prod.yml`. Las dos variables son obligatorias para la API: sin ellas no arranca.
 
+**Qué hace `n8n:importar` (HU0002, ADR-06):**
+- **Orden:** importa primero `registro-errores`, después `notificacion-multicanal` y al final el resto (hoy `captacion`). Si falla uno del que dependen otros, se detiene.
+- **Publica cada flujo.** n8n 2.x guarda la actualización como borrador; el script lo publica y comprueba que la versión activa sea la importada. Un flujo no se puede publicar si su *Error Workflow* no tiene versión publicada: por eso `registro-errores` va primero.
+- **Nombres, no IDs:** resuelve por nombre el `errorWorkflow` de cada flujo y el flujo que llama cada nodo Execute Workflow, y al exportar de vuelta al repo deja otra vez el nombre.
+- **`registro-errores` es un workflow técnico** (C2), no uno de los 7 flujos del TI. Es el *Error Workflow* de los demás y avisa a la API con solo el flujo, el nodo y el id de la ejecución, nunca el mensaje del error. En el log de la API queda una línea como `Fallo en n8n (flujo=captacion, nodo=Detener: envío pospuesto, ejecución=142)`; los datos de esa ejecución se ven en la interfaz de n8n.
+
 ## 4. Abrir Claude Code y verificar
 
 - Abre la carpeta del repo en VS Code y luego el panel de Claude Code.
@@ -200,7 +206,22 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
   - El parámetro queda como canal de origen del consentimiento (`consentimiento.canal_origen`). Sin `?origen=`, o con otro valor, el canal es `formulario_web`.
   - Se compara sin distinguir mayúsculas: `?origen=Facebook` o `?origen=INSTAGRAM` también cuentan como `facebook` e `instagram`.
 - **Límite por IP** (ADR-17): 5 envíos cada 10 minutos.
-  - En dev todo el tráfico pasa por el proxy de Vite y comparte un solo contador: si repites el E2E o las pruebas manuales, puede aparecer «Recibimos varias solicitudes desde tu conexión…».
+  - En dev todo el tráfico del navegador pasa por el proxy de Vite y comparte un solo contador: si repites el E2E o las pruebas manuales, puede aparecer «Recibimos varias solicitudes desde tu conexión…».
+  - Las llamadas directas al puerto de la API (desde el host) cuentan aparte. `e2e/captacion.spec.ts` registra 3 prospectos por el navegador y el proxy de Vite y 4 por llamadas directas: correr ese archivo solo dos veces en menos de 10 minutos da 429. La corrida completa no tiene el problema, porque S0-C8 reinicia la `api`.
   - `docker compose -f docker-compose.yml -f docker-compose.dev.yml restart api` lo limpia.
-- **Hasta HU0002**, cada envío deja en el log de la API una línea como `Evento captacion no entregado a n8n (id_expediente=…, 1 intento, HTTP 404)`. Es lo esperado: el flujo `captacion` todavía no existe (C27).
+- **Cada envío dispara el flujo `captacion`** (HU0002), que manda la carpeta informativa en menos de un minuto. Si n8n no está levantado, el log de la API dice `Evento captacion no entregado a n8n (id_expediente=…, 3 intentos, …)` y el barrido de `captacion` la manda cuando n8n vuelve (C27).
 - **La política de privacidad es provisional** (versión `borrador-1`, texto entre corchetes) hasta que el colegio entregue la real (C29).
+
+### Carpeta informativa y flujo `captacion` (HU0002)
+
+- **Qué es:** tras cada registro de P01, el flujo `captacion` de n8n envía por correo la carpeta informativa con el enlace para agendar la visita guiada (P02). Un rechazo del destinatario deja el prospecto en «Prospectos con contacto no entregado» de G04 (Visitas guiadas, Secretaría).
+- **Variables nuevas en `.env`** (las dos están en `.env.example`):
+  - `ENLACE_VISITA_KEY`: clave del token del enlace de P02 (32 bytes en base64, ADR-18). Es un secreto: agrega la línea vacía y corre `node scripts/generar-secretos.js`, que la genera sin imprimirla. Si la cambias, los enlaces ya enviados dejan de valer.
+  - `CARPETA_INFORMATIVA_URL`: enlace a la carpeta digital del colegio. Es opcional: vacía, el correo lo dice entre corchetes. En dev se usa la URL ficticia `https://carpeta.ejemplo.test/admision-2027`, hasta que el colegio entregue la real (C33).
+  - Si agregas o cambias alguna con los contenedores levantados, recrea `api`: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-deps api`.
+- **Rebotes en dev:** Mailpit rechaza con 550 a todo destinatario que no sea `@ejemplo.test` (`MP_SMTP_ALLOWED_RECIPIENTS` en `docker-compose.dev.yml`, ADR-07). Para probar un rebote, usa un correo `@rebota.ejemplo.test`.
+  - Si tu contenedor de Mailpit es anterior a HU0002, recréalo para que tome la variable: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --force-recreate --no-deps mailpit`. Mailpit guarda los correos en memoria, así que se pierden los que tenía.
+- **Barrido:** `captacion` revisa cada minuto los prospectos sin carpeta registrados hace más de 1 minuto y las carpetas `pendiente` intentadas hace más de 10 minutos (C27). Al importarlo por primera vez en una base de dev con prospectos, les manda la carpeta a todos.
+- **Antes de correr el E2E, desactiva la suspensión automática del equipo** (en Windows 11, Configuración → Sistema → Energía y batería: que no se suspenda mientras corre), o mantenlo activo.
+  - Si el equipo se suspende a mitad de una prueba, n8n y la prueba se detienen y la prueba falla por *timeout* al reanudarse (pasó el 25/10/2026, C16).
+  - El E2E completo tarda unos 7 minutos: `e2e/captacion.spec.ts` detiene y arranca `n8n` y `mailpit`, y espera al barrido.

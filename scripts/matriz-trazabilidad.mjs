@@ -4,7 +4,7 @@
 // La salida de cada suite se muestra completa; además se guarda un reporte JSON en test-results/trazabilidad/.
 // Una prueba cubre un escenario si su título empieza con el ID exacto (p. ej. «HU0021-1.0 …»). Las pruebas del
 // Sprint 0 (S0-*) y las de soporte (G10, G01, C19…) cuentan en los totales, pero no se asignan a escenarios.
-// Las reglas de estado (C17 y los escenarios por partes de C25) están en scripts/lib/matriz.mjs. npm run
+// Las reglas de estado (C17 y los escenarios por partes: C25, C30 y C34) están en scripts/lib/matriz.mjs. npm run
 // evidencias:matriz corre antes sus pruebas (npm run test:scripts): si fallan, este script no se ejecuta.
 // Termina con código 1 si alguna prueba falla, si una suite no genera reporte, si un ID no existe en el backlog o si
 // una prueba marca mal su parte ([parte: …]); la matriz se escribe igual.
@@ -130,7 +130,7 @@ for (const p of pruebas) {
   else idsDesconocidos.add(`${id} («${p.titulo}», ${p.archivo})`);
 }
 
-// Marcado de partes (C25): cada escenario se revisa contra ESCENARIOS_POR_PARTES.
+// Marcado de partes (C25, C30 y C34): cada escenario se revisa contra ESCENARIOS_POR_PARTES.
 const erroresPartes = [...escenarios.values()].flatMap((esc) => erroresDePartes(esc));
 
 // ---------------------------------------------------------------- escritura
@@ -162,9 +162,11 @@ md.push(
   `- Estados: ${[...conteo].map(([estado, n]) => `${estado}: ${n}`).join(" · ")}.`,
   "- Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.",
   `- «${ESTADO_C17}»: todas las pruebas del escenario llevan la marca \`${MARCA_C17}\` (compromiso C17).`,
-  `- «verificado: …; pendiente: … (C25)»: escenarios que se verifican por partes (${Object.keys(ESCENARIOS_POR_PARTES).join(", ")}). ` +
+  `- «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (${Object.entries(ESCENARIOS_POR_PARTES)
+    .map(([id, { compromiso }]) => `${id}, ${compromiso}`)
+    .join("; ")}). ` +
     `Cada prueba declara su \`[parte: …]\`; una parte se verifica solo con pruebas de ${SUITES_QUE_VERIFICAN.join(" o ")} que pasan ` +
-    "(las de frontend usan la API simulada). Las partes pendientes las verifican otras HU (compromiso C25).",
+    "(las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.",
 );
 if (idsDesconocidos.size) {
   md.push("", "**IDs de prueba que no existen en el backlog:**", "", ...[...idsDesconocidos].map((x) => `- ${celda(x)}`));
