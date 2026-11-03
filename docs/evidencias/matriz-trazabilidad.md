@@ -1,17 +1,17 @@
 # Matriz de trazabilidad (HU → escenario → prueba → resultado)
 
-> Generada con `npm run evidencias:matriz` el 29/10/26, 10:41 p. m. (America/Lima) sobre el commit `3d701d5`. No se edita a mano.
+> Generada con `npm run evidencias:matriz` el 2/11/26, 5:45 p. m. (America/Lima) sobre el commit `de6fc1d` **con cambios sin commit**. No se edita a mano.
 
 ## Resumen
 
 | Suite | Pruebas | Pasan | Fallan | Omitidas o no ejecutadas |
 |---|---|---|---|---|
-| API | 218 | 218 | 0 | 0 |
-| Frontend | 59 | 59 | 0 | 0 |
-| E2E | 50 | 50 | 0 | 0 |
+| API | 256 | 256 | 0 | 0 |
+| Frontend | 67 | 67 | 0 | 0 |
+| E2E | 57 | 57 | 0 | 0 |
 
-- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **12**.
-- Estados: cubierto: 7 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · sin prueba: 43 · mecanismo probado; verificación en ruta real pendiente (C17): 1 · verificado: almacenamiento; pendiente: completitud, agendamiento, adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
+- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **16**.
+- Estados: cubierto: 11 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · sin prueba: 39 · mecanismo probado; verificación en ruta real pendiente (C17): 1 · verificado: almacenamiento; pendiente: completitud, agendamiento, adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
 - Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.
 - «mecanismo probado; verificación en ruta real pendiente (C17)»: todas las pruebas del escenario llevan la marca `[política, ruta de prueba]` (compromiso C17).
 - «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
@@ -60,6 +60,54 @@
 |  |  | Frontend | `frontend/src/views/gestion/VisitasGuiadas.test.ts` | HU0002-2.0 [parte: rechazo síncrono] G04 sin prospectos muestra el mensaje vacío | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/VisitasGuiadas.test.ts` | HU0002-2.0 [parte: rechazo síncrono] «Visitas guiadas» aparece y navega solo para secretaria | pasó |
 |  |  | E2E | `e2e/captacion.spec.ts` | HU0002-2.0 [parte: rechazo síncrono] un correo rechazado por el servidor deja la notificación fallida, el rebote auditado y el prospecto en G04 | pasó |
+
+### HU0003 — Agendar de forma autónoma una fecha y horario disponible para la visita guiada personalizada en las instalaciones del colegio
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0003-1.0 — Reserva exitosa de visita guiada presencial | cubierto | API | `api/test/avisosVisita.test.ts` | HU0003-1.0 el aviso de confirmación crea la notificación pendiente con fecha, hora, lugar y asistentes; repetirlo responde 409 | pasó |
+|  |  | API | `api/test/avisosVisita.test.ts` | HU0003-1.0 un intento de resultado desconocido se retoma a los 10 min con una fila nueva y la anterior sigue pendiente | pasó |
+|  |  | API | `api/test/avisosVisita.test.ts` | HU0003-1.0 (tope) 6 intentos de confirmación con resultado desconocido dejan una sola fila de cierre fallido y ningún intento más | pasó |
+|  |  | API | `api/test/avisosVisita.test.ts` | HU0003-1.0 (barrido) el barrido selecciona avisos, no filas: una pendiente vieja de un aviso con un intento más reciente, o con una fila enviado o fallido, no vuelve a los pendientes | pasó |
+|  |  | API | `api/test/avisosVisita.test.ts` | HU0003-1.0 (indicadores) la consulta de C8 cuenta cada aviso una sola vez, aunque tenga varias filas | pasó |
+|  |  | API | `api/test/avisosVisita.test.ts` | HU0003-1.0 las rutas /internal/* de agendamiento y recordatorios responden 401 sin el token de servicio | pasó |
+|  |  | API | `api/test/n8nAgendamiento.test.ts` | HU0003-1.0 «Validar evento» de agendamiento acepta solo { id_cita } con un entero de 1 a 2147483647 (ADR-16) | pasó |
+|  |  | API | `api/test/n8nAgendamiento.test.ts` | HU0003-1.0 «Clasificar resultado» de agendamiento y de seguimiento-recordatorios elige la rama de ADR-07 ante cada resultado de notificacion-multicanal | pasó |
+|  |  | API | `api/test/recordatorios.test.ts` | HU0003-1.0 el recordatorio entra en los pendientes al llegar a RECORDATORIO_VISITA_HORAS antes y su reserva es única por cita: nunca hay dos | pasó |
+|  |  | API | `api/test/recordatorios.test.ts` | HU0003-1.0 pasada la hora de la visita el recordatorio deja de intentarse y sus filas conservan su estado | pasó |
+|  |  | API | `api/test/visitaGuiada.test.ts` | HU0003-1.0 con el enlace de la carpeta, P02 recibe los horarios de visita futuros de la campaña con su cupo, el apoderado, el grado y el lugar | pasó |
+|  |  | API | `api/test/visitaGuiada.test.ts` | HU0003-1.0 la reserva descuenta el cupo, registra la cita con los asistentes, pasa el expediente a visita_agendada con su auditoría y avisa a agendamiento después de responder | pasó |
+|  |  | API | `api/test/visitaGuiada.test.ts` | HU0003-1.0 (C25) solo se ofrecen y reservan horarios de visita de la campaña activa cuyo responsable es una directora activa | pasó |
+|  |  | Frontend | `frontend/src/router.test.ts` | HU0003-1.0 /visita-guiada es pública: abre P02 sin consultar la sesión ni redirigir a Keycloak, y su lectura no lleva Authorization | pasó |
+|  |  | Frontend | `frontend/src/views/portal/VisitaGuiada.test.ts` | HU0003-1.0 P02 resalta los días con horarios, lista los del día con «Disponible» o «Reservado» y navega entre meses | pasó |
+|  |  | Frontend | `frontend/src/views/portal/VisitaGuiada.test.ts` | HU0003-1.0 P02 exige los asistentes y confirma la visita | pasó |
+|  |  | E2E | `e2e/visita-guiada.spec.ts` | HU0003-1.0 desde el enlace del correo de la carpeta, la familia reserva en P02 y recibe la confirmación y un solo recordatorio | pasó |
+| HU0003-2.0 — Intento de reserva en un horario tomado simultáneamente | cubierto | API | `api/test/visitaGuiada.test.ts` | HU0003-2.0 dos reservas simultáneas del último cupo: una 201 y otra 409 HORARIO_SIN_CUPO, los cupos quedan en 0 y hay una sola cita | pasó |
+|  |  | API | `api/test/visitaGuiada.test.ts` | HU0003-2.0 después del rechazo, P02 recibe ese horario como «Reservado» para elegir otro | pasó |
+|  |  | API | `api/test/visitaGuiada.test.ts` | HU0003-2.0 (B2) con cupos 2, después de la primera reserva P02 muestra el horario como «Reservado» y una segunda reserva responde 409 | pasó |
+|  |  | Frontend | `frontend/src/views/portal/VisitaGuiada.test.ts` | HU0003-2.0 P02 ante un 409 muestra el aviso del mockup, recarga los horarios y pide elegir otro | pasó |
+
+### HU0004 — Registrar la asistencia y conformidad de la visita guiada personalizada
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0004-1.0 — Registro de visita conforme y apertura de postulación | cubierto | API | `api/test/avisosVisita.test.ts` | HU0004-1.0 el aviso de credenciales fija una contraseña temporal en Keycloak y devuelve el correo con el usuario, la contraseña y el enlace al portal; la retoma la rota y no la toca si la familia ya la cambió | pasó |
+|  |  | API | `api/test/avisosVisita.test.ts` | HU0004-1.0 (tope) 6 intentos de credenciales con resultado desconocido dejan una sola fila de cierre fallido, ningún intento más, y M3 invalida la contraseña | pasó |
+|  |  | API | `api/test/visitas.test.ts` | HU0004-1.0 «Asistió - Interesado en postular» crea el usuario familia y la cuenta de acceso, deja la cita asistio y el expediente en portal_habilitado con auditoría, y avisa a agendamiento | pasó |
+|  |  | API | `api/test/visitas.test.ts` | HU0004-1.0 si la BD falla después de crear el usuario, se borra de Keycloak y no queda nada; un huérfano se adopta en el siguiente intento | pasó |
+|  |  | API | `api/test/visitas.test.ts` | HU0004-1.0 (C28) un correo que ya tiene cuenta en Keycloak responde 409 CORREO_CON_CUENTA sin cambios | pasó |
+|  |  | API | `api/test/visitas.test.ts` | HU0004-1.0 G04: la secretaria recibe las visitas de la semana sin DNI; otro rol recibe 403 con acceso_denegado; una visita ya registrada responde 409 | pasó |
+|  |  | API | `api/test/visitas.test.ts` | HU0004-1.0 (P-c) GET /visitas incluye en sin_registrar las visitas reservadas de semanas anteriores | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AgendaVisitas.test.ts` | HU0004-1.0 G04 «Asistió» abre «Registrar visita» y «Registrar y habilitar portal» envía asistio_interesado | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AgendaVisitas.test.ts` | HU0004-1.0 (P-c) G04 muestra la sección «Sin registrar» con esas visitas y sus acciones | pasó |
+|  |  | E2E | `e2e/visita-guiada.spec.ts` | HU0004-1.0 la secretaria registra «Asistió - Interesado» en G04 y llegan al correo de la familia el usuario, la contraseña temporal y el enlace al portal | pasó |
+| HU0004-2.0 — Registro de inasistencia a la visita guiada | cubierto | API | `api/test/avisosVisita.test.ts` | HU0004-2.0 el aviso de reprogramación trae un enlace nuevo de P02 que vuelve a aceptar una reserva, y el de la carpeta también vale | pasó |
+|  |  | API | `api/test/avisosVisita.test.ts` | HU0004-2.0 (B1) tras «No asistió» y una nueva reserva, la cita 2 recibe su propia visita_confirmada y su recordatorio, aunque la cita 1 ya los tuvo | pasó |
+|  |  | API | `api/test/visitas.test.ts` | HU0004-2.0 «No asistió» deja la cita no_asistio, devuelve el expediente a prospecto con auditoría y avisa a agendamiento | pasó |
+|  |  | API | `api/test/visitas.test.ts` | HU0004-2.0 (G04) la etiqueta de una visita anterior conserva su invitación después de que la familia vuelve a reservar | pasó |
+|  |  | API | `api/test/visitas.test.ts` | HU0004-2.0 (G04) con varias filas por aviso, la etiqueta de la invitación muestra el cierre (enviado o fallido) si existe y, si no, «pendiente» | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AgendaVisitas.test.ts` | HU0004-2.0 G04 «No asistió» envía no_asistio y la fila muestra «No asistió» | pasó |
+|  |  | E2E | `e2e/visita-guiada.spec.ts` | HU0004-2.0 «No asistió» en G04 envía la invitación con un enlace nuevo de P02 que vuelve a reservar | pasó |
 
 ### HU0021 — Crear, modificar, desactivar y reactivar las cuentas del personal y asignarles un rol (secretaría, Tesorería, psicóloga, evaluador académico o Directora)
 
@@ -196,10 +244,6 @@
 
 | HU | Escenario | Estado |
 |---|---|---|
-| HU0003 | HU0003-1.0 — Reserva exitosa de visita guiada presencial | sin prueba |
-| HU0003 | HU0003-2.0 — Intento de reserva en un horario tomado simultáneamente | sin prueba |
-| HU0004 | HU0004-1.0 — Registro de visita conforme y apertura de postulación | sin prueba |
-| HU0004 | HU0004-2.0 — Registro de inasistencia a la visita guiada | sin prueba |
 | HU0005 | HU0005-1.0 — Guardado completo de la ficha de inscripción y expectativas | sin prueba |
 | HU0005 | HU0005-2.0 — Guardado parcial de borrador de ficha | sin prueba |
 | HU0006 | HU0006-1.0 — Carga exitosa de legajo documental digital | sin prueba |
