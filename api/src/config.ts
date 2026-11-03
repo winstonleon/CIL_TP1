@@ -35,6 +35,11 @@ const esquema = z.object({
   ENLACE_VISITA_KEY: clave32,
   // URL pública de la carpeta informativa (ADR-18). Vacía hasta que el colegio la entregue (C33).
   CARPETA_INFORMATIVA_URL: z.preprocess((v) => (v === "" ? undefined : v), z.url().optional()),
+  // Visita guiada (HU0003, ADR-19): horas de anticipación del recordatorio (D4, provisional hasta C37).
+  RECORDATORIO_VISITA_HORAS: z.coerce.number().int().min(1).max(168),
+  // Dirección del colegio para «Lugar» de P02 y de los correos de la visita (ADR-19). Vacía hasta que el colegio la
+  // entregue (C39): se muestra «[Dirección del colegio]».
+  DIRECCION_COLEGIO: z.preprocess((v) => (v === "" ? undefined : v), z.string().trim().min(1).max(200).optional()),
 });
 
 export type Config = z.infer<typeof esquema>;

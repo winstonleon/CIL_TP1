@@ -59,6 +59,28 @@ describe("S0-C4 protección de las áreas con Keycloak", () => {
   });
 });
 
+describe("HU0003-1.0 P02 es una ruta pública (ADR-17)", () => {
+  it("HU0003-1.0 /visita-guiada es pública: abre P02 sin consultar la sesión ni redirigir a Keycloak, y su lectura no lleva Authorization", async () => {
+    vi.stubEnv("VITE_API_URL", "/api");
+    const lectura = { campana: "2031", apoderado: { nombres: "Ana", apellidos: "Prueba" }, grado: { nombre_grado: "Inicial 3 años" }, lugar: "[Dirección del colegio]", horarios: [] };
+    const fetchFalso = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify(lectura)));
+    vi.stubGlobal("fetch", fetchFalso);
+
+    const { enrutador, envoltorio } = await montarEn("/visita-guiada?t=v1.TokenFicticio");
+
+    expect(usuarioActual).not.toHaveBeenCalled();
+    expect(iniciarSesion).not.toHaveBeenCalled();
+    expect(enrutador.currentRoute.value.path).toBe("/visita-guiada");
+    expect(envoltorio.get("h1").text()).toBe("Agenda tu visita guiada");
+    expect(fetchFalso).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchFalso.mock.calls[0]!;
+    expect(url).toBe("/api/publico/visita-guiada");
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+});
+
 describe("HU0021-1.0 pantalla G10 según el rol", () => {
   it("HU0021-1.0 /gestion/usuarios solo la abre la directora; otro rol vuelve a /gestion", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("[]")));

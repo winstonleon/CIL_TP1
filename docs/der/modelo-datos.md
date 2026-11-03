@@ -561,10 +561,10 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 | F1 Captación | Webhook: evento de la API tras el registro de P01 (ADR-16), más un barrido cada minuto de los prospectos sin carpeta (C27) | Apoderado, Consentimiento, Expediente, Notificacion, Registro_Auditoria |
 | F2 Recepción y registro | Webhook: ficha/documentos | Postulante, Postulante_Apoderado, Cuestionario_Expectativas, Documento |
 | F3 Verificación de completitud | Webhook: carga de documento | Documento, Requisito_Documental, Expediente |
-| F4 Agendamiento | Webhook: reserva de cita | Horario_Disponible, Cita, Notificacion |
+| F4 Agendamiento | Webhook: evento de la API con `{ id_cita }` tras la reserva en P02 (HU0003) y el registro de la asistencia en G04 (HU0004), más un barrido cada minuto de los avisos pendientes (ADR-16) | Horario_Disponible, Cita, Cuenta_Acceso, Notificacion |
 | F5 Generación de carta | Webhook: pago conciliado (R18) | Pago, Carta_Vacante, Expediente |
 | F6 Notificación multicanal | Invocado por los demás flujos | Notificacion |
-| F7 Seguimiento y recordatorios | Programado diario | Expediente, Notificacion, Registro_Auditoria |
+| F7 Seguimiento y recordatorios | Programado diario (R20 y R21, HU0018), más un Schedule cada minuto para el recordatorio de la visita (HU0003, D4) | Expediente, Cita, Notificacion, Registro_Auditoria |
 
 ---
 
@@ -585,6 +585,14 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 - **Almacenamiento de archivos:** las columnas `*_url` apuntan a Google Drive. La BD guarda la referencia, no el archivo.
 - **Por definir con el colegio (v1.1):** la política de contraseñas y el tiempo de bloqueo en Keycloak (P03b, P03c).
 - **Datos derivados, sin columna propia:** el código de la constancia de P07b (`CONST-<código del expediente>-<id_pago>`) y la fecha de validación de un pago (P07) se obtienen de `Registro_Auditoria`.
+- **Vínculo de un aviso con su cita (HU0003 y HU0004, ADR-16):** `Notificacion` no tiene `id_cita`.
+  - El ancla de cada aviso es la `fecha_hora` de la `transicion_estado` de esa cita (`detalle.id_cita`). Una notificación del tipo con `fecha_envio ≥ ancla` pertenece a esa cita.
+  - `fecha_envio` se llena al insertar y se actualiza en cada retoma y al cerrar.
+- **Intentos de un aviso de la visita (ADR-07):** cada intento tiene su propia fila.
+  - Un intento con resultado desconocido (error técnico, 502, 500 o n8n caído) queda `pendiente`: nunca se marca `fallido`.
+  - El tope de 6 intentos cuenta las filas desde el ancla. Al agotarse, el aviso se cierra con una fila de cierre `fallido`, que no es un envío.
+  - Cada aviso tiene como máximo una fila `enviado` o una `fallido`. Los indicadores (HU0019, C8) cuentan avisos por esas filas y no cuentan las `pendiente` como envíos.
+- **Cupos frente a `uq_cita_personal_fecha` (C40):** el índice admite una sola cita por responsable, fecha y hora. Un horario con `cupos > 1` no admite una segunda cita, y las sesiones grupales (p. ej., la jornada de observación) no caben. Lo resuelven HU0009 y HU0022.
 
 ---
 
@@ -629,3 +637,11 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 |---|---|
 | §6, F1: el disparador es el evento de la API tras P01 más un barrido cada minuto; suma `Registro_Auditoria` (rebote y transición) | El webhook lo llama la API (ADR-16) y un evento no entregado se recupera sin esperar al barrido diario (C27) |
 | «Notificación rebotada» (HU0002-2.0) = `estado_envio = 'fallido'` más el evento `notificacion_rebotada` de §4.7 | El enum `estado_envio` no tiene «rebotado»; §4.7 ya tenía el evento (ADR-07) |
+
+### Ajustes por HU0003 y HU0004 (29/10/2026), sin tablas, columnas ni enums nuevos
+| Cambio | Motivo |
+|---|---|
+| §6, F4: el disparador es el evento de la API con `{ id_cita }` más un barrido cada minuto; suma `Cuenta_Acceso` | Un solo receptor para la confirmación, la invitación a reprogramar y las credenciales (ADR-16) |
+| §6, F7: un Schedule cada minuto para el recordatorio de la visita | D4: 24 h antes (`RECORDATORIO_VISITA_HORAS`) |
+| §7: el ancla de los avisos, una fila por intento (la de resultado desconocido queda `pendiente`) con una fila de cierre `fallido` al agotar el tope, y los cupos frente a `uq_cita_personal_fecha` | Idempotencia por cita y tope de intentos sin columnas nuevas, sin marcar `fallido` un correo que pudo salir (ADR-07); C40 |
+| Transiciones `prospecto → visita_agendada`, `visita_agendada → portal_habilitado` y `visita_agendada → prospecto` | HU0003-1.0, HU0004-1.0 y HU0004-2.0. «Visita no concretada» = `Cita.estado = no_asistio`, y el expediente vuelve a `prospecto` (P1, John, 29/10/2026) |

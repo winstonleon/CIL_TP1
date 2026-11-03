@@ -22,6 +22,9 @@ const entornoPrueba = {
   // Carpeta informativa (HU0002, ADR-18): clave propia de la corrida y sin URL de la carpeta, para no depender del .env.
   ENLACE_VISITA_KEY: randomBytes(32).toString("base64"),
   CARPETA_INFORMATIVA_URL: "",
+  // Visita guiada (HU0003, ADR-19): el valor de D4 y sin dirección del colegio, para no depender del .env.
+  RECORDATORIO_VISITA_HORAS: "24",
+  DIRECCION_COLEGIO: "",
 };
 Object.assign(process.env, entornoPrueba);
 

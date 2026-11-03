@@ -31,6 +31,35 @@ export async function bloquearDatosCarpeta(
   return rows[0] ?? null;
 }
 
+export interface DatosFamilia {
+  estado: string;
+  id_apoderado: number;
+  nombres: string;
+  apellidos: string;
+  correo: string;
+  nombre_grado: string;
+  campana_admision: string;
+}
+
+const DATOS_FAMILIA = `SELECT e.estado::text AS estado, a.id_apoderado, a.nombres, a.apellidos, a.correo, g.nombre_grado, g.campana_admision
+       FROM expediente e
+       JOIN apoderado a ON a.id_apoderado = e.id_apoderado_titular
+       JOIN grado g ON g.id_grado = e.id_grado
+      WHERE e.id_expediente = $1`;
+
+// Datos del apoderado titular y del grado para P02 (HU0003). El DNI no se lee.
+export async function leerDatosFamilia(db: Consultable, idExpediente: number): Promise<DatosFamilia | null> {
+  const { rows } = await db.query<DatosFamilia>(DATOS_FAMILIA, [idExpediente]);
+  return rows[0] ?? null;
+}
+
+// Los mismos datos con el expediente bloqueado (G04 y avisos de la visita): primero el expediente y después la cita,
+// el mismo orden que la reserva de P02, así no hay interbloqueos.
+export async function bloquearDatosFamilia(db: Consultable, idExpediente: number): Promise<DatosFamilia | null> {
+  const { rows } = await db.query<DatosFamilia>(`${DATOS_FAMILIA} FOR UPDATE OF e`, [idExpediente]);
+  return rows[0] ?? null;
+}
+
 export async function existeExpediente(db: Consultable, idExpediente: number): Promise<boolean> {
   const { rowCount } = await db.query("SELECT 1 FROM expediente WHERE id_expediente = $1", [idExpediente]);
   return (rowCount ?? 0) > 0;

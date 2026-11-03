@@ -16,5 +16,6 @@ paths:
   - Cada flujo declara `settings.errorWorkflow: "registro-errores"` por nombre. Lo mismo vale para el flujo que llama un nodo Execute Workflow: el JSON lleva el nombre, nunca el ID. `npm run n8n:importar` los resuelve al importar y deja otra vez el nombre al exportar.
   - `registro-errores` envía a `/internal/errores-flujo` solo el flujo, el nodo y el id de la ejecución, nunca el mensaje del error.
   - Todo flujo que llama a `notificacion-multicanal` maneja sus errores con `onError` en el nodo Execute Workflow (C9).
+- Un flujo que maneja una contraseña temporal no guarda ejecuciones: `saveDataSuccessExecution` y `saveDataErrorExecution` en `none` (ADR-02, D3). Ningún Stop and Error ni Code interpola el ítem, el asunto ni el cuerpo: solo identificadores y estados HTTP.
 - Cada nodo `Code` lleva un comentario inicial que dice qué hace y qué HU o escenario cubre.
 - No modifiques workflows directamente en la interfaz de n8n sin exportarlos al repo en el mismo cambio.

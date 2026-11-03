@@ -1,19 +1,22 @@
 // Único módulo que usa la Admin API de Keycloak (rules/api.md, ADR-02). Se autentica con la service
-// account del cliente confidencial api-admision (client credentials). La API no maneja contraseñas:
-// el personal define la suya con el enlace que envía Keycloak (execute actions email).
-// Los errores y logs solo incluyen el método, la ruta sin consulta y el estado HTTP (nunca tokens ni correos).
+// account del cliente confidencial api-admision (client credentials). El personal define su contraseña con el enlace
+// que envía Keycloak (execute actions email). La familia recibe una contraseña temporal (HU0004, D3) que la API fija y
+// no guarda.
+// Los errores y logs solo incluyen el método, la ruta sin consulta y el estado HTTP (nunca tokens, correos ni el cuerpo).
 import { obtenerConfig } from "../config";
 import { ErrorApi } from "../errores";
 
 export const ROLES_PERSONAL = ["secretaria", "tesoreria", "psicologa", "evaluador_academico", "directora"] as const;
 export type RolPersonal = (typeof ROLES_PERSONAL)[number];
+export type RolApp = "familia" | RolPersonal;
 
 // Roles de realm de la aplicación (ADR-02). Al fijar el rol de una cuenta se quitan los demás.
 const ROLES_APP: readonly string[] = ["familia", ...ROLES_PERSONAL];
 
 // Marca de las cuentas creadas por esta API, declarada en el perfil de usuario del realm (solo admin).
-// Permite adoptar un usuario huérfano que dejó un alta fallida (plan HU0021, Q4).
+// Permite adoptar un usuario huérfano que dejó un alta fallida (plan HU0021, Q4; familias: HU0004).
 export const ORIGEN_PERSONAL = "api-personal";
+export const ORIGEN_FAMILIA = "api-familia";
 
 // ADR-02: el enlace para definir la contraseña vence en 72 h.
 export const VIGENCIA_ENLACE_S = 72 * 3600;
@@ -34,13 +37,17 @@ export interface DatosUsuario {
 }
 
 export interface IdentidadAdmin {
-  /** Crea el usuario deshabilitado y con origen=api-personal. Devuelve su id, o null si el usuario ya existe. */
-  crearUsuario(datos: DatosUsuario): Promise<string | null>;
+  /** Crea el usuario deshabilitado y con el origen dado (api-personal por omisión). Devuelve su id, o null si ya existe. */
+  crearUsuario(datos: DatosUsuario, origen?: string): Promise<string | null>;
   buscarPorCorreo(correo: string): Promise<UsuarioIdentidad | null>;
   tieneCredenciales(id: string): Promise<boolean>;
   actualizarNombres(id: string, nombres: string, apellidos: string): Promise<void>;
   /** Deja `rol` como único rol de la aplicación: primero quita los demás y después agrega el nuevo (falla cerrado). */
-  establecerRolUnico(id: string, rol: RolPersonal): Promise<void>;
+  establecerRolUnico(id: string, rol: RolApp): Promise<void>;
+  /** Fija una contraseña temporal: Keycloak agrega la acción requerida UPDATE_PASSWORD (D3). El valor no se registra. */
+  establecerContrasenaTemporal(id: string, contrasena: string): Promise<void>;
+  /** ¿Tiene pendiente la acción UPDATE_PASSWORD? (M4: si ya la cambió, no se rota la contraseña temporal). */
+  cambioContrasenaPendiente(id: string): Promise<boolean>;
   habilitar(id: string): Promise<void>;
   deshabilitar(id: string): Promise<void>;
   cerrarSesiones(id: string): Promise<void>;
@@ -143,7 +150,7 @@ export function crearKeycloakAdmin(o: OpcionesKeycloakAdmin): IdentidadAdmin {
   }
 
   return {
-    async crearUsuario({ correo, nombres, apellidos }) {
+    async crearUsuario({ correo, nombres, apellidos }, origen = ORIGEN_PERSONAL) {
       const res = await llamar(
         "POST",
         "/users",
@@ -153,7 +160,7 @@ export function crearKeycloakAdmin(o: OpcionesKeycloakAdmin): IdentidadAdmin {
           firstName: nombres,
           lastName: apellidos,
           enabled: false,
-          attributes: { origen: [ORIGEN_PERSONAL] },
+          attributes: { origen: [origen] },
         },
         [409],
       );
@@ -193,6 +200,16 @@ export function crearKeycloakAdmin(o: OpcionesKeycloakAdmin): IdentidadAdmin {
         throw noDisponible();
       }
       await llamar("POST", ruta, [{ id: nuevo.id, name: nuevo.name }]);
+    },
+
+    async establecerContrasenaTemporal(id, contrasena) {
+      // llamar() no registra el cuerpo: si Keycloak rechaza la contraseña, el log solo dice la ruta y el estado.
+      await llamar("PUT", `/users/${encodeURIComponent(id)}/reset-password`, { type: "password", value: contrasena, temporary: true });
+    },
+
+    async cambioContrasenaPendiente(id) {
+      const acciones = (await representacion(id)).requiredActions;
+      return Array.isArray(acciones) && acciones.includes("UPDATE_PASSWORD");
     },
 
     async habilitar(id) {

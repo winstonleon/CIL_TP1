@@ -101,7 +101,8 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-deps a
 En el VPS es lo mismo con `docker-compose.prod.yml`. Las dos variables son obligatorias para la API: sin ellas no arranca.
 
 **Qué hace `n8n:importar` (HU0002, ADR-06):**
-- **Orden:** importa primero `registro-errores`, después `notificacion-multicanal` y al final el resto (hoy `captacion`). Si falla uno del que dependen otros, se detiene.
+- **Orden:** importa primero `registro-errores`, después `notificacion-multicanal` y al final el resto (hoy `captacion`, `agendamiento` y `seguimiento-recordatorios`). Si falla uno del que dependen otros, se detiene.
+- **Solo algunos flujos:** `npm run n8n:importar -- agendamiento seguimiento-recordatorios` importa y exporta solo esos, sin reescribir los demás JSON.
 - **Publica cada flujo.** n8n 2.x guarda la actualización como borrador; el script lo publica y comprueba que la versión activa sea la importada. Un flujo no se puede publicar si su *Error Workflow* no tiene versión publicada: por eso `registro-errores` va primero.
 - **Nombres, no IDs:** resuelve por nombre el `errorWorkflow` de cada flujo y el flujo que llama cada nodo Execute Workflow, y al exportar de vuelta al repo deja otra vez el nombre.
 - **`registro-errores` es un workflow técnico** (C2), no uno de los 7 flujos del TI. Es el *Error Workflow* de los demás y avisa a la API con solo el flujo, el nodo y el id de la ejecución, nunca el mensaje del error. En el log de la API queda una línea como `Fallo en n8n (flujo=captacion, nodo=Detener: envío pospuesto, ejecución=142)`; los datos de esa ejecución se ven en la interfaz de n8n.
@@ -225,3 +226,22 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
 - **Antes de correr el E2E, desactiva la suspensión automática del equipo** (en Windows 11, Configuración → Sistema → Energía y batería: que no se suspenda mientras corre), o mantenlo activo.
   - Si el equipo se suspende a mitad de una prueba, n8n y la prueba se detienen y la prueba falla por *timeout* al reanudarse (pasó el 25/10/2026, C16).
   - El E2E completo tarda unos 7 minutos: `e2e/captacion.spec.ts` detiene y arranca `n8n` y `mailpit`, y espera al barrido.
+
+### Visita guiada: P02, G04 y los flujos `agendamiento` y `seguimiento-recordatorios` (HU0003 y HU0004)
+
+- **Qué es:**
+  - La familia abre el enlace de la carpeta y reserva su visita en P02 (`/visita-guiada?t=…`, pública).
+  - `agendamiento` le envía la confirmación, y `seguimiento-recordatorios` el recordatorio, `RECORDATORIO_VISITA_HORAS` antes de la visita.
+  - En G04 (Visitas guiadas, Secretaría):
+    - «Asistió» → «Registrar y habilitar portal» crea la cuenta de la familia en Keycloak (rol `familia`) y `agendamiento` le envía la contraseña temporal. En el primer ingreso a `/portal`, Keycloak pide cambiarla (tema por defecto hasta HU0023).
+    - «No asistió» le envía una invitación a reprogramar con un enlace de P02.
+- **Variables nuevas en `.env`** (las dos están en `.env.example`; no son secretos):
+  - `RECORDATORIO_VISITA_HORAS`: horas de anticipación del recordatorio (1 a 168). Es obligatoria: sin ella la API no arranca. El valor provisional es `24` (C37).
+  - `DIRECCION_COLEGIO`: el «Lugar» de P02 y de los correos. Es opcional: vacía, se ve «[Dirección del colegio]» (C39).
+  - Si agregas o cambias alguna con los contenedores levantados, recrea `api`: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-deps api`.
+- **Horarios:** P02 ofrece los horarios de visita de la campaña activa que Secretaría crea en G09 (pestaña Horarios), cuyo responsable es una directora activa. Sin horarios, P02 dice que no hay horarios disponibles.
+- **Ejecuciones de n8n (ADR-02 D3, R1; C10):**
+  - `docker-compose.yml` fija `EXECUTIONS_DATA_PRUNE_HARD_DELETE_INTERVAL=1` y `EXECUTIONS_DATA_HARD_DELETE_BUFFER=0` en el servicio `n8n`. Así, una ejecución que no se guarda (con la contraseña temporal o con `X-Webhook-Secret`) desaparece de la base `n8n` en 1 minuto como máximo.
+  - Si tu contenedor de `n8n` es anterior, recréalo: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d n8n`.
+- **Barridos en dev:** `agendamiento` y `seguimiento-recordatorios` revisan cada minuto las citas de dev. Envían correos reales a Mailpit y, en las credenciales, fijan contraseñas temporales en el Keycloak de dev.
+- **E2E:** `e2e/visita-guiada.spec.ts` tarda unos 12 minutos. Espera el recordatorio y dos ciclos del barrido, y detiene y arranca `mailpit`. Correrlo dos veces en menos de 10 minutos da 429, por el límite de reservas de P02 por IP (ADR-17).

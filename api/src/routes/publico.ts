@@ -12,7 +12,19 @@ import { limitePorIp, type OpcionesLimite } from "../limitePorIp";
 import type { DisparadorN8n } from "../orquestacion/n8n";
 import { correoValido, LARGO_MAXIMO, normalizarTelefono } from "../services/reglasSolicitud";
 import { CANALES_ORIGEN, formularioSolicitud, registrarSolicitud } from "../services/solicitudInformacion";
+import { datosVisitaGuiada, reservarVisita } from "../services/visitaGuiada";
 import { validar } from "../validacion";
+
+// P02 (HU0003, ADR-17): el token del enlace viaja en esta cabecera, nunca en la URL de la API, para que no quede en los
+// logs de acceso del proxy.
+export const CABECERA_ENLACE = "x-enlace-visita";
+
+const cuerpoReserva = z
+  .object({
+    id_horario: z.number().int().positive().max(2147483647),
+    asistentes: z.string().trim().min(1).max(300), // Cita.asistentes varchar(300)
+  })
+  .strict();
 
 // Campo trampa (ADR-17): P01 lo tiene oculto y fuera del orden de tabulación; una persona no lo llena. El nombre no se
 // parece a ningún dato que el navegador autocomplete.
@@ -50,11 +62,33 @@ const conTexto = (v: unknown) => v !== undefined && v !== null && String(v).trim
 export interface OpcionesRutasPublicas {
   campana: string;
   eventos: DisparadorN8n;
-  limite: OpcionesLimite;
+  limite: OpcionesLimite; // POST de P01 y de P02, cada uno con su propio contador
+  limiteLecturaVisita: OpcionesLimite; // GET de P02 (A6)
 }
 
-export function rutasPublicas({ campana, eventos, limite }: OpcionesRutasPublicas): Router {
+export function rutasPublicas({ campana, eventos, limite, limiteLecturaVisita }: OpcionesRutasPublicas): Router {
   const rutas = Router();
+
+  // PÚBLICA a propósito (ADR-17): P02 no tiene sesión; el expediente sale solo del token del enlace (ADR-18). Límite
+  // propio de lectura (A6). Excepción a «la misma respuesta»: todo token inválido recibe el mismo 404 y, con un token
+  // válido, se distingue la visita ya agendada (409).
+  // GET /publico/visita-guiada (X-Enlace-Visita) → { campana, apoderado, grado, lugar, horarios: [{ id_horario, fecha,
+  // hora_inicio, hora_fin, disponible }] } · 404 ENLACE_NO_VALIDO · 409 VISITA_YA_AGENDADA
+  rutas.get("/visita-guiada", limitePorIp(limiteLecturaVisita), async (req, res) => {
+    res.json(await datosVisitaGuiada(campana, req.get(CABECERA_ENLACE)));
+  });
+
+  // PÚBLICA a propósito (ADR-17), con su propio contador por IP.
+  // POST /publico/visita-guiada/reserva (X-Enlace-Visita) { id_horario, asistentes } → 201 { estado, fecha, hora_inicio }
+  // (HU0003-1.0) · 409 HORARIO_SIN_CUPO (HU0003-2.0) · 409/404 HORARIO_NO_DISPONIBLE · 404 ENLACE_NO_VALIDO ·
+  // 409 VISITA_YA_AGENDADA
+  rutas.post("/visita-guiada/reserva", limitePorIp(limite), async (req, res) => {
+    const datos = validar(cuerpoReserva, req.body);
+    const { id_cita, respuesta } = await reservarVisita(campana, req.get(CABECERA_ENLACE), datos);
+    res.status(201).json(respuesta);
+    // ADR-16: después del COMMIT y de responder; agendamiento envía la confirmación.
+    void eventos.disparar("agendamiento", { id_cita });
+  });
 
   // PÚBLICA a propósito (ADR-17), sin límite por IP: solo lee.
   // GET /publico/solicitud-informacion → { campana, politica: { version, texto }, grados: [{ id_grado, nivel, nombre_grado }] }

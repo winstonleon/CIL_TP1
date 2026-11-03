@@ -30,9 +30,14 @@ const errorDe = async (p: Promise<unknown>) => {
 };
 
 describe("S0-B5 transicionarExpediente", () => {
-  it("S0-B5 la lista de transiciones permitidas por defecto tiene solo las que exigen los escenarios (HU0002-2.0)", () => {
+  it("S0-B5 la lista de transiciones permitidas por defecto tiene solo las que exigen los escenarios (HU0002-2.0, HU0003-1.0, HU0004-1.0 y HU0004-2.0)", () => {
     expect(TRANSICIONES_PERMITIDAS).toEqual({
-      estado: [["prospecto", "contacto_no_entregado"]],
+      estado: [
+        ["prospecto", "contacto_no_entregado"],
+        ["prospecto", "visita_agendada"],
+        ["visita_agendada", "portal_habilitado"],
+        ["visita_agendada", "prospecto"],
+      ],
       estado_documental: [],
       estado_financiero: [],
     });
@@ -94,11 +99,11 @@ describe("S0-B5 transicionarExpediente", () => {
     expect(await eventosDe(pool, idExpediente)).toHaveLength(0);
   });
 
-  it("S0-B5 rechaza con 409 TRANSICION_NO_PERMITIDA lo que no está en la lista (incluida la lista vacía por defecto)", async () => {
+  it("S0-B5 rechaza con 409 TRANSICION_NO_PERMITIDA lo que no está en la lista (incluida la lista por defecto)", async () => {
     const pool = obtenerPool();
     const { idExpediente } = await crearExpediente(pool);
     const conDefecto = await errorDe(
-      enTransaccion((c) => transicionarExpediente(c, { idExpediente, campo: "estado", esperado: "prospecto", nuevo: "visita_agendada", idPersonal: null })),
+      enTransaccion((c) => transicionarExpediente(c, { idExpediente, campo: "estado", esperado: "prospecto", nuevo: "carta_emitida", idPersonal: null })),
     );
     expect(conDefecto).toMatchObject({ status: 409, codigo: "TRANSICION_NO_PERMITIDA" });
     const fueraDeLista = await errorDe(

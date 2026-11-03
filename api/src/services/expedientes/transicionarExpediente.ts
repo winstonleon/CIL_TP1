@@ -15,6 +15,9 @@ export type TransicionesPermitidas = Readonly<Record<CampoEstado, ReadonlyArray<
 export const TRANSICIONES_PERMITIDAS: TransicionesPermitidas = {
   estado: [
     ["prospecto", "contacto_no_entregado"], // HU0002-2.0: rebote del correo de la carpeta informativa
+    ["prospecto", "visita_agendada"], // HU0003-1.0: reserva de la visita en P02
+    ["visita_agendada", "portal_habilitado"], // HU0004-1.0: «Asistió - Interesado en postular» en G04
+    ["visita_agendada", "prospecto"], // HU0004-2.0: «No asistió» (P1: la visita no concretada vuelve a prospecto)
   ],
   estado_documental: [],
   estado_financiero: [],

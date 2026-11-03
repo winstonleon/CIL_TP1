@@ -41,6 +41,10 @@
   --chip-acento: #fcefb8; /* chips de evaluaciones y condiciones (G09) */
   --aviso-fondo: #fcebd6; /* aviso de regla incumplida (G09) */
   --fila-aviso: #fff8dc; /* fila con un dato rechazado (G09) */
+  --seleccion-fondo: #f3f6fc; /* opción elegida: horario de P02, día y respuesta de G04 */
+  --reservado-fondo: #f1f0ec; /* horario «Reservado» de P02 */
+  --reservado-texto: #7a808a;
+  --dia-no-disponible: #8c929c; /* día sin horarios en el calendario de P02 */
 
   /* Barra lateral de la gestión interna */
   --nav-texto: #e3e9f4;

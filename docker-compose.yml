@@ -101,6 +101,14 @@ services:
       N8N_PORT: "5678"
       GENERIC_TIMEZONE: America/Lima
       TZ: America/Lima
+      # Ventana de las ejecuciones que no se guardan (ADR-02 D3, R1; C10, C11): n8n 2.42.5 no las borra al terminar, las
+      # marca con deletedAt y el borrado físico corre cada EXECUTIONS_DATA_PRUNE_HARD_DELETE_INTERVAL minutos (15 por
+      # defecto). Cada minuto: la contraseña temporal y X-Webhook-Secret quedan legibles 1 min como máximo.
+      # El búfer (horas) no alarga la ventana de las ejecuciones automáticas, pero sí la de las manuales
+      # (saveManualExecutions: false en agendamiento): en 0, también se borran en el siguiente ciclo. La poda por
+      # antigüedad (EXECUTIONS_DATA_PRUNE, EXECUTIONS_DATA_MAX_AGE) sigue con sus valores por defecto (C10).
+      EXECUTIONS_DATA_PRUNE_HARD_DELETE_INTERVAL: "1"
+      EXECUTIONS_DATA_HARD_DELETE_BUFFER: "0"
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:
@@ -146,6 +154,10 @@ services:
       # vacía (el correo lo dice entre corchetes, C33). ENLACE_VISITA_KEY cifra el id del expediente en el enlace de P02.
       CARPETA_INFORMATIVA_URL: ${CARPETA_INFORMATIVA_URL}
       ENLACE_VISITA_KEY: ${ENLACE_VISITA_KEY}
+      # Visita guiada (HU0003, ADR-19): horas de anticipación del recordatorio (D4, provisional: C37) y dirección del
+      # colegio para «Lugar» de P02 y de los correos (puede quedar vacía: se ve «[Dirección del colegio]», C39).
+      RECORDATORIO_VISITA_HORAS: ${RECORDATORIO_VISITA_HORAS}
+      DIRECCION_COLEGIO: ${DIRECCION_COLEGIO}
       TZ: America/Lima
     depends_on:
       postgres:

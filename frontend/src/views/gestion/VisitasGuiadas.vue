@@ -1,11 +1,12 @@
-<!-- G04 · Visitas guiadas (Secretaría). Por ahora solo la sección «Prospectos con contacto no entregado» (HU0002-2.0,
-     rechazo síncrono): los prospectos cuyo correo con la carpeta informativa rebotó. Sin la columna «Acciones»
-     («Corregir datos» y «Reenviar carpeta» no tienen HU, C32) ni la agenda de visitas (HU0003 y HU0004). El mensaje
-     vacío, el formato del teléfono y el de la fecha son los de S9 (plan HU0002). -->
+<!-- G04 · Visitas guiadas (Secretaría), sección «Prospectos con contacto no entregado» (HU0002-2.0, rechazo síncrono):
+     los prospectos cuyo correo con la carpeta informativa rebotó. Sin la columna «Acciones» («Corregir datos» y
+     «Reenviar carpeta» no tienen HU, C32). La pantalla G04 (PantallaVisitas) la muestra bajo la agenda de HU0004. El
+     mensaje vacío, el formato del teléfono y el de la fecha son los de S9 (plan HU0002). -->
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { listarContactoNoEntregado, type ProspectoContactoNoEntregado } from "../../api/prospectos";
 import { mensajeDe } from "../../api/respuesta";
+import { telefonoVisible } from "../../gestion/telefono";
 
 const prospectos = ref<ProspectoContactoNoEntregado[]>([]);
 const cargado = ref(false);
@@ -16,13 +17,6 @@ const insignia = computed(() => `${pendientes.value} ${pendientes.value === 1 ? 
 const insigniaLector = computed(() =>
   pendientes.value === 1 ? "1 prospecto pendiente" : `${pendientes.value} prospectos pendientes`,
 );
-
-// S9: un celular peruano (+51 y 9 dígitos que empiezan con 9) se muestra como en el mockup, «984 222 731»;
-// cualquier otro número, en E.164 tal como lo guarda la API (ADR-17).
-function telefonoVisible(e164: string): string {
-  const celular = /^\+51(9\d{2})(\d{3})(\d{3})$/.exec(e164);
-  return celular ? celular.slice(1).join(" ") : e164;
-}
 
 // S9: la fecha del último rebote en dd/mm/aaaa, en la hora de Lima (la API la envía en UTC).
 const FORMATO_FECHA = new Intl.DateTimeFormat("es-PE", {

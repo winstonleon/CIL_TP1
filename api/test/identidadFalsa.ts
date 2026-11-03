@@ -1,8 +1,9 @@
-// Keycloak simulado en memoria para las pruebas de /personal (implementa IdentidadAdmin).
-// Registra cada llamada en orden y permite hacer fallar un método para probar las compensaciones.
+// Keycloak simulado en memoria para las pruebas de /personal y de la cuenta de la familia (implementa IdentidadAdmin).
+// Registra cada llamada en orden y permite hacer fallar un método para probar las compensaciones. Guarda la última
+// contraseña temporal fijada para que las pruebas de D3 la busquen por valor (nunca sale del proceso de la prueba).
 import { randomUUID } from "node:crypto";
 import { ErrorApi } from "../src/errores";
-import { ORIGEN_PERSONAL, type IdentidadAdmin, type RolPersonal } from "../src/identidad/keycloakAdmin";
+import { ORIGEN_PERSONAL, type IdentidadAdmin, type RolApp } from "../src/identidad/keycloakAdmin";
 
 export interface UsuarioFalso {
   id: string;
@@ -15,6 +16,8 @@ export interface UsuarioFalso {
   credenciales: boolean;
   sesiones: number;
   enlaces: number;
+  contrasenaTemporal: string | null; // la última fijada con establecerContrasenaTemporal
+  cambioPendiente: boolean; // acción requerida UPDATE_PASSWORD
 }
 
 type Metodo = keyof IdentidadAdmin;
@@ -42,13 +45,13 @@ export function crearIdentidadFalsa() {
   };
 
   const identidad: IdentidadAdmin = {
-    async crearUsuario({ correo, nombres, apellidos }) {
+    async crearUsuario({ correo, nombres, apellidos }, origen = ORIGEN_PERSONAL) {
       registrar("crearUsuario");
       if ([...usuarios.values()].some((u) => u.correo === correo)) return null;
       const id = randomUUID();
       usuarios.set(id, {
-        id, correo, nombres, apellidos, habilitado: false, origen: ORIGEN_PERSONAL,
-        roles: [], credenciales: false, sesiones: 0, enlaces: 0,
+        id, correo, nombres, apellidos, habilitado: false, origen,
+        roles: [], credenciales: false, sesiones: 0, enlaces: 0, contrasenaTemporal: null, cambioPendiente: false,
       });
       return id;
     },
@@ -65,9 +68,17 @@ export function crearIdentidadFalsa() {
       registrar("actualizarNombres", id);
       Object.assign(usuario(id), { nombres, apellidos });
     },
-    async establecerRolUnico(id, rol: RolPersonal) {
+    async establecerRolUnico(id, rol: RolApp) {
       registrar("establecerRolUnico", id);
       usuario(id).roles = [rol];
+    },
+    async establecerContrasenaTemporal(id, contrasena) {
+      registrar("establecerContrasenaTemporal", id);
+      Object.assign(usuario(id), { contrasenaTemporal: contrasena, credenciales: true, cambioPendiente: true });
+    },
+    async cambioContrasenaPendiente(id) {
+      registrar("cambioContrasenaPendiente", id);
+      return usuario(id).cambioPendiente;
     },
     async habilitar(id) {
       registrar("habilitar", id);
@@ -103,7 +114,7 @@ export function crearIdentidadFalsa() {
     sembrar(datos: Partial<UsuarioFalso> & { correo: string }): UsuarioFalso {
       const u: UsuarioFalso = {
         id: randomUUID(), nombres: "Previo", apellidos: "Ficticio", habilitado: false, origen: ORIGEN_PERSONAL,
-        roles: [], credenciales: false, sesiones: 0, enlaces: 0, ...datos,
+        roles: [], credenciales: false, sesiones: 0, enlaces: 0, contrasenaTemporal: null, cambioPendiente: false, ...datos,
       };
       usuarios.set(u.id, u);
       return u;

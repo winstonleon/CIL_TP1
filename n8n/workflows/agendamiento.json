@@ -1,0 +1,935 @@
+{
+  "name": "agendamiento",
+  "nodes": [
+    {
+      "id": "9e069321-1771-41ad-b8d5-e8b607b033fe",
+      "name": "Webhook agendamiento",
+      "webhookId": "c90f81ca-ba8c-41c0-a294-8c24560d9c48",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agendamiento",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-webhook-secret"
+        }
+      }
+    },
+    {
+      "id": "dc4125b5-0d06-4974-95de-890f46630ac7",
+      "name": "Validar evento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Valida el evento que envía la API después de la reserva en P02 (HU0003-1.0) y del registro de la asistencia en G04\n// (HU0004-1.0 «Asistió - Interesado» y HU0004-2.0 «No asistió»), según ADR-16 «Receptor agendamiento»: el cuerpo es\n// exactamente { id_cita } con un entero de 1 a 2147483647. Cualquier otro campo lo invalida: el contrato lleva solo\n// identificadores (C10, C11). La salida lleva solo { valido, id_cita } (A3, D3).\nconst esObjeto = (valor) => valor !== null && typeof valor === 'object' && !Array.isArray(valor);\n\nreturn $input.all().map((item, indice) => {\n  const cuerpo = esObjeto(item.json?.body) ? item.json.body : null;\n  const claves = cuerpo ? Object.keys(cuerpo) : [];\n  const id = cuerpo?.id_cita;\n  const valido = claves.length === 1 && claves[0] === 'id_cita' && Number.isSafeInteger(id) && id > 0 && id <= 2147483647;\n  return { json: { valido, id_cita: valido ? id : null }, pairedItem: { item: indice } };\n});"
+      }
+    },
+    {
+      "id": "6bac58b6-6f4d-43d9-a96f-2da280b0bc53",
+      "name": "¿Evento válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "fbecb585-00c0-433a-be2f-60d88d2b53eb",
+              "leftValue": "={{ $json.valido }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": false,
+        "options": {}
+      }
+    },
+    {
+      "id": "9305523d-6a49-4cd0-a968-cb6fd7ef75d4",
+      "name": "Responder 202",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        720,
+        -80
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ estado: 'recibido' }) }}",
+        "options": {
+          "responseCode": 202
+        }
+      }
+    },
+    {
+      "id": "ed9b9bcd-e152-43f1-a85a-bf6025103b12",
+      "name": "Responder 400 (evento inválido)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        720,
+        120
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: { codigo: 'VALIDACION', mensaje: 'El evento debe ser { id_cita } con un entero mayor que 0.' } }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "556e4574-5854-4da2-b361-adc829e35b3a",
+      "name": "Detener: evento inválido",
+      "notes": "Debe quedar más abajo en el lienzo que sus ramas hermanas que registran un resultado: con executionOrder v1 las ramas corren de arriba abajo y un Stop and Error detiene toda la ejecución.",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        960,
+        120
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "agendamiento: evento inválido; el cuerpo debe ser solo { id_cita }"
+      }
+    },
+    {
+      "id": "5f743eae-e371-4ca8-a71a-2fb83e717339",
+      "name": "Cada minuto",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        360
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "cab96aa7-4841-4dc6-8e9f-a2efeb70fe7f",
+      "name": "Pedir pendientes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        240,
+        360
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/agendamiento/pendientes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "1daa7a05-d464-4fe1-9219-b6271c6b01c5",
+      "name": "Un ítem por cita",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        360
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Barrido de agendamiento (ADR-16, S12): un ítem por cada cita de GET /internal/agendamiento/pendientes (avisos del\n// estado actual de la cita sin notificación con más de 1 min, y avisos cuyo último intento lleva más de 10 min\n// pendiente). Recupera la confirmación (HU0003-1.0), las credenciales (HU0004-1.0) y la invitación a reprogramar\n// (HU0004-2.0) cuando el evento del webhook no llegó o el intento quedó pendiente. Si no hay pendientes no sale ningún\n// ítem y la ejecución termina aquí. Solo lleva id_cita (A3).\nconst salida = [];\n$input.all().forEach((item, indice) => {\n  const citas = Array.isArray(item.json?.citas) ? item.json.citas : [];\n  for (const c of citas) {\n    if (Number.isSafeInteger(c?.id_cita) && c.id_cita > 0 && c.id_cita <= 2147483647) {\n      salida.push({ json: { id_cita: c.id_cita }, pairedItem: { item: indice } });\n    }\n  }\n});\nreturn salida;"
+      }
+    },
+    {
+      "id": "85d3fe8c-7876-426e-b6c2-1b2d13f8f70b",
+      "name": "Cita a avisar",
+      "notes": "Punto de convergencia del webhook y del barrido: «Detener: reserva fallida» toma de aquí el id_cita (la respuesta de «Reservar aviso» no lo trae en los errores).",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        960,
+        240
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "88fec43b-12c6-41a5-9913-8a4b943c3ab8",
+      "name": "Reservar aviso",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        1200,
+        240
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/citas/{{ $json.id_cita }}/aviso",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "57b5276a-f799-4f78-9d6c-f95db5029d1e",
+      "name": "¿Reserva hecha?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1440,
+        240
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "reservado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "67cdfb59-d9f4-494d-a723-bd704faad564",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 201,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "conflicto",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "43867b92-7a96-4ce0-b384-78a7b6bf0e5f",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 409,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "otro error"
+        }
+      }
+    },
+    {
+      "id": "6ce9029d-043c-4734-aad5-7c9df505aa39",
+      "name": "Enviar aviso",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "onError": "continueRegularOutput",
+      "position": [
+        1680,
+        120
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "notificacion-multicanal",
+          "cachedResultName": "notificacion-multicanal"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id_expediente": "={{ $json.body.id_expediente }}",
+            "tipo_evento": "={{ $json.body.tipo_evento }}",
+            "asunto": "={{ $json.body.asunto }}",
+            "cuerpo": "={{ $json.body.cuerpo }}",
+            "id_notificacion": "={{ $json.body.id_notificacion }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "id_expediente",
+              "displayName": "id_expediente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "tipo_evento",
+              "displayName": "tipo_evento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "asunto",
+              "displayName": "asunto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "cuerpo",
+              "displayName": "cuerpo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "id_notificacion",
+              "displayName": "id_notificacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "7505fa4e-e2fe-4838-81f2-d64f5ac4780f",
+      "name": "Sin acción",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        360
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "2c1ac380-687b-4024-99e4-077d0b785a1e",
+      "name": "Detener: reserva fallida",
+      "notes": "Debe quedar más abajo en el lienzo que sus ramas hermanas que registran un resultado: con executionOrder v1 las ramas corren de arriba abajo y un Stop and Error detiene toda la ejecución.",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        500
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "=agendamiento: no se pudo reservar el aviso (cita {{ $('Cita a avisar').item.json.id_cita }}, HTTP {{ $json.statusCode }})"
+      }
+    },
+    {
+      "id": "3ff1068a-669e-462a-8205-a3f380ea84aa",
+      "name": "Clasificar resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        120
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Decide qué hace agendamiento con lo que devolvió notificacion-multicanal para cada aviso de la visita: la\n// confirmación (HU0003-1.0), las credenciales del portal (HU0004-1.0, D3) y la invitación a reprogramar (HU0004-2.0).\n// Sigue ADR-07 «Fallos de los avisos de la visita»: la clasificación de D7, sin rebote ni transición (P-j).\n// Entrada: un ítem por aviso, emparejado con su reserva de la salida «reservado» de «¿Reserva hecha?» por el pairedItem\n// que pone Execute Workflow (el subflujo corre una vez por ítem); si falta, por la posición. Es el resultado del\n// subflujo, { id_expediente, correo: { estado_envio, id_notificacion }, whatsapp }, o, si falló, { error: \"<mensaje>\" }\n// (Execute Workflow con onError continueRegularOutput, C9).\n//   enviado   <- correo.estado_envio = enviado: el subflujo ya cerró la fila                    -> termina\n//   fallido   <- correo.estado_envio = fallido: rechazo permanente del destinatario; con la fila reservada el subflujo\n//                no la cierra                      (motivo rechazo_destinatario) -> PATCH fallido y termina sin error\n//             <- error «notificacion-multicanal: entrada inválida…» (400): un defecto, la entrada la arma la API\n//                                                  (motivo entrada_invalida)     -> PATCH fallido y Stop and Error\n//   pendiente <- correo.estado_envio = pendiente (error técnico de SMTP, o un 5xx que no es rechazo permanente), un 502,\n//                un 500 o cualquier otro error: resultado desconocido (R22), nunca se marca fallido\n//                                                  -> sin PATCH y Stop and Error; el barrido lo retoma a los 10 min\n//                                                     con un intento nuevo (una fila por intento, ADR-07)\n// Lo que no se reconoce cae en pendiente.\n// A3 (D3): la salida lleva solo la acción, el motivo y los ids de la cita, el expediente y la notificación. Nunca el\n// asunto ni el cuerpo de la reserva, ni el mensaje del error del subflujo. El cuerpo de las credenciales trae la contraseña temporal.\nconst ENTRADA_INVALIDA = 'notificacion-multicanal: entrada inválida';\nconst reservas = $('¿Reserva hecha?').all(0);\n\nconst clasificar = (resultado) => {\n  if (resultado.error !== undefined) {\n    const mensaje = typeof resultado.error === 'string' ? resultado.error : String(resultado.error?.message ?? '');\n    return mensaje.startsWith(ENTRADA_INVALIDA)\n      ? { accion: 'fallido', motivo: 'entrada_invalida' }\n      : { accion: 'pendiente', motivo: 'notificacion_no_disponible' };\n  }\n  switch (resultado.correo?.estado_envio) {\n    case 'enviado':\n      return { accion: 'enviado', motivo: 'enviado' };\n    case 'fallido':\n      return { accion: 'fallido', motivo: 'rechazo_destinatario' };\n    case 'pendiente':\n      return { accion: 'pendiente', motivo: 'smtp_pendiente' };\n    default:\n      return { accion: 'pendiente', motivo: 'resultado_desconocido' };\n  }\n};\n\nreturn $input.all().map((item, indice) => {\n  const reserva = reservas[item.pairedItem?.item ?? indice]?.json?.body ?? {};\n  return {\n    json: {\n      ...clasificar(item.json ?? {}),\n      id_cita: reserva.id_cita ?? null,\n      id_expediente: reserva.id_expediente ?? null,\n      id_notificacion: reserva.id_notificacion ?? null,\n    },\n    pairedItem: { item: indice },\n  };\n});"
+      }
+    },
+    {
+      "id": "bc607ee8-c996-4f8f-8033-6531a0813b80",
+      "name": "Según el resultado",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2160,
+        120
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "enviado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "1315c3e6-abe4-4102-82d2-961e24f0a9c4",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "enviado",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "fallido",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "5c575f7a-1d69-4ed7-8d29-61c3178baa5c",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "fallido",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "pendiente",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "b8209e95-c303-4175-8b86-dc2da78e5b05",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "pendiente",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": 2
+        }
+      }
+    },
+    {
+      "id": "2b624c44-d698-44f2-84aa-29182080aace",
+      "name": "Aviso enviado",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        -100
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "3396173f-523d-4488-9328-237c17110ca8",
+      "name": "Marcar fallido",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        2400,
+        80
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/notificaciones/{{ $json.id_notificacion }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ estado_envio: 'fallido' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "44a0f2dc-e6f3-46c9-84c1-2bb56ff65bcc",
+      "name": "Detener: envío pospuesto",
+      "notes": "Debe quedar más abajo en el lienzo que sus ramas hermanas que registran un resultado: con executionOrder v1 las ramas corren de arriba abajo y un Stop and Error detiene toda la ejecución.",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        420
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "=agendamiento: envío del aviso pospuesto ({{ $json.motivo }}, cita {{ $json.id_cita }}, notificación {{ $json.id_notificacion }}); el barrido lo retoma con un intento nuevo"
+      }
+    },
+    {
+      "id": "3fe2d616-9d96-402d-b4e8-090c83c17473",
+      "name": "Según el cierre",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2640,
+        80
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "entrada rechazada",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "035e3bee-f4e8-426b-b3e9-96186e3a40b3",
+                    "leftValue": "={{ $('Clasificar resultado').item.json.motivo }}",
+                    "rightValue": "entrada_invalida",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "cerrado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "or",
+                "conditions": [
+                  {
+                    "id": "8c020952-a03e-48cd-bed7-6d93b63939d7",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 200,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "93518e78-0b78-44cb-a4b2-ec9184861231",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 409,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "cierre fallido"
+        }
+      }
+    },
+    {
+      "id": "e06b07da-3b95-49bb-a218-4881d134851c",
+      "name": "Aviso no entregado",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2880,
+        -20
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "0a22bfe6-da0b-43ad-b858-0b437d38af3c",
+      "name": "Detener: entrada rechazada",
+      "notes": "Debe quedar más abajo en el lienzo que sus ramas hermanas que registran un resultado: con executionOrder v1 las ramas corren de arriba abajo y un Stop and Error detiene toda la ejecución.",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2880,
+        140
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "=agendamiento: notificacion-multicanal rechazó la entrada del aviso (cita {{ $('Clasificar resultado').item.json.id_cita }}, notificación {{ $('Clasificar resultado').item.json.id_notificacion }}, PATCH fallido: HTTP {{ $json.statusCode }}); {{ $json.statusCode === 200 || $json.statusCode === 409 ? 'no se reintenta' : 'sigue pendiente y el barrido lo retoma con un intento nuevo' }}"
+      }
+    },
+    {
+      "id": "86aae2c2-4773-4b4e-8021-37e6cdbfd08d",
+      "name": "Detener: cierre fallido",
+      "notes": "Debe quedar más abajo en el lienzo que sus ramas hermanas que registran un resultado: con executionOrder v1 las ramas corren de arriba abajo y un Stop and Error detiene toda la ejecución.",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2880,
+        300
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "=agendamiento: no se pudo cerrar como fallido el aviso rechazado (cita {{ $('Clasificar resultado').item.json.id_cita }}, notificación {{ $('Clasificar resultado').item.json.id_notificacion }}, PATCH fallido: HTTP {{ $json.statusCode }}); sigue pendiente y el barrido lo retoma con un intento nuevo"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook agendamiento": {
+      "main": [
+        [
+          {
+            "node": "Validar evento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar evento": {
+      "main": [
+        [
+          {
+            "node": "¿Evento válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Evento válido?": {
+      "main": [
+        [
+          {
+            "node": "Responder 202",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 400 (evento inválido)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder 202": {
+      "main": [
+        [
+          {
+            "node": "Cita a avisar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder 400 (evento inválido)": {
+      "main": [
+        [
+          {
+            "node": "Detener: evento inválido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cada minuto": {
+      "main": [
+        [
+          {
+            "node": "Pedir pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir pendientes": {
+      "main": [
+        [
+          {
+            "node": "Un ítem por cita",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Un ítem por cita": {
+      "main": [
+        [
+          {
+            "node": "Cita a avisar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cita a avisar": {
+      "main": [
+        [
+          {
+            "node": "Reservar aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservar aviso": {
+      "main": [
+        [
+          {
+            "node": "¿Reserva hecha?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Reserva hecha?": {
+      "main": [
+        [
+          {
+            "node": "Enviar aviso",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sin acción",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Detener: reserva fallida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar aviso": {
+      "main": [
+        [
+          {
+            "node": "Clasificar resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clasificar resultado": {
+      "main": [
+        [
+          {
+            "node": "Según el resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según el resultado": {
+      "main": [
+        [
+          {
+            "node": "Aviso enviado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar fallido",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Detener: envío pospuesto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar fallido": {
+      "main": [
+        [
+          {
+            "node": "Según el cierre",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según el cierre": {
+      "main": [
+        [
+          {
+            "node": "Detener: entrada rechazada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Aviso no entregado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Detener: cierre fallido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "saveExecutionProgress": false,
+    "saveManualExecutions": false,
+    "saveDataErrorExecution": "none",
+    "saveDataSuccessExecution": "none",
+    "executionTimeout": 480,
+    "errorWorkflow": "registro-errores",
+    "executionOrder": "v1"
+  }
+}

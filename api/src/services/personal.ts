@@ -20,6 +20,7 @@ import {
   type FilaPersonalConIdentidad,
 } from "../repositories/personal";
 import { actor } from "./actor";
+import { compensarAlta } from "./altaIdentidad";
 
 export interface DatosAlta {
   nombres: string;
@@ -48,27 +49,6 @@ async function esHuerfano(db: Consultable, identidad: IdentidadAdmin, u: Usuario
   if (u.origen !== ORIGEN_PERSONAL || u.habilitado) return false;
   if ((await buscarIdPersonalPorKeycloak(db, u.id)) !== null) return false;
   return !(await identidad.tieneCredenciales(u.id));
-}
-
-// Deshace el usuario que creó o adoptó un alta fallida. Si no se puede borrar, al menos se deshabilita y se
-// deja en el log (solo ids) para que un nuevo intento con el mismo correo lo adopte.
-async function compensarAlta(identidad: IdentidadAdmin, idIdentidad: string, paso: string): Promise<void> {
-  try {
-    await identidad.eliminarUsuario(idIdentidad);
-    return;
-  } catch {
-    // se intenta deshabilitar abajo
-  }
-  let deshabilitado = true;
-  try {
-    await identidad.deshabilitar(idIdentidad);
-  } catch {
-    deshabilitado = false;
-  }
-  console.error(
-    `Alta de personal incompleta: el usuario de Keycloak ${idIdentidad} quedó huérfano ` +
-      `(paso: ${paso}; deshabilitado: ${deshabilitado ? "sí" : "no"}). Un nuevo intento con el mismo correo lo adopta.`,
-  );
 }
 
 const esUnicidadCorreo = (e: unknown) => {
@@ -121,7 +101,7 @@ export async function crearPersonal(identidad: IdentidadAdmin, keycloakUserIdAct
       return fila;
     });
   } catch (e) {
-    if (idIdentidad) await compensarAlta(identidad, idIdentidad, paso);
+    if (idIdentidad) await compensarAlta(identidad, idIdentidad, paso, "personal");
     if (esUnicidadCorreo(e)) throw correoDuplicado();
     throw e;
   }

@@ -26,6 +26,28 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
   - **Clientes públicos con Authorization Code + PKCE:** `portal-familias` (pantallas P*) y `gestion-interna` (pantallas G*).
   - **Cliente confidencial `api-admision`:** con *service account* y los permisos `manage-users` y `view-users` de `realm-management`, para que la API cree usuarios. La familia se crea en HU0004 y el personal en HU0021.
 - **[HU0023]** Las familias reciben una contraseña temporal con la acción requerida `UPDATE_PASSWORD` (pantalla P03b).
+- **[EQUIPO, HU0004, D3, 29/10/2026] Cuenta y contraseña temporal de la familia:**
+  - **Cuenta:**
+    - La API crea el usuario al registrar en G04 «Asistió - Interesado en postular»: rol `familia`, `origen=api-familia`, el correo como usuario y sin credenciales.
+    - Si el correo ya existe en Keycloak, responde 409 `CORREO_CON_CUENTA` sin cambios (C28). Un huérfano `api-familia` de un alta fallida se adopta, como en HU0021.
+  - **Contraseña:**
+    - No existe hasta que `agendamiento` pide el aviso de credenciales (`POST /internal/citas/:id/aviso`).
+    - En ese momento la API la genera (16 caracteres, sin `0`, `O`, `1`, `l` ni `I`), la fija en Keycloak como temporal y la devuelve solo en esa respuesta.
+    - Cada intento nuevo genera otra, salvo que la familia ya la haya cambiado (ADR-07: una fila por intento, M2 y M4). El correo dice «Si recibes más de un correo, usa el más reciente».
+  - **Dónde no queda:** no se guarda en la BD (tampoco en `notificacion`), en `registro_auditoria` ni en ningún log.
+  - **Riesgo residual aceptado (John, 29/10/2026):** la contraseña pasa por n8n. `agendamiento` no guarda ejecuciones (`saveDataSuccessExecution` y `saveDataErrorExecution` en `none`), pero:
+    - (R1) n8n la tiene en su base mientras la ejecución corre y algo más: n8n 2.42.5 no borra al terminar una ejecución que no se guarda.
+      - La marca con `deletedAt` y la borra en el siguiente ciclo de borrado físico.
+      - Con `EXECUTIONS_DATA_PRUNE_HARD_DELETE_INTERVAL=1` y `EXECUTIONS_DATA_HARD_DELETE_BUFFER=0` (`docker-compose.yml`), la ventana es de 1 min como máximo desde que la ejecución termina. Medida en dev el 01/11/2026: de 39 a 54 s, en 4 mediciones.
+      - El búfer no alarga la ventana de las ejecuciones automáticas; en 0 cubre también las manuales (`saveManualExecutions: false`).
+      - Durante la ventana, la fila se lee por SQL. Después queda como tupla muerta hasta el VACUUM, en el WAL y en un `pg_dump` que caiga en ella;
+    - (R2) las ejecuciones con error de `notificacion-multicanal` la guardan, porque S0-C8 exige que esas ejecuciones existan;
+    - (R3) si n8n cae a mitad de una ejecución, la ejecución queda guardada.
+  - **Mitigaciones:**
+    - rotación en cada intento;
+    - invalidación al cerrar el aviso `fallido` (M3, *best effort*);
+    - borrado físico de las ejecuciones cada minuto y poda por antigüedad (C10; en el VPS se decide la configuración con el dato de R1).
+  - **Alternativa descartada:** el correo de Keycloak con el enlace para crear la contraseña, como en HU0021. Cumplía la restricción entera, pero cambiaba el texto de HU0004-1.0 y HU0023.
 - **[HU0023-2.0]** Se activa la detección de fuerza bruta de Keycloak: se bloquea tras **5 intentos fallidos consecutivos** (pantalla P03c).
 - **[PENDIENTE]** La política de contraseñas y el tiempo de bloqueo. Se definen con el colegio y no se inventan.
 - **[MOCKUPS G01/G10]** El personal recibe un correo de Keycloak con un enlace para definir su contraseña (*execute actions email*), como indica HU0021-1.0. El enlace vence en 72 h.
@@ -96,6 +118,25 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
   - 502 `CONTACTO_NO_DISPONIBLE` o 500 de `notificacion-multicanal`, un error técnico de SMTP (conexión, DNS, *timeout*, 4xx temporal), o un 5.7.x u otro 5xx que no es rebote → la notificación queda `pendiente`, con registro en `registro-errores`, y el barrido de `captacion` la retoma a los 10 min (ADR-16). Después de una reserva exitosa, un 502 casi siempre es la API caída (S0-C8), porque la reserva ya comprobó que el expediente existe.
   - No hay límite de reintentos, porque no hay columna para contarlos. Cada ejecución de `captacion` con un intento fallido deja un aviso en el log, con el id de la ejecución. Si el barrido trae varias carpetas, el aviso es uno por ejecución; los demás ítems quedan en la ejecución guardada.
   - Con la carpeta reservada, `notificacion-multicanal` solo cierra el envío exitoso. Ante el rechazo responde `fallido` y la fila la cierra `POST /rebote`, en la misma transacción que el evento y la transición: si ese POST falla, la fila sigue `pendiente` y el barrido la retoma (revisión de `constructor-n8n`).
+- **[EQUIPO, HU0003 y HU0004, 29/10/2026] Fallos de los avisos de la visita** (`agendamiento`: confirmación, invitación a reprogramar y credenciales; `seguimiento-recordatorios`: recordatorio):
+  - **Clasificación:** la de D7, sin rebote ni transición (P-j).
+    - El rechazo permanente y el 400 cierran `fallido` la fila de ese intento, sin reintento.
+    - Un error técnico, un 502, un 500 o n8n caído dejan la fila `pendiente`. Su resultado es desconocido (R22): nunca se marca `fallido`, porque el correo pudo salir.
+  - **Una fila por intento:** la retoma (más de 10 min en `pendiente`) no reutiliza la fila. Inserta otra `pendiente` para el intento nuevo, con su `id_notificacion`. La fila anterior conserva su estado.
+  - **Tope de 6 intentos** (`MAX_INTENTOS_AVISO`):
+    - Se cuentan las filas del tipo con `fecha_envio ≥ ancla` (ADR-16), sin columna nueva.
+    - Con 6 filas, ninguna `enviado` ni `fallido`, y la última `pendiente` hace más de 10 min, la API cierra el aviso con una **fila de cierre** `fallido` y responde 409 `AVISO_AGOTADO`. La fila de cierre no es un envío y no cambia las filas de los intentos.
+    - En las credenciales, el cierre invalida la contraseña (M3).
+  - **Aviso cerrado:** tiene una fila `enviado` o una `fallido` desde el ancla. El barrido no lo vuelve a tomar.
+  - **Credenciales:**
+    - Cada intento genera otra contraseña, así que solo vale la del último (M2).
+    - Si la familia ya la cambió, entró con la del último intento: esa fila `pendiente` se marca `enviado` y no se rota (M4).
+  - **Recordatorio:** pasada la hora de la visita deja de intentarse, y sus filas conservan su estado.
+  - **Garantía:** al menos una vez (P-h). Si n8n cae entre el envío SMTP y el cierre, la retoma puede repetir un correo.
+  - **Indicadores (C8, HU0019):**
+    - Cada aviso tiene como máximo una fila `enviado` o una `fallido`. Un intento nuevo solo se crea 10 min después del anterior, más que el `executionTimeout` de 8 min, así que un PATCH no puede llegar tarde.
+    - Contar las filas `enviado` o `fallido` es contar avisos. Las `pendiente` son intentos de resultado desconocido y no se cuentan como envíos.
+  - **`captacion`** (carpeta, HU0002) sigue sin tope: lo resuelve C41.
 - **[PROPUESTA]** En desarrollo, el correo va a **Mailpit** (contenedor que captura los correos, visible en el navegador). Ningún correo sale a Internet desde dev.
 - **[EQUIPO] Excepción:** el enlace para definir la contraseña del personal lo envía Keycloak (ADR-02) y no se registra en notificacion, porque esa tabla exige un expediente. La evidencia queda en registro_auditoria (gestion_usuario).
 
@@ -120,11 +161,21 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 
 ## ADR-12 Almacenamiento de documentos y calendario
 - **[TI]** Servicios externos: Google Drive y Sheets, y Google Calendar.
-- **[PENDIENTE]** Si en desarrollo se usa Google Drive real o un adaptador de almacenamiento local (`STORAGE_DRIVER=local|gdrive`). Lo mismo para Google Calendar frente a solo `Horario_Disponible` y `Cita` en BD. Preguntar antes de HU0003 y HU0006.
+- **[EQUIPO, 29/10/2026] Almacenamiento (D1, antes PENDIENTE):**
+  - En desarrollo se usa un adaptador de almacenamiento local (`STORAGE_DRIVER=local`).
+  - Se implementa en el bloque 3, con la abstracción `local|gdrive`: es el único punto de cambio ya decidido (ADR-19).
+  - Si en producción el almacenamiento queda local, `pg_dump` no respalda los archivos (C35).
+- **[EQUIPO, 29/10/2026] Calendario (D2, antes PENDIENTE):**
+  - Sin Google Calendar: la agenda vive solo en `Horario_Disponible` y `Cita` (HU0003, HU0009).
+  - No se crea una abstracción de calendario (ADR-19).
+- **Divergencia con el TI:** el TI nombra Google Drive y Google Calendar entre los servicios externos (`docs/tesis/diseno-TI.md`). Hay que implementarlos o declarar la diferencia en el TI antes de la sustentación (C36).
 
 ## ADR-13 Forma de trabajo
-- **[EQUIPO]** Una HU por vez. Claude Code presenta el plan y espera aprobación antes de editar.
-- **[PROPUESTA]** Una rama por HU: `hu/HU0001-solicitud-informacion`. Commits con el prefijo de la HU: `HU0001: ...`. Pull request a `main` revisado por el otro integrante.
+- **[EQUIPO]** Una HU por vez, o un bloque de HU que John agrupa explícitamente (p. ej., HU0003 + HU0004, 29/10/2026). En un bloque, el plan cubre todas sus HU. Claude Code presenta el plan y espera aprobación antes de editar.
+- **[PROPUESTA]** Una rama por HU: `hu/HU0001-solicitud-informacion`.
+  - **[EQUIPO, 29/10/2026]** Cuando el bloque agrupa varias HU, una rama por bloque: `hu/HU0003-HU0004-visita-guiada`.
+  - Commits con el prefijo de las HU del cambio: `HU0001: ...` o `HU0003-HU0004: ...`.
+  - Pull request a `main` revisado por el otro integrante.
 
 ## ADR-14 Configuración de la campaña
 - **[EQUIPO, HU0022]** La campaña activa es la variable de entorno `CAMPANA_ACTIVA`, por ejemplo `2027`.
@@ -175,6 +226,23 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
   - En una transacción, con el expediente bloqueado, la API crea la notificación `pendiente`, retoma una `pendiente` de más de 10 min o responde 409.
   - Así, un reintento de la API, el barrido y el webhook a la vez no duplican la carpeta.
   - Se acepta *al menos una vez*: si n8n se cae justo después de enviar, la retoma puede repetir un correo.
+- **[EQUIPO, HU0003 y HU0004, 29/10/2026] Receptor `agendamiento`:**
+  - **Evento:** la API lo envía después de la reserva en P02 (HU0003-1.0) y del registro de la asistencia en G04 (HU0004). El cuerpo es solo `{ "id_cita": 9 }`.
+  - **Recepción:** el flujo valida y responde 202 antes de procesar; un cuerpo inválido recibe 400.
+  - **Reserva del aviso:** `POST /internal/citas/:id/aviso` reserva y arma el aviso según el estado actual de la cita:
+    - `reservada` → `visita_confirmada`;
+    - `no_asistio` → `visita_reprogramacion`, con un enlace de P02;
+    - `asistio` → `credenciales_portal` (ADR-02, D3).
+  - **Ancla de idempotencia:** el expediente y la cita quedan bloqueados. `notificacion` no tiene `id_cita`, así que el ancla de cada aviso es la `fecha_hora` de la `transicion_estado` de esa cita (`detalle.id_cita`). Una notificación del tipo con `fecha_envio ≥ ancla` pertenece a esa cita.
+  - **Recuperación:** como C27, un Schedule cada minuto pide `GET /internal/agendamiento/pendientes`. Solo considera el aviso del estado actual de la cita, así que una `pendiente` de un estado anterior no vuelve.
+  - **Tope:** ADR-07.
+  - **Ejecuciones:** el flujo no guarda ninguna (ADR-02, D3).
+- **[EQUIPO, HU0003, D4, 29/10/2026] `seguimiento-recordatorios`:**
+  - Un Schedule cada minuto pide `GET /internal/recordatorios/pendientes` y reserva cada recordatorio con `POST /internal/citas/:id/recordatorio`.
+  - **Ventana:** `[fecha_hora − RECORDATORIO_VISITA_HORAS, fecha_hora)`. Una reserva hecha con menos anticipación recibe el recordatorio enseguida (C37).
+  - **Unicidad:** un solo recordatorio por cita, con la misma ancla que `agendamiento`.
+  - **Sin nodos Wait:** el recordatorio queda «programado» por los datos.
+  - Los barridos diarios de R20 y R21 son de HU0018.
 
 ## ADR-17 Rutas públicas y formulario P01
 - **[EQUIPO, HU0001]** Las rutas `/publico/*` no llevan token ni rol, porque la familia no tiene cuenta hasta HU0004.
@@ -194,6 +262,15 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 - **[EQUIPO, HU0001]** Canal de origen: los enlaces que publica el colegio llevan `?origen=facebook` u `?origen=instagram`. Se compara sin distinguir mayúsculas: `Facebook` o `INSTAGRAM` también cuentan. Sin parámetro, o con cualquier otro valor, el canal es `formulario_web`.
 - **[EQUIPO, HU0001]** Si la misma familia envía P01 dos veces, se crean filas nuevas (brecha C28).
 - **[EQUIPO, HU0001]** Los errores de P01 (borde de los campos con error, caja del consentimiento y mensajes) usan el color del estado «observado» de los prototipos, `#8A4B08` (`--observado`), el mismo de P06, G03, G05 y P07b (HU0001-2.0).
+- **[EQUIPO, HU0003, 29/10/2026] P02 (agendamiento de la visita):**
+  - **Rutas:** `GET /publico/visita-guiada` y `POST /publico/visita-guiada/reserva`. Son públicas a propósito: la familia aún no tiene cuenta.
+  - **Token:** viaja en la cabecera `X-Enlace-Visita`, nunca en la URL de la API, para que no quede en los logs de acceso del proxy.
+  - **Límites por IP**, cada uno con su propio contador:
+    - el POST, 5 cada 10 min, como P01;
+    - el GET, 60 cada 10 min, porque devuelve datos de una familia (nombre, grado) a quien tenga el enlace.
+  - **Excepción a «la misma respuesta en todos los casos»:**
+    - todo token inválido (alterado, de otra clave, mal formado, de un expediente inexistente o en un estado que ya no admite reservar) recibe el mismo 404 `ENLACE_NO_VALIDO`;
+    - con un token válido, que no se puede falsificar, P02 distingue `VISITA_YA_AGENDADA`, `HORARIO_SIN_CUPO` (lo exige HU0003-2.0) y `HORARIO_NO_DISPONIBLE`. No revela datos de otra familia.
 
 ## ADR-18 Carpeta informativa y enlace para agendar la visita
 - **[EQUIPO, HU0002] Carpeta:** el correo lleva un **enlace** a la carpeta digital del colegio, no un adjunto.
@@ -206,6 +283,32 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
   - No muestra el id, no se puede falsificar ni derivar el de otra familia, y no necesita columnas.
   - No vence ni se revoca uno por uno: HU0003 decide qué estados lo aceptan y si vence (C31).
   - Rotar `ENLACE_VISITA_KEY` invalida los enlaces ya enviados.
+- **[EQUIPO, HU0003, P2, 29/10/2026] Vigencia del enlace de P02 (cierra C31):**
+  - No vence por tiempo y el formato `v1` no cambia: la vigencia la da el estado del expediente.
+  - P02 solo acepta un expediente en `prospecto`. En `visita_agendada` (enlace ya usado) responde 409 `VISITA_YA_AGENDADA`; cualquier otro estado, como un enlace inválido: 404 `ENLACE_NO_VALIDO`.
+  - Después de «No asistió» (HU0004-2.0, P1), el expediente vuelve a `prospecto`, así que **el enlace original de la carpeta vuelve a valer**.
+  - El enlace nuevo de la invitación a reprogramar es por comodidad (IV nuevo) y no reemplaza al anterior.
+  - Riesgo aceptado: un enlace reenviado o filtrado sirve mientras el prospecto no reserve (C28 b).
+
+## ADR-19 Puntos de cambio
+- **[EQUIPO, 29/10/2026] Regla:**
+  - Todo valor provisional va en una variable validada (`api/src/config.ts`) o en el realm, nunca literal en el código.
+  - Se crea una abstracción solo donde el cambio ya está decidido (almacenamiento), no por si acaso.
+  - Los textos que debe entregar el colegio siguen el patrón de ADR-18: un módulo versionado (`borrador-1`) con lo pendiente entre corchetes.
+- **Puntos de cambio vigentes:**
+
+| Decisión | Valor hoy | Dónde vive | Cómo se cambia | Prueba que lo protege |
+|---|---|---|---|---|
+| D1 Almacenamiento (ADR-12) | `local` | `STORAGE_DRIVER` en `.env`; la validación y el adaptador `local\|gdrive` llegan en el bloque 3 | Editar `.env` y recrear `api` | La prueba del adaptador (bloque 3) |
+| D2 Calendario (ADR-12) | Solo BD | `horario_disponible` y `cita` (G09, P02) | Una HU nueva con su adaptador | `HU0003-*` (la reserva no llama a servicios externos) |
+| D3 Acceso de la familia (ADR-02) | Contraseña temporal con `UPDATE_PASSWORD`, enviada por `agendamiento` | `api/src/identidad/keycloakAdmin.ts`, `api/src/crypto/contrasenaTemporal.ts` y el realm | Plan de HU | `D3 …` (API y E2E) |
+| D4 Recordatorio de la visita | 24 h antes | `RECORDATORIO_VISITA_HORAS` (`config.ts`) | Editar `.env` y recrear `api` | `HU0003-1.0 … recordatorio …` |
+| D5 WhatsApp (ADR-07) | Desactivado | `WHATSAPP_ENABLED` (`$env` de n8n) | Editar `.env` y recrear `n8n` (con la cuenta, C30) | `HU0002-1.0 [parte: sin WhatsApp] …` |
+| D6 Política de contraseñas (ADR-02) | Ninguna; bloqueo tras 5 intentos | Realm (`infra/keycloak/realm-cil-admision.json` y su `README.md`) | Realm versionado y reimportación (C6; en producción, antes del primer despliegue, C12) | HU0023 (pendiente) |
+| Campaña activa (ADR-14) | `2027` | `CAMPANA_ACTIVA` (`config.ts` y `theme.properties`) | Editar `.env` y recrear `api` y `keycloak` | `C23 …` |
+| Carpeta informativa (ADR-18) | URL ficticia en dev | `CARPETA_INFORMATIVA_URL` (opcional, `config.ts`) | Editar `.env` y recrear `api` (C33) | `HU0002-1.0 [parte: correo] los textos del colegio van entre corchetes, y sin CARPETA_INFORMATIVA_URL el cuerpo lo dice` |
+| Lugar de la visita (P02) | Vacío: «[Dirección del colegio]» | `DIRECCION_COLEGIO` (opcional, `config.ts`) | Editar `.env` y recrear `api` (C39) | `HU0003-1.0 … lugar …` |
+| Textos de los avisos de la visita | `borrador-1`, entre corchetes | `api/src/services/avisosVisita.ts` | El colegio entrega los textos (C39) y se sube la versión | `HU0003-1.0 …` y `HU0004-*` (correos) |
 
 ## Orden recomendado de implementación
 0. **Sprint 0, base técnica** (no es una HU; se documenta como habilitador):

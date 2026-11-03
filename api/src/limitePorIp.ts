@@ -14,6 +14,10 @@ export interface OpcionesLimite {
 // Plan HU0001, P7: 5 envíos por IP cada 10 minutos.
 export const LIMITE_PUBLICO: OpcionesLimite = { maximo: 5, ventanaMs: 10 * 60 * 1000 };
 
+// GET de P02 (HU0003, A6): 60 lecturas por IP cada 10 minutos. Es el único GET público limitado porque devuelve datos
+// de una familia (nombre y grado) a quien tenga el enlace.
+export const LIMITE_LECTURA_VISITA: OpcionesLimite = { maximo: 60, ventanaMs: 10 * 60 * 1000 };
+
 export function limitePorIp({ maximo, ventanaMs, ahora = Date.now }: OpcionesLimite): RequestHandler {
   const ventanas = new Map<string, { inicio: number; cuenta: number }>();
   let ultimaPurga = ahora();
