@@ -2,7 +2,7 @@
 name: constructor-n8n
 description: Diseña, escribe, valida e importa los workflows JSON de n8n/workflows/. Úsalo siempre que una HU cree o modifique uno de los 7 flujos de n8n.
 tools: Read, Write, Edit, Grep, Glob, Bash, mcp__n8n-mcp
-model: inherit
+model: sonnet
 color: orange
 skills:
   - n8n-workflow-patterns

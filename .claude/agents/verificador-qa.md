@@ -2,7 +2,7 @@
 name: verificador-qa
 description: Escribe y ejecuta las pruebas automatizadas de cada escenario de aceptación de una HU y actualiza la matriz de trazabilidad. Úsalo en el paso de pruebas de cada HU.
 tools: Read, Write, Edit, Grep, Glob, Bash
-model: inherit
+model: sonnet
 color: green
 ---
 
