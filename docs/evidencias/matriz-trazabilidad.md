@@ -1,20 +1,20 @@
 # Matriz de trazabilidad (HU → escenario → prueba → resultado)
 
-> Generada con `npm run evidencias:matriz` el 2/11/26, 5:45 p. m. (America/Lima) sobre el commit `de6fc1d` **con cambios sin commit**. No se edita a mano.
+> Generada con `npm run evidencias:matriz` el 3/11/26, 12:29 p. m. (America/Lima) sobre el commit `0302b62` **con cambios sin commit**. No se edita a mano.
 
 ## Resumen
 
 | Suite | Pruebas | Pasan | Fallan | Omitidas o no ejecutadas |
 |---|---|---|---|---|
-| API | 256 | 256 | 0 | 0 |
-| Frontend | 67 | 67 | 0 | 0 |
-| E2E | 57 | 57 | 0 | 0 |
+| API | 286 | 286 | 0 | 0 |
+| Frontend | 82 | 82 | 0 | 0 |
+| E2E | 59 | 59 | 0 | 0 |
 
-- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **16**.
-- Estados: cubierto: 11 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · sin prueba: 39 · mecanismo probado; verificación en ruta real pendiente (C17): 1 · verificado: almacenamiento; pendiente: completitud, agendamiento, adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
+- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **18**.
+- Estados: cubierto: 12 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · sin prueba: 37 · mecanismo probado; verificación en ruta real pendiente (C17): 1 · verificado: almacenamiento; pendiente: completitud, agendamiento, adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
 - Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.
 - «mecanismo probado; verificación en ruta real pendiente (C17)»: todas las pruebas del escenario llevan la marca `[política, ruta de prueba]` (compromiso C17).
-- «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
+- «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34; HU0005-2.0, C43). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
 
 ## HU con pruebas
 
@@ -108,6 +108,58 @@
 |  |  | API | `api/test/visitas.test.ts` | HU0004-2.0 (G04) con varias filas por aviso, la etiqueta de la invitación muestra el cierre (enviado o fallido) si existe y, si no, «pendiente» | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/AgendaVisitas.test.ts` | HU0004-2.0 G04 «No asistió» envía no_asistio y la fila muestra «No asistió» | pasó |
 |  |  | E2E | `e2e/visita-guiada.spec.ts` | HU0004-2.0 «No asistió» en G04 envía la invitación con un enlace nuevo de P02 que vuelve a reservar | pasó |
+
+### HU0005 — Registrar en línea la ficha de inscripción del estudiante y el cuestionario de expectativas familiares respecto al colegio
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0005-1.0 — Guardado completo de la ficha de inscripción y expectativas | cubierto | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 guarda la ficha completa, cifra los DNI, marca la ficha completa y devuelve la lista de documentos | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 la lista de documentos sale del grado y de lo declarado sobre colegio, condición especial y condición laboral de cada padre | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 (C25) un requisito creado por la ruta de G09 aparece en la lista, que no se entrega hasta completar la ficha | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 una ficha incompleta no se guarda: 400 con lo que falta y sin cambios en el expediente | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 con la ficha ya completa, otro guardado responde 409 FICHA_YA_COMPLETA y no cambia nada | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 con el expediente fuera de postulación, guardar responde 409 FICHA_NO_EDITABLE y no cambia nada | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 longitud y formato: un nombre de 101 caracteres responde 400 y no guarda nada | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 longitud y formato: un colegio de procedencia de 151 caracteres responde 400 y no guarda nada | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 longitud y formato: una respuesta de más de 2000 caracteres responde 400 y no guarda nada | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 longitud y formato: un teléfono +51 que no es un celular de 9 dígitos responde 400 y no guarda nada | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 longitud y formato: un correo inválido responde 400 y no guarda nada | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 longitud y formato: una fecha de nacimiento futura responde 400 y no guarda nada | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 longitud y formato: un parentesco fuera de la lista responde 400 y no guarda nada | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 (autorización) la familia A no lee ni escribe el expediente de la familia B: 404 igual que uno inexistente, sin cambios y auditado | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 (autorización) un id de expediente, postulante o apoderado en el cuerpo se rechaza con 400 y no cambia nada | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 (autorización) GET /familia/expedientes: sin sesión responde 401 y con el rol secretaria 403 | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 (autorización) GET /familia/expedientes/:id/ficha: sin sesión responde 401 y con el rol secretaria 403 | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 (autorización) PUT /familia/expedientes/:id/ficha: sin sesión responde 401 y con el rol secretaria 403 | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 (autorización) GET /familia/expedientes/:id/requisitos: sin sesión responde 401 y con el rol secretaria 403 | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 (autorización) una cuenta familia sin expediente no ve ninguno y recibe 404 en el de otra familia | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 (DNI duplicado) «Guardar y continuar» con el DNI de otro postulante responde 409 sin datos ajenos y sin guardar nada | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 (DNI duplicado) el mismo DNI en dos campos de la misma ficha se rechaza con 400 | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-1.0 (DNI duplicado) dos familias que completan la ficha con el mismo DNI a la vez: una se guarda y la otra recibe 409, sin error 500 | pasó |
+|  |  | Frontend | `frontend/src/views/portal/FichaInscripcion.test.ts` | HU0005-1.0 «Guardar y continuar» guarda el borrador y avanza hasta el paso 4, donde completa la ficha y muestra los documentos | pasó |
+|  |  | Frontend | `frontend/src/views/portal/FichaInscripcion.test.ts` | HU0005-1.0 un error del servidor se marca en su campo, con el mensaje, y lleva al paso donde está | pasó |
+|  |  | Frontend | `frontend/src/views/portal/FichaInscripcion.test.ts` | HU0005-1.0 en un borrador solo se marcan los conflictos de DNI; lo que falta no se muestra como error | pasó |
+|  |  | E2E | `e2e/ficha-inscripcion.spec.ts` | HU0005-1.0 la familia completa la ficha y ve habilitada la carga de documentos con la lista que corresponde | pasó |
+| HU0005-2.0 — Guardado parcial de borrador de ficha | verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43) | API | `api/test/fichaInscripcion.test.ts` | HU0005-2.0 [parte: borrador] guarda un borrador parcial, lo devuelve al retomar y la transición a en_postulacion ocurre solo en el primer guardado | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-2.0 [parte: borrador] las preguntas sin responder vuelven como null (no como «No») y la ficha no se puede completar sin responderlas | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-2.0 [parte: segundo apoderado parcial] el bloque a medias vuelve en pendientes sin perder el resto del borrador, y se completa o se quita después | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-2.0 [parte: borrador] un DNI parcial no llega a la base y no produce DNI_YA_REGISTRADO | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-2.0 [parte: borrador] (DNI duplicado) en un borrador el DNI repetido no se escribe, vuelve como pendiente y el resto se guarda | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-2.0 [parte: borrador] (DNI duplicado) dos borradores con el mismo DNI a la vez no producen error 500 y el DNI queda en una sola ficha | pasó |
+|  |  | API | `api/test/fichaInscripcion.test.ts` | HU0005-2.0 [parte: borrador] dos guardados simultáneos del mismo expediente: ninguno falla y queda uno de los dos completo | pasó |
+|  |  | Frontend | `frontend/src/portal/guardadoAutomatico.test.ts` | HU0005-2.0 [parte: borrador] guarda 2 s después del último cambio y varios cambios seguidos hacen un solo guardado | pasó |
+|  |  | Frontend | `frontend/src/portal/guardadoAutomatico.test.ts` | HU0005-2.0 [parte: borrador] al salir guarda de inmediato lo pendiente, con keepalive si la pestaña se oculta, y sin cambios no guarda | pasó |
+|  |  | Frontend | `frontend/src/portal/guardadoAutomatico.test.ts` | HU0005-2.0 [parte: borrador] si el guardado falla, los cambios siguen pendientes y se reintentan al salir | pasó |
+|  |  | Frontend | `frontend/src/portal/guardadoAutomatico.test.ts` | HU0005-2.0 [parte: borrador] un guardado explícito cancela el guardado automático pendiente: no se guarda dos veces lo mismo | pasó |
+|  |  | Frontend | `frontend/src/portal/guardadoAutomatico.test.ts` | HU0005-2.0 [parte: borrador] con cambios mientras se guarda, los nuevos se guardan después sin solaparse | pasó |
+|  |  | Frontend | `frontend/src/portal/guardadoAutomatico.test.ts` | HU0005-2.0 [parte: borrador] «Borrador guardado hace N minutos», como en el mockup P05 | pasó |
+|  |  | Frontend | `frontend/src/portal/guardadoAutomatico.test.ts` | HU0005-2.0 [parte: segundo apoderado parcial] el bloque no se guardó solo si falta alguno de los cinco datos que la base exige | pasó |
+|  |  | Frontend | `frontend/src/views/portal/FichaInscripcion.test.ts` | HU0005-2.0 [parte: borrador] sin responder no se marca ninguna opción de Sí/No y del titular solo se editan DNI, parentesco y condición laboral | pasó |
+|  |  | Frontend | `frontend/src/views/portal/FichaInscripcion.test.ts` | HU0005-2.0 [parte: borrador] muestra lo guardado al volver: respuestas marcadas, textos y «Borrador guardado hace 2 minutos» | pasó |
+|  |  | Frontend | `frontend/src/views/portal/FichaInscripcion.test.ts` | HU0005-2.0 [parte: borrador] guarda el borrador solo 2 s después del último cambio, sin pulsar nada | pasó |
+|  |  | Frontend | `frontend/src/views/portal/FichaInscripcion.test.ts` | HU0005-2.0 [parte: borrador] al salir de la pantalla guarda lo que quedó sin guardar | pasó |
+|  |  | Frontend | `frontend/src/views/portal/FichaInscripcion.test.ts` | HU0005-2.0 [parte: segundo apoderado parcial] el indicador avisa que el bloque no se guardó hasta tener los cinco datos | pasó |
+|  |  | E2E | `e2e/ficha-inscripcion.spec.ts` | HU0005-2.0 [parte: borrador] la familia deja un borrador que se guarda solo, sale, vuelve y lo encuentra sin pérdida | pasó |
 
 ### HU0021 — Crear, modificar, desactivar y reactivar las cuentas del personal y asignarles un rol (secretaría, Tesorería, psicóloga, evaluador académico o Directora)
 
@@ -244,8 +296,6 @@
 
 | HU | Escenario | Estado |
 |---|---|---|
-| HU0005 | HU0005-1.0 — Guardado completo de la ficha de inscripción y expectativas | sin prueba |
-| HU0005 | HU0005-2.0 — Guardado parcial de borrador de ficha | sin prueba |
 | HU0006 | HU0006-1.0 — Carga exitosa de legajo documental digital | sin prueba |
 | HU0006 | HU0006-2.0 — Intento de carga con formato o tamaño de archivo no soportado | sin prueba |
 | HU0007 | HU0007-1.0 — Registro conforme del comprobante de pago de postulación | sin prueba |
