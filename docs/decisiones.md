@@ -42,7 +42,8 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
       - El búfer no alarga la ventana de las ejecuciones automáticas; en 0 cubre también las manuales (`saveManualExecutions: false`).
       - Durante la ventana, la fila se lee por SQL. Después queda como tupla muerta hasta el VACUUM, en el WAL y en un `pg_dump` que caiga en ella;
     - (R2) las ejecuciones con error de `notificacion-multicanal` la guardan, porque S0-C8 exige que esas ejecuciones existan;
-    - (R3) si n8n cae a mitad de una ejecución, la ejecución queda guardada.
+    - (R3) si n8n cae a mitad de una ejecución, la ejecución queda guardada;
+    - (R4) una ejecución de `notificacion-multicanal` **cancelada** (por *timeout* o por la suspensión del equipo) también guarda el correo con la contraseña temporal, hasta la poda por antigüedad (C10). Esa contraseña deja de valer cuando la retoma del aviso genera otra (M2) o la familia la cambia.
   - **Mitigaciones:**
     - rotación en cada intento;
     - invalidación al cerrar el aviso `fallido` (M3, *best effort*);
@@ -73,6 +74,7 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
 - **[PROPUESTA]** Unicidad sobre datos cifrados: el TI exige DNI único, pero un cifrado con IV aleatorio no admite `UNIQUE`. Por eso se agrega una columna `dni_hash` = HMAC-SHA256(DNI normalizado, `DATA_HMAC_KEY`) con `UNIQUE`. Las búsquedas por DNI usan el hash.
 - **[EQUIPO]** Columnas cifradas: el **DNI** de `Apoderado` y de `Postulante` (`dni_cifrado` + `dni_hash`), ya definidas en el modelo de datos v1.1.
 - **[PENDIENTE]** Si se cifran más columnas, por ejemplo las observaciones del informe psicológico o del dictamen. No se cifra nada más sin aprobación.
+- **[EQUIPO, HU0005, 02/11/2026] Condición especial del postulante:** `tiene_condicion_especial` **no se cifra**, porque es solo un sí/no (boolean). Si alguna HU agrega un detalle en texto (diagnóstico, informe), se reabre esta decisión antes de guardarlo.
 - Consecuencia: n8n **nunca** lee la BD de negocio directamente (ver ADR-04), porque no tiene la clave.
 
 ## ADR-04 n8n accede a los datos solo a través de la API
@@ -309,6 +311,24 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 | Carpeta informativa (ADR-18) | URL ficticia en dev | `CARPETA_INFORMATIVA_URL` (opcional, `config.ts`) | Editar `.env` y recrear `api` (C33) | `HU0002-1.0 [parte: correo] los textos del colegio van entre corchetes, y sin CARPETA_INFORMATIVA_URL el cuerpo lo dice` |
 | Lugar de la visita (P02) | Vacío: «[Dirección del colegio]» | `DIRECCION_COLEGIO` (opcional, `config.ts`) | Editar `.env` y recrear `api` (C39) | `HU0003-1.0 … lugar …` |
 | Textos de los avisos de la visita | `borrador-1`, entre corchetes | `api/src/services/avisosVisita.ts` | El colegio entrega los textos (C39) y se sube la versión | `HU0003-1.0 …` y `HU0004-*` (correos) |
+
+## ADR-20 Ficha de inscripción y cuestionario de expectativas (HU0005)
+- **[EQUIPO, HU0005, 02/11/2026] Borrador de la ficha:** vive en las tablas del modelo v1.1, sin tablas nuevas (se descartó una tabla de borrador).
+  - `Postulante` con `ficha_completa = false` guarda lo que haya; `Cuestionario_Expectativas` con `es_borrador = true` guarda las respuestas.
+  - `estudio_en_colegio_peruano` y `tiene_condicion_especial` admiten `NULL` (migración `DROP NOT NULL`): `NULL` = sin responder. La API exige `true` o `false` para completar la ficha.
+  - El DNI (del postulante y del segundo apoderado) solo se cifra y se hashea si ya tiene formato válido (DNI de 8 dígitos o CE). Si no, no se escribe, no se consulta `dni_hash` y el campo vuelve como pendiente.
+  - El segundo apoderado (opcional) se guarda solo si trae nombres, apellidos, teléfono, correo y parentesco; si no, ese bloque queda pendiente y el resto se guarda.
+  - Del titular, P05b solo edita DNI, parentesco y condición laboral; nombres, apellidos, teléfono y correo vienen de P01 y son de solo lectura (el correo es su usuario de Keycloak).
+- **[EQUIPO, HU0005] Transición:** el primer guardado (borrador o completo) pasa el expediente de `portal_habilitado` a `en_postulacion` con `transicionarExpediente` (HU0005-2.0). «Guardar y continuar» solo marca `ficha_completa = true`, sin otro cambio de estado.
+- **[EQUIPO, HU0005] Rutas `/familia/*`:** rol `familia`; la familia solo accede a su propio expediente (modelo §4.6).
+  - Un expediente ajeno responde 404 `EXPEDIENTE_NO_ENCONTRADO`, igual que uno inexistente, para que los ids secuenciales no permitan enumerar expedientes. Si el id existe y es ajeno, se audita `acceso_denegado`. Un id que no existe responde el mismo 404, pero no deja evento: no hay un expediente al que referenciar.
+  - Los ids de expediente, postulante y apoderado salen de la URL y del token, nunca del cuerpo (un campo de más recibe 400).
+  - Un DNI ya registrado en otro postulante o apoderado responde 409 `DNI_YA_REGISTRADO` sin revelar datos del otro expediente (brecha C28 c y d).
+- **[EQUIPO, HU0005] Ficha completa:** con `ficha_completa = true`, otro guardado (borrador o completo) responde 409 `FICHA_YA_COMPLETA` y P05 queda en solo lectura; reabrirla la decide HU0006. Fuera de `portal_habilitado` y `en_postulacion` responde 409 `FICHA_NO_EDITABLE`.
+- **[EQUIPO, HU0005] Datos parciales:** el guardado es del estado completo del formulario. Un dato con formato inválido (p. ej. un DNI a medio escribir) se guarda como nulo y no conserva el valor válido anterior; un segundo apoderado a medias no se guarda (C43).
+- **[EQUIPO, HU0005] Abandono:** guardado automático del borrador 2 s después del último cambio, al salir de la pantalla y al ocultar la pestaña. Con dos pestañas abiertas **gana el último guardado**: riesgo aceptado.
+- **[EQUIPO, HU0005] Lista de documentos (R7):** `GET /familia/expedientes/:id/requisitos` es el contrato que consume HU0006. Responde 409 `FICHA_INCOMPLETA` mientras la ficha no esté completa.
+- **[PROPUESTA, HU0005] Cuestionario:** las preguntas viven en `api/src/services/cuestionarioExpectativas.ts` (`borrador-1`, entre corchetes) hasta que el colegio las entregue (C42, ADR-19).
 
 ## Orden recomendado de implementación
 0. **Sprint 0, base técnica** (no es una HU; se documenta como habilitador):

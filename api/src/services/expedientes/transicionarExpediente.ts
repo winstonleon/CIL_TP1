@@ -18,6 +18,7 @@ export const TRANSICIONES_PERMITIDAS: TransicionesPermitidas = {
     ["prospecto", "visita_agendada"], // HU0003-1.0: reserva de la visita en P02
     ["visita_agendada", "portal_habilitado"], // HU0004-1.0: «Asistió - Interesado en postular» en G04
     ["visita_agendada", "prospecto"], // HU0004-2.0: «No asistió» (P1: la visita no concretada vuelve a prospecto)
+    ["portal_habilitado", "en_postulacion"], // HU0005-2.0: primer guardado de la ficha (borrador o completa)
   ],
   estado_documental: [],
   estado_financiero: [],

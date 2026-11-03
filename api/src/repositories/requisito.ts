@@ -72,3 +72,45 @@ export async function requisitoEnUso(db: Consultable, idRequisito: number): Prom
 export async function eliminarRequisito(db: Consultable, idRequisito: number): Promise<void> {
   await db.query("DELETE FROM requisito_documental WHERE id_requisito = $1", [idRequisito]);
 }
+
+export interface RequisitoExigido {
+  id_requisito: number;
+  tipo_documento: string;
+  categoria: string;
+  obligatorio: boolean;
+  por_apoderado: boolean;
+  id_apoderado: number | null;
+  apoderado: string | null; // nombres y apellidos, solo en los requisitos por apoderado
+}
+
+// Lista de documentos exigidos al expediente (R7, HU0005-1.0): los requisitos del grado con condición `todos`, más los de
+// colegio peruano y condición especial según lo declarado en la ficha. Los `por_apoderado` salen una vez por cada
+// apoderado del postulante; `si_dependiente` y `si_independiente`, solo para el que tiene esa condición laboral.
+// Contrato que consume HU0006. Solo cuentan los requisitos del grado de la campaña del expediente (G09, C25).
+export async function requisitosExigidos(db: Consultable, idExpediente: number): Promise<RequisitoExigido[]> {
+  const { rows } = await db.query<RequisitoExigido>(
+    `SELECT r.id_requisito, r.tipo_documento, r.categoria::text AS categoria, r.obligatorio, r.por_apoderado,
+            a.id_apoderado, a.nombres || ' ' || a.apellidos AS apoderado
+       FROM expediente e
+       JOIN postulante p ON p.id_postulante = e.id_postulante
+       JOIN requisito_documental r ON r.id_grado = e.id_grado
+       LEFT JOIN LATERAL (
+              SELECT ap.id_apoderado, ap.nombres, ap.apellidos
+                FROM postulante_apoderado pa
+                JOIN apoderado ap ON ap.id_apoderado = pa.id_apoderado
+               WHERE r.por_apoderado
+                 AND pa.id_postulante = p.id_postulante
+                 AND (r.condicion_aplicacion NOT IN ('si_dependiente', 'si_independiente')
+                      OR (r.condicion_aplicacion = 'si_dependiente' AND ap.condicion_laboral = 'dependiente')
+                      OR (r.condicion_aplicacion = 'si_independiente' AND ap.condicion_laboral = 'independiente'))
+            ) a ON r.por_apoderado
+      WHERE e.id_expediente = $1
+        AND (r.condicion_aplicacion IN ('todos', 'si_dependiente', 'si_independiente')
+             OR (r.condicion_aplicacion = 'solo_colegio_peruano' AND p.estudio_en_colegio_peruano IS TRUE)
+             OR (r.condicion_aplicacion = 'solo_condicion_especial' AND p.tiene_condicion_especial IS TRUE))
+        AND (NOT r.por_apoderado OR a.id_apoderado IS NOT NULL)
+      ORDER BY r.id_requisito, a.id_apoderado`,
+    [idExpediente],
+  );
+  return rows;
+}

@@ -8,6 +8,8 @@ import LayoutGestion from "./views/gestion/LayoutGestion.vue";
 import ConfiguracionCampana from "./views/gestion/ConfiguracionCampana.vue";
 import UsuariosRoles from "./views/gestion/UsuariosRoles.vue";
 import PantallaVisitas from "./views/gestion/PantallaVisitas.vue";
+import FichaInscripcion from "./views/portal/FichaInscripcion.vue";
+import LayoutPortal from "./views/portal/LayoutPortal.vue";
 import SolicitudInformacion from "./views/portal/SolicitudInformacion.vue";
 import VisitaGuiada from "./views/portal/VisitaGuiada.vue";
 
@@ -31,6 +33,13 @@ export function crearEnrutador(historial: RouterHistory) {
       // P02 (HU0003): PÚBLICA, sin meta.cliente, como P01. El enlace de la carpeta lleva ?t=<token> (ADR-18).
       { path: "/visita-guiada", component: VisitaGuiada },
       { path: "/portal", component: SesionIniciada, meta: { cliente: "portal" } },
+      // P05 y P05b (HU0005): ficha de inscripción y cuestionario, solo para el rol familia (la API vuelve a exigirlo).
+      {
+        path: "/portal/ficha",
+        component: LayoutPortal,
+        meta: { cliente: "portal", roles: ["familia"] },
+        children: [{ path: "", component: FichaInscripcion }],
+      },
       {
         path: "/gestion",
         component: LayoutGestion,

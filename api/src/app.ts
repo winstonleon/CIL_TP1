@@ -9,6 +9,7 @@ import { LIMITE_LECTURA_VISITA, LIMITE_PUBLICO, type OpcionesLimite } from "./li
 import { crearDisparadorN8nDesdeConfig, type DisparadorN8n } from "./orquestacion/n8n";
 import { rutaCampanaActiva } from "./routes/campana";
 import { rutasConfiguracion } from "./routes/configuracion";
+import { rutasFamilia } from "./routes/familia";
 import { rutasInternas } from "./routes/internal";
 import { rutasPersonal } from "./routes/personal";
 import { rutasProspectos } from "./routes/prospectos";
@@ -64,6 +65,8 @@ export function crearApp(dependencias: Dependencias = {}): Express {
     requirePersonalActivo(...ROLES_PERSONAL),
     rutaCampanaActiva(campanaActiva),
   );
+  // Portal de la familia (HU0005): solo el rol familia, y solo su propio expediente (ADR-20).
+  app.use("/familia", verificarToken, requireRol("familia"), rutasFamilia());
   app.use("/configuracion", verificarToken, requireRol("secretaria"), requirePersonalActivo("secretaria"), rutasConfiguracion(campanaActiva));
   app.use("/prospectos", verificarToken, requireRol("secretaria"), requirePersonalActivo("secretaria"), rutasProspectos(campanaActiva));
   app.use(

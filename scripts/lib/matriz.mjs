@@ -6,7 +6,7 @@
 export const MARCA_C17 = "[política, ruta de prueba]";
 export const ESTADO_C17 = "mecanismo probado; verificación en ruta real pendiente (C17)";
 
-// Escenarios cuya verificación se completa en otras HU o etapas (plan HU0022, compromiso C25; plan HU0002, C30 y C34).
+// Escenarios cuya verificación se completa en otras HU o etapas (plan HU0022, compromiso C25; plan HU0002, C30 y C34; plan HU0005, C43).
 // Cada prueba de estos escenarios declara la parte que cubre con «[parte: X]». Una parte queda verificada solo con
 // pruebas de API o E2E que pasan: las de frontend usan la API simulada y se listan, pero no verifican nada. El
 // escenario es «cubierto» cuando todas sus partes están verificadas.
@@ -17,6 +17,9 @@ export const ESCENARIOS_POR_PARTES = {
   "HU0002-1.0": { compromiso: "C30", partes: ["correo", "sin WhatsApp", "WhatsApp autorizado"] },
   // D1 cubre solo el rechazo síncrono del servidor SMTP; el rebote asíncrono del proveedor queda antes del VPS (C34).
   "HU0002-2.0": { compromiso: "C34", partes: ["rechazo síncrono", "rebote asíncrono del proveedor"] },
+  // Un segundo apoderado a medias no se guarda en el servidor y se pierde al recargar (C43): la parte «conservado» no tiene
+  // prueba a propósito y sigue pendiente hasta que el compromiso se cumpla.
+  "HU0005-2.0": { compromiso: "C43", partes: ["borrador", "segundo apoderado parcial", "segundo apoderado conservado"] },
 };
 export const SUITES_QUE_VERIFICAN = ["API", "E2E"];
 

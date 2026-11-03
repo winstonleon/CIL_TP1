@@ -204,10 +204,10 @@ Table Postulante {
   apellido_materno varchar(100)
   fecha_nacimiento date
   ficha_completa boolean [not null, default: false, note: 'false = borrador (HU0005-2.0). Pasa a true con "Guardar y continuar" en P05']
-  estudio_en_colegio_peruano boolean [not null, default: false, note: 'activa los requisitos de colegio de procedencia']
+  estudio_en_colegio_peruano boolean [default: false, note: 'activa los requisitos de colegio de procedencia. Nulo = sin responder en el borrador (HU0005-2.0); la API exige true o false para completar la ficha. El DEFAULT false se conserva solo por compatibilidad; toda inserción debe escribir NULL explícito si la pregunta no se respondió. Lo protege HU0005-2.0.']
   colegio_procedencia varchar(150)
-  tiene_condicion_especial boolean [not null, default: false, note: 'activa los requisitos de informes de terapia']
-  Note: 'Menor que postula. Dato personal de menor de edad: tratamiento restringido. Los campos admiten nulos mientras la ficha es borrador. CHECK: si ficha_completa = true, dni_cifrado, dni_hash, nombres, apellido_paterno, apellido_materno y fecha_nacimiento no son nulos.'
+  tiene_condicion_especial boolean [default: false, note: 'activa los requisitos de informes de terapia. Nulo = sin responder en el borrador (HU0005-2.0); la API exige true o false para completar la ficha. El DEFAULT false se conserva solo por compatibilidad; toda inserción debe escribir NULL explícito si la pregunta no se respondió. Lo protege HU0005-2.0.']
+  Note: 'Menor que postula. Dato personal de menor de edad: tratamiento restringido. Los campos admiten nulos mientras la ficha es borrador, también los dos boolean (nulo = sin responder). CHECK: si ficha_completa = true, dni_cifrado, dni_hash, nombres, apellido_paterno, apellido_materno y fecha_nacimiento no son nulos.'
 }
 
 Table Postulante_Apoderado {
@@ -645,3 +645,10 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 | §6, F7: un Schedule cada minuto para el recordatorio de la visita | D4: 24 h antes (`RECORDATORIO_VISITA_HORAS`) |
 | §7: el ancla de los avisos, una fila por intento (la de resultado desconocido queda `pendiente`) con una fila de cierre `fallido` al agotar el tope, y los cupos frente a `uq_cita_personal_fecha` | Idempotencia por cita y tope de intentos sin columnas nuevas, sin marcar `fallido` un correo que pudo salir (ADR-07); C40 |
 | Transiciones `prospecto → visita_agendada`, `visita_agendada → portal_habilitado` y `visita_agendada → prospecto` | HU0003-1.0, HU0004-1.0 y HU0004-2.0. «Visita no concretada» = `Cita.estado = no_asistio`, y el expediente vuelve a `prospecto` (P1, John, 29/10/2026) |
+
+### Ajustes por HU0005 (02/11/2026), sin tablas, columnas ni relaciones nuevas
+| Cambio | Motivo |
+|---|---|
+| `Postulante.estudio_en_colegio_peruano` y `tiene_condicion_especial` admiten `NULL` (migración `20261102120000_postulante_booleanos_borrador.sql`; el `DEFAULT false` se conserva) | El borrador distingue «sin responder» de «No» (HU0005-2.0); la API exige true o false al completar la ficha |
+| `Postulante.tiene_condicion_especial` no se cifra | Es solo un sí/no (ADR-03, HU0005) |
+| Nota de los dos boolean: el `DEFAULT false` se conserva solo por compatibilidad y toda inserción escribe `NULL` explícito si la pregunta no se respondió | Lo protege HU0005-2.0 (migración, repositorio y prueba `HU0005-2.0 [parte: borrador] las preguntas sin responder vuelven como null…`) |

@@ -152,11 +152,25 @@ async function capturar(page: Page, nombre: string, ocultos: string[] = []) {
   await page.screenshot({ path: resolve(CAPTURAS, `${nombre}.png`), fullPage: true });
 }
 
+// Tras detener Mailpit, comprueba que de verdad no corre (C27 P-a falló una vez con la carpeta enviada aunque Mailpit debía
+// estar detenido; causa no probada, C16). Si sigue arriba falla con ese mensaje y la hora, en vez de agotar un timeout.
+function exigirMailpitDetenido() {
+  const corriendo = docker(["ps", "-q", "--status", "running", "mailpit"]).trim();
+  expect(corriendo, `Mailpit sigue en ejecución después de detenerlo (${new Date().toISOString()}): no se puede probar el escenario de SMTP caído`).toBe("");
+}
+
 // Busca un valor en la base n8n (execution_data) cada 3 s hasta que no aparezca, con un tope de 3 min: una ejecución
 // que no se guarda queda legible hasta el siguiente ciclo de borrado físico (R1, ≤ 1 min con la configuración de
 // docker-compose.yml). `excluirR2` deja fuera las ejecuciones con error de notificacion-multicanal (R2 aceptado).
-async function esperarQueNoAparezcaEnN8n(valor: string, excluirR2: boolean) {
-  const filtro = excluirR2 ? `WHERE NOT (w.name = 'notificacion-multicanal' AND e.status = 'error')` : "";
+// `desde` (segundos desde la época, como haceUnInstante) limita la búsqueda a las ejecuciones de esta corrida: al buscar por
+// una etiqueta y no por el valor, una ejecución de una corrida anterior (p. ej. una cancelada por la suspensión del equipo,
+// R4) la haría coincidir para siempre. No excluye ningún estado: una ejecución cancelada de esta corrida también cuenta.
+async function esperarQueNoAparezcaEnN8n(valor: string, excluirR2: boolean, desde?: string) {
+  const condiciones = [
+    ...(excluirR2 ? [`NOT (w.name = 'notificacion-multicanal' AND e.status = 'error')`] : []),
+    ...(desde ? [`e."startedAt" >= to_timestamp(${desde})`] : []),
+  ];
+  const filtro = condiciones.length ? `WHERE ${condiciones.join(" AND ")}` : "";
   const aparece = () =>
     consultarN8n(
       `SELECT coalesce(string_agg(d."workflowData"::text || d.data, ' '), '') FROM execution_data d
@@ -337,6 +351,7 @@ test.describe("D3 ruta de errores y C11", () => {
     const desde = haceUnInstante();
     docker(["stop", "mailpit"]);
     try {
+      exigirMailpitDetenido();
       const res = await llamarApi(request, "post", `/visitas/${idCita}/asistencia`, secretariaToken, { resultado: "asistio_interesado" });
       expect(res.status()).toBe(200);
 
@@ -352,7 +367,7 @@ test.describe("D3 ruta de errores y C11", () => {
       // La contraseña de este intento nunca llegó a un lugar observable (por eso se busca por su etiqueta): no está en el
       // log de la API ni, pasada la ventana de R1, en ninguna ejecución de n8n salvo las de error de notificacion-multicanal (R2).
       expect(logApi(desde).includes(ETIQUETA_CONTRASENA), "el log de la API trae el cuerpo de las credenciales").toBe(false);
-      await esperarQueNoAparezcaEnN8n(ETIQUETA_CONTRASENA, true);
+      await esperarQueNoAparezcaEnN8n(ETIQUETA_CONTRASENA, true, desde);
       // M1: agendamiento no guarda ninguna ejecución, tampoco la de error.
       expect(
         consultarN8n(`SELECT count(*) FROM execution_entity e JOIN workflow_entity w ON w.id = e."workflowId"

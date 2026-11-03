@@ -30,13 +30,14 @@ const errorDe = async (p: Promise<unknown>) => {
 };
 
 describe("S0-B5 transicionarExpediente", () => {
-  it("S0-B5 la lista de transiciones permitidas por defecto tiene solo las que exigen los escenarios (HU0002-2.0, HU0003-1.0, HU0004-1.0 y HU0004-2.0)", () => {
+  it("S0-B5 la lista de transiciones permitidas por defecto tiene solo las que exigen los escenarios", () => {
     expect(TRANSICIONES_PERMITIDAS).toEqual({
       estado: [
-        ["prospecto", "contacto_no_entregado"],
-        ["prospecto", "visita_agendada"],
-        ["visita_agendada", "portal_habilitado"],
-        ["visita_agendada", "prospecto"],
+        ["prospecto", "contacto_no_entregado"], // HU0002-2.0
+        ["prospecto", "visita_agendada"], // HU0003-1.0
+        ["visita_agendada", "portal_habilitado"], // HU0004-1.0
+        ["visita_agendada", "prospecto"], // HU0004-2.0
+        ["portal_habilitado", "en_postulacion"], // HU0005-2.0
       ],
       estado_documental: [],
       estado_financiero: [],

@@ -1,6 +1,5 @@
 import type { Consultable } from "../db/pool";
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { UUID } from "../uuid";
 
 // Columnas que se devuelven al cliente (G10). keycloak_user_id no sale de la API.
 const COLUMNAS = "id_personal, nombres, apellidos, correo, rol::text AS rol, activo";

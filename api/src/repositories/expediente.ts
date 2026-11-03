@@ -99,3 +99,59 @@ export async function actualizarEstado(db: Consultable, idExpediente: number, ca
   const { columna, tipo } = CAMPOS[campo];
   await db.query(`UPDATE expediente SET ${columna} = $2::${tipo} WHERE id_expediente = $1`, [idExpediente, valor]);
 }
+
+// ====================================================================== portal de la familia (HU0005)
+
+export interface ExpedienteDeFamilia {
+  id_expediente: number;
+  id_apoderado_titular: number;
+  id_postulante: number | null;
+  estado: string;
+  nombre_grado: string;
+  nivel: string;
+  campana_admision: string;
+}
+
+const EXPEDIENTE_DE_FAMILIA = `SELECT e.id_expediente, e.id_apoderado_titular, e.id_postulante, e.estado::text AS estado,
+       g.nombre_grado, g.nivel::text AS nivel, g.campana_admision
+  FROM expediente e
+  JOIN grado g ON g.id_grado = e.id_grado
+  JOIN cuenta_acceso ca ON ca.id_apoderado = e.id_apoderado_titular`;
+
+// Los expedientes cuyo titular tiene la cuenta de Keycloak `keycloakUserId` (§4.6: la familia solo ve los suyos).
+export async function listarExpedientesDeFamilia(db: Consultable, keycloakUserId: string): Promise<ExpedienteDeFamilia[]> {
+  const { rows } = await db.query<ExpedienteDeFamilia>(
+    `${EXPEDIENTE_DE_FAMILIA} WHERE ca.keycloak_user_id = $1::uuid ORDER BY e.id_expediente`,
+    [keycloakUserId],
+  );
+  return rows;
+}
+
+// El expediente solo si es de esa cuenta: un id ajeno da el mismo null que uno inexistente.
+export async function leerExpedienteDeFamilia(
+  db: Consultable,
+  keycloakUserId: string,
+  idExpediente: number,
+): Promise<ExpedienteDeFamilia | null> {
+  const { rows } = await db.query<ExpedienteDeFamilia>(
+    `${EXPEDIENTE_DE_FAMILIA} WHERE ca.keycloak_user_id = $1::uuid AND e.id_expediente = $2`,
+    [keycloakUserId, idExpediente],
+  );
+  return rows[0] ?? null;
+}
+
+// Bloquea el expediente mientras se guarda la ficha: dos guardados simultáneos se serializan (ADR-20: gana el último).
+export async function bloquearFichaDeExpediente(
+  db: Consultable,
+  idExpediente: number,
+): Promise<{ estado: string; id_postulante: number | null } | null> {
+  const { rows } = await db.query<{ estado: string; id_postulante: number | null }>(
+    "SELECT estado::text AS estado, id_postulante FROM expediente WHERE id_expediente = $1 FOR UPDATE",
+    [idExpediente],
+  );
+  return rows[0] ?? null;
+}
+
+export async function vincularPostulante(db: Consultable, idExpediente: number, idPostulante: number): Promise<void> {
+  await db.query("UPDATE expediente SET id_postulante = $2 WHERE id_expediente = $1", [idExpediente, idPostulante]);
+}

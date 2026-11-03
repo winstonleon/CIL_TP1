@@ -80,6 +80,13 @@ const eventos = (id: number, tipo: string) =>
 
 const estadoExpediente = (id: number) => consultarAdmision(`SELECT estado FROM expediente WHERE id_expediente = ${id}`);
 
+// Tras detener Mailpit, comprueba que de verdad no corre (C27 P-a falló una vez con la carpeta enviada aunque Mailpit debía
+// estar detenido; causa no probada, C16). Si sigue arriba falla con ese mensaje y la hora, en vez de agotar un timeout.
+function exigirMailpitDetenido() {
+  const corriendo = docker(["ps", "-q", "--status", "running", "mailpit"]).trim();
+  expect(corriendo, `Mailpit sigue en ejecución después de detenerlo (${new Date().toISOString()}): no se puede probar el escenario de SMTP caído`).toBe("");
+}
+
 // Ejecuciones con error de un flujo desde `desde` cuyo mensaje contiene `fragmento` (n8n guarda las de error, C10).
 function ejecucionesConError(flujo: string, desde: string, fragmento: string): number[] {
   return consultar(
@@ -418,6 +425,7 @@ test.describe("HU0002 carpeta informativa (flujo captacion)", () => {
     let idNotificacion = 0;
     try {
       docker(["stop", "mailpit"]);
+      exigirMailpitDetenido();
       id = await registrar(request, API, correo);
       // El error técnico de SMTP termina en «Detener: envío pospuesto» (D7), con el motivo y los ids en el mensaje.
       await expect

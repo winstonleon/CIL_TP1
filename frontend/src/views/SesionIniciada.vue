@@ -16,5 +16,9 @@ const area = computed(() => (sesion.cliente === "portal" ? "Portal de familias" 
     <ul data-testid="roles">
       <li v-for="rol in sesion.roles" :key="rol">{{ rol }}</li>
     </ul>
+    <!-- Entrada a P05 (HU0005) hasta que el panel P04 (HU0020) la reemplace. -->
+    <p v-if="sesion.cliente === 'portal' && sesion.roles.includes('familia')">
+      <RouterLink to="/portal/ficha" data-testid="ir-a-ficha">Ficha de inscripción y cuestionario</RouterLink>
+    </p>
   </main>
 </template>
