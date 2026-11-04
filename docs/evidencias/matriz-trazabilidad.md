@@ -1,17 +1,17 @@
 # Matriz de trazabilidad (HU → escenario → prueba → resultado)
 
-> Generada con `npm run evidencias:matriz` el 3/11/26, 12:29 p. m. (America/Lima) sobre el commit `0302b62` **con cambios sin commit**. No se edita a mano.
+> Generada con `npm run evidencias:matriz` el 3/11/26, 10:28 p. m. (America/Lima) sobre el commit `e933d3c` **con cambios sin commit**. No se edita a mano.
 
 ## Resumen
 
 | Suite | Pruebas | Pasan | Fallan | Omitidas o no ejecutadas |
 |---|---|---|---|---|
-| API | 286 | 286 | 0 | 0 |
-| Frontend | 82 | 82 | 0 | 0 |
-| E2E | 59 | 59 | 0 | 0 |
+| API | 349 | 349 | 0 | 0 |
+| Frontend | 104 | 104 | 0 | 0 |
+| E2E | 63 | 63 | 0 | 0 |
 
-- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **18**.
-- Estados: cubierto: 12 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · sin prueba: 37 · mecanismo probado; verificación en ruta real pendiente (C17): 1 · verificado: almacenamiento; pendiente: completitud, agendamiento, adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
+- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **22**.
+- Estados: cubierto: 16 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · sin prueba: 33 · mecanismo probado; verificación en ruta real pendiente (C17): 1 · verificado: almacenamiento; pendiente: completitud, agendamiento, adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
 - Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.
 - «mecanismo probado; verificación en ruta real pendiente (C17)»: todas las pruebas del escenario llevan la marca `[política, ruta de prueba]` (compromiso C17).
 - «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34; HU0005-2.0, C43). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
@@ -161,6 +161,76 @@
 |  |  | Frontend | `frontend/src/views/portal/FichaInscripcion.test.ts` | HU0005-2.0 [parte: segundo apoderado parcial] el indicador avisa que el bloque no se guardó hasta tener los cinco datos | pasó |
 |  |  | E2E | `e2e/ficha-inscripcion.spec.ts` | HU0005-2.0 [parte: borrador] la familia deja un borrador que se guarda solo, sale, vuelve y lo encuentra sin pérdida | pasó |
 
+### HU0006 — Adjuntar en formato digital los documentos que exige el grado del menor, organizados en documentos del postulante y de los padres, documentos del colegio de procedencia y documentación financiera
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0006-1.0 — Carga exitosa de legajo documental digital | cubierto | API | `api/test/almacenamiento.test.ts` | HU0006-1.0 (tope técnico) MAX_DOCUMENTOS_POR_REQUISITO vale 20 por defecto, admite de 1 a 100 y nombra la variable si es inválida | pasó |
+|  |  | API | `api/test/cargasEsquema.test.ts` | HU0006-1.0 registro_auditoria admite documentos_confirmados y sigue rechazando valores fuera del catálogo (sección 4.7) | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-1.0 sube un PDF, un JPG y un PNG, cada uno asociado a su requisito, cifrado y sin cambiar el estado del expediente | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-1.0 un requisito por apoderado se asocia al apoderado y admite varios archivos (tres boletas) | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-1.0 reemplazar un documento deja el anterior con vigente = false en la misma transacción y la lista solo muestra el nuevo | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-1.0 «Confirmar documentos» solicita la verificación: deja el evento documentos_confirmados y no cambia el estado | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-1.0 la descarga propia devuelve los mismos bytes con las cabeceras de un archivo no ejecutable | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-1.0 un archivo alterado en el almacenamiento no entrega ningún byte del contenido: 500 con solo el error | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-1.0 (C25) un requisito creado por la ruta de G09 admite la carga | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-1.0 sin la ficha completa no se listan ni se cargan documentos: 409 FICHA_INCOMPLETA | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-1.0 fuera de en_postulacion no se carga ni se confirma: 409 DOCUMENTOS_NO_EDITABLES y sin archivo | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-1.0 una carga mal armada se rechaza con 400: campos de más, sin archivo, archivo antes de los campos o sin multipart | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-1.0 los requisitos condicionales (libreta del colegio de procedencia e informes de terapia) solo admiten carga si se declararon en la ficha | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-1.0 la clave del archivo la genera el servidor: un campo clave o url_archivo en la petición se rechaza con 400 | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-1.0 (tope técnico) un requisito admite 20 archivos vigentes: el 21.º da 409 LIMITE_DOCUMENTOS_REQUISITO, sin fila y sin archivo; reemplazar sí se puede | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-1.0 (autorización) la familia A no lista, carga, confirma ni descarga en el expediente de B: 404 y auditado, sin cambios | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-1.0 (autorización) un documento de B pedido con el id del expediente de A da 404 y se audita; uno inexistente, el mismo 404 sin evento | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-1.0 (autorización) sin token 401; el personal (secretaría, tesorería) no descarga por /familia: 403 y auditado | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DocumentosExpediente.test.ts` | HU0006-1.0 agrupa los requisitos en secciones con los estados del mockup y marca la sección financiera como solo para Tesorería | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DocumentosExpediente.test.ts` | HU0006-1.0 sube el archivo asociado a su requisito y a su apoderado, con los campos antes del archivo, y vuelve a pedir la lista | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DocumentosExpediente.test.ts` | HU0006-1.0 «Reemplazar» envía el id del documento anterior | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DocumentosExpediente.test.ts` | HU0006-1.0 «Confirmar documentos» solicita la verificación y muestra la confirmación | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DocumentosExpediente.test.ts` | HU0006-1.0 con un cupo de archivos agotado (409) el aviso del servidor queda junto al requisito | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DocumentosExpediente.test.ts` | HU0006-1.0 fuera de en_postulacion no ofrece subir ni confirmar | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DocumentosExpediente.test.ts` | HU0006-1.0 con la ficha incompleta pide completarla y enlaza a la ficha | pasó |
+|  |  | E2E | `e2e/cargas.spec.ts` | HU0006-1.0 la familia sube sus documentos asociados a cada requisito (uno por apoderado, varios archivos) y confirma | pasó |
+| HU0006-2.0 — Intento de carga con formato o tamaño de archivo no soportado | cubierto | API | `api/test/documentos.test.ts` | HU0006-2.0 rechaza un ZIP y un XLSX con 415, el mensaje de formatos admitidos, sin fila y sin archivo | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-2.0 un .exe renombrado a .pdf con Content-Type application/pdf se rechaza por su contenido, y un archivo vacío también | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-2.0 acepta un archivo de exactamente 10 MB y rechaza uno de 10 MB + 1 byte con 413, sin fila y sin archivo | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-2.0 una carga sin Content-Length de más de 10 MB se corta mientras se recibe: 413, sin fila y sin archivo | pasó |
+|  |  | API | `api/test/documentos.test.ts` | HU0006-2.0 un Content-Length declarado de más de 10 MB se rechaza con 413 antes de leer el cuerpo | pasó |
+|  |  | Frontend | `frontend/src/portal/validarArchivo.test.ts` | HU0006-2.0 acepta PDF, JPG y PNG por su firma, aunque el nombre o el tipo declarado digan otra cosa | pasó |
+|  |  | Frontend | `frontend/src/portal/validarArchivo.test.ts` | HU0006-2.0 rechaza un ZIP, un XLSX, un ejecutable renombrado a .pdf y un archivo vacío con el mensaje de formatos admitidos | pasó |
+|  |  | Frontend | `frontend/src/portal/validarArchivo.test.ts` | HU0006-2.0 acepta exactamente 10 MB y rechaza un byte más | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DocumentosExpediente.test.ts` | HU0006-2.0 un ZIP o un ejecutable renombrado a .pdf no se envía: resalta el requisito con el aviso de formatos admitidos | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DocumentosExpediente.test.ts` | HU0006-2.0 un archivo de más de 10 MB no se envía y el aviso desaparece al subir uno válido | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DocumentosExpediente.test.ts` | HU0006-2.0 si la API rechaza el archivo (413 o 415) se muestra el mismo aviso de formatos admitidos | pasó |
+|  |  | E2E | `e2e/cargas.spec.ts` | HU0006-2.0 un archivo de formato no admitido se rechaza con el aviso en el campo y no se guarda | pasó |
+
+### HU0007 — Registrar el comprobante de pago por derecho de admisión (S/ 300) mediante el formulario digital
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0007-1.0 — Registro conforme del comprobante de pago de postulación | cubierto | API | `api/test/derechoAdmision.test.ts` | HU0007-1.0 registra el comprobante: Pago de S/ 300 pendiente de Tesorería, archivo cifrado y constancia con el código del modelo | pasó |
+|  |  | API | `api/test/derechoAdmision.test.ts` | HU0007-1.0 antes del registro P07b recibe el monto, los bancos y la cuenta; después recibe la constancia sin la hora de registro | pasó |
+|  |  | API | `api/test/derechoAdmision.test.ts` | HU0007-1.0 valida los campos con 400: banco fuera de la lista, fecha inválida o futura, número vacío, campos de más | pasó |
+|  |  | API | `api/test/derechoAdmision.test.ts` | HU0007-1.0 un segundo comprobante en el mismo expediente da 409 DERECHO_YA_REGISTRADO y no deja archivo | pasó |
+|  |  | API | `api/test/derechoAdmision.test.ts` | HU0007-1.0 solo se registra en en_postulacion: antes de la ficha da 409 DERECHO_NO_REGISTRABLE | pasó |
+|  |  | API | `api/test/derechoAdmision.test.ts` | HU0007-1.0 rechaza un comprobante que no es PDF, JPG ni PNG (415) o pasa de 10 MB (413), sin pago y sin archivo | pasó |
+|  |  | API | `api/test/derechoAdmision.test.ts` | HU0007-1.0 (autorización) la familia A no ve ni registra el derecho de admisión del expediente de B: 404 y auditado | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DerechoAdmision.test.ts` | HU0007-1.0 muestra el monto de S/ 300 y la cuenta del colegio que entrega la API, con los bancos de la lista | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DerechoAdmision.test.ts` | HU0007-1.0 un envío con campos vacíos no llama a la API y marca cada campo obligatorio | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DerechoAdmision.test.ts` | HU0007-1.0 envía el comprobante con los campos antes del archivo y muestra la constancia con el estado pendiente de validación | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DerechoAdmision.test.ts` | HU0007-1.0 una fecha de pago futura se marca en el campo y no se envía | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DerechoAdmision.test.ts` | HU0007-1.0 un comprobante que no es PDF, JPG ni PNG se marca en el campo y no se envía | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DerechoAdmision.test.ts` | HU0007-1.0 si la API rechaza el comprobante (413 o 415) se muestra el mismo aviso de formatos admitidos | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DerechoAdmision.test.ts` | HU0007-1.0 al volver con el comprobante ya registrado muestra la constancia, sin la hora de registro que la API no guarda | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DerechoAdmision.test.ts` | HU0007-1.0 fuera del estado en que se registra no muestra el formulario | pasó |
+|  |  | E2E | `e2e/cargas.spec.ts` | HU0007-1.0 la familia corrige el número, registra el comprobante y ve la constancia con el pago pendiente de Tesorería | pasó |
+| HU0007-2.0 — Registro con número de operación duplicado | cubierto | API | `api/test/cargasEsquema.test.ts` | HU0007-2.0 la BD rechaza (banco, numero_operacion) repetido (uq_pago_banco_numero_operacion) y admite el mismo número en otro banco | pasó |
+|  |  | API | `api/test/derechoAdmision.test.ts` | HU0007-2.0 bloquea el mismo número en el mismo banco de otro expediente: 409 COMPROBANTE_DUPLICADO, sin pago, sin archivo y sin datos del otro | pasó |
+|  |  | API | `api/test/derechoAdmision.test.ts` | HU0007-2.0 el mismo número en otro banco es otro comprobante y se registra (R19 por banco) | pasó |
+|  |  | API | `api/test/derechoAdmision.test.ts` | HU0007-2.0 dos registros simultáneos del mismo comprobante: uno se registra, el otro recibe 409 y no deja archivo | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DerechoAdmision.test.ts` | HU0007-2.0 ante un número de operación ya registrado muestra la alerta, marca el campo y deja el formulario para corregir | pasó |
+|  |  | E2E | `e2e/cargas.spec.ts` | HU0007-2.0 un comprobante ya registrado para el mismo banco se bloquea con la alerta y el campo marcado | pasó |
+
 ### HU0021 — Crear, modificar, desactivar y reactivar las cuentas del personal y asignarles un rol (secretaría, Tesorería, psicóloga, evaluador académico o Directora)
 
 | Escenario | Estado | Suite | Archivo | Prueba | Resultado |
@@ -296,10 +366,6 @@
 
 | HU | Escenario | Estado |
 |---|---|---|
-| HU0006 | HU0006-1.0 — Carga exitosa de legajo documental digital | sin prueba |
-| HU0006 | HU0006-2.0 — Intento de carga con formato o tamaño de archivo no soportado | sin prueba |
-| HU0007 | HU0007-1.0 — Registro conforme del comprobante de pago de postulación | sin prueba |
-| HU0007 | HU0007-2.0 — Registro con número de operación duplicado | sin prueba |
 | HU0008 | HU0008-1.0 — Conformidad documental del expediente | sin prueba |
 | HU0008 | HU0008-2.0 — Observación de un documento ilegible o incorrecto | sin prueba |
 | HU0009 | HU0009-1.0 — Agendamiento exitoso de las evaluaciones del grado | sin prueba |
