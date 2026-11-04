@@ -158,7 +158,17 @@ services:
       # colegio para «Lugar» de P02 y de los correos (puede quedar vacía: se ve «[Dirección del colegio]», C39).
       RECORDATORIO_VISITA_HORAS: ${RECORDATORIO_VISITA_HORAS}
       DIRECCION_COLEGIO: ${DIRECCION_COLEGIO}
+      # Archivos de documentos y comprobantes (HU0006 y HU0007, ADR-12 D1 y ADR-21): adaptador local sobre el volumen
+      # `archivos`, siempre cifrados. ARCHIVOS_ENCRYPTION_KEY_ANTERIOR solo se define al rotar la clave (C47).
+      STORAGE_DRIVER: ${STORAGE_DRIVER}
+      STORAGE_LOCAL_DIR: /var/lib/cil/archivos
+      ARCHIVOS_ENCRYPTION_KEY: ${ARCHIVOS_ENCRYPTION_KEY}
+      ARCHIVOS_ENCRYPTION_KEY_ANTERIOR: ${ARCHIVOS_ENCRYPTION_KEY_ANTERIOR:-}
+      # Tope técnico provisional de archivos vigentes por requisito en P06 (ADR-19); sin definir en .env, 20.
+      MAX_DOCUMENTOS_POR_REQUISITO: ${MAX_DOCUMENTOS_POR_REQUISITO:-20}
       TZ: America/Lima
+    volumes:
+      - archivos:/var/lib/cil/archivos
     depends_on:
       postgres:
         condition: service_healthy
@@ -180,3 +190,5 @@ networks:
 volumes:
   pgdata:
   n8n_data:
+  # Archivos de la API (D1, ADR-12): pg_dump no los respalda (C35).
+  archivos:

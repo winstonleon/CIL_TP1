@@ -95,28 +95,38 @@ async function enlaceDeLaCarpeta(request: APIRequestContext, correo: string): Pr
 }
 const tokenDe = (enlace: string) => new URL(enlace).searchParams.get("t")!;
 
-// Un horario de visita libre de una directora activa, creado por G09 (HU0022) dentro de las próximas 24 h desde
-// `desdeHoras` horas: cada intento se corre 35 min si choca con un horario que dejó otra corrida (409 HORARIO_SUPERPUESTO).
+// Un horario de visita libre de una directora activa, creado por G09 (HU0022). Prueba horarios de 5 min con paso de 5 min
+// desde `desdeHoras` + 1 h (hora redondeada hacia abajo) hasta 23 h 30 min desde ahora, para que la reserva caiga dentro de la
+// ventana del recordatorio de 24 h (D4): unos 250 posibles. Cada intento choca (409 HORARIO_SUPERPUESTO) con los horarios que
+// dejaron otras corridas, porque no se pueden quitar (tienen citas). Una sola consulta calcula todos los intentos.
 async function horarioLibre(request: APIRequestContext, token: string, desdeHoras: number) {
   const responsables = (await (await llamarApi(request, "get", "/configuracion/responsables", token)).json()) as { id_personal: number; rol: string }[];
   const directora = responsables.find((r) => r.rol === "directora");
   expect(directora, "no hay una directora activa: ejecuta npm run db:seed").toBeTruthy();
-  for (let i = 0; i < 30; i++) {
-    const [fecha, inicio] = consultarAdmision(
-      `SELECT to_char(t, 'YYYY-MM-DD'), to_char(t, 'HH24:MI') FROM (SELECT date_trunc('hour', now() AT TIME ZONE 'America/Lima')
-         + make_interval(mins => ${desdeHoras * 60 + 60 + i * 35}) AS t) x`,
-    ).split("\t") as [string, string];
-    if (inicio >= "23:20") continue; // el horario no cruza la medianoche
+  const inicioVentana = `(date_trunc('hour', now() AT TIME ZONE 'America/Lima') + interval '${desdeHoras + 1} hours')`;
+  const finVentana = `(now() AT TIME ZONE 'America/Lima' + interval '23 hours 30 minutes')`;
+  const intentos = consultarAdmision(
+    `SELECT to_char(t, 'YYYY-MM-DD'), to_char(t, 'HH24:MI') FROM generate_series(${inicioVentana}, ${finVentana}, interval '5 minutes') t
+      WHERE t::time < time '23:55' ORDER BY t`,
+  )
+    .split("\n")
+    .map((linea) => linea.split("\t") as [string, string]);
+  for (const [fecha, inicio] of intentos) {
     const [h, m] = inicio.split(":").map(Number) as [number, number];
-    const fin = `${String(h + Math.floor((m + 30) / 60)).padStart(2, "0")}:${String((m + 30) % 60).padStart(2, "0")}`;
+    const fin = `${String(h + Math.floor((m + 5) / 60)).padStart(2, "0")}:${String((m + 5) % 60).padStart(2, "0")}`;
     const res = await llamarApi(request, "post", "/configuracion/horarios", token, {
       id_personal: directora!.id_personal, tipo_cita: "visita", fecha, hora_inicio: inicio, hora_fin: fin, cupos: 1,
     });
     if (res.status() === 201) return { ...((await res.json()) as { id_horario: number }), fecha, inicio };
     expect(res.status(), await res.text()).toBe(409);
   }
-  throw new Error("no se encontró un horario libre para la directora");
+  const ocupados = consultarAdmision(
+    `SELECT count(*) FROM horario_disponible WHERE id_personal = ${directora!.id_personal} AND tipo_cita = 'visita'
+       AND (fecha + hora_inicio) >= ${inicioVentana} AND (fecha + hora_inicio) <= ${finVentana}`,
+  );
+  throw new Error(`no se encontró un horario libre para la directora: ${ocupados} horarios suyos en la ventana (${intentos.length} intentos de 5 min)`);
 }
+
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
@@ -311,8 +321,12 @@ test.describe("HU0004-2.0 inasistencia y reprogramación", () => {
     await entrarEnGestion(page, secretaria.username, CONTRASENA);
     await page.goto(`${FRONTEND}/gestion/visitas?fecha=${primero.fecha}`);
     const fila = page.getByTestId(`visita-${idCita}`);
+    // Se espera la respuesta de la API antes de leer la BD, y el texto se busca en la etiqueta de estado de la fila: el
+    // botón «No asistió» ya está en la fila, así que mirar la fila entera pasaría sin que se hubiera registrado nada.
+    const registro = page.waitForResponse((r) => r.request().method() === "POST" && r.url().endsWith(`/visitas/${idCita}/asistencia`));
     await fila.getByRole("button", { name: "No asistió" }).click();
-    await expect(fila).toContainText("No asistió");
+    expect((await registro).status()).toBe(200);
+    await expect(fila.locator("span.chip-observado")).toHaveText("No asistió");
     expect(estadoExpediente(id)).toBe("prospecto");
 
     const { texto } = await esperarCorreo(request, correo, `Reprograma tu visita guiada · Admisión ${CAMPANA}`);

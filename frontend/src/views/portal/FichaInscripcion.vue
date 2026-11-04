@@ -451,6 +451,7 @@ const etiquetaApoderado = (r: Requisito) => (r.apoderado ? `${r.tipo_documento} 
           </li>
         </ul>
         <p v-else class="suave">Por ahora el colegio no ha configurado documentos para este grado.</p>
+        <RouterLink to="/portal/documentos" class="boton primario enlace-documentos" data-testid="ir-a-documentos">Ir a Documentos</RouterLink>
       </div>
     </section>
   </div>
@@ -688,6 +689,13 @@ h3 {
 .documentos p,
 .documentos ul {
   margin: 0;
+}
+
+.enlace-documentos {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
 
 .documentos li {

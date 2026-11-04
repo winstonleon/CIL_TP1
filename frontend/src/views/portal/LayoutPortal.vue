@@ -1,6 +1,6 @@
 <!-- Estructura común de las pantallas P* con sesión (mockups P05 y P05b): encabezado con la persona, el expediente y
      «Cerrar sesión», y menú lateral con el postulante. Solo muestra lo que HU0005 necesita: «Ficha y cuestionario» y
-     «Documentos» (se habilita al completar la ficha; su pantalla llega con HU0006). «Mi postulación», «Pagos» y
+     «Documentos» (se habilita al completar la ficha; P06, HU0006) y «Pagos» (P07b, HU0007). «Mi postulación» y
      «Evaluaciones» llegan con sus HU. Sin logo hasta que el colegio entregue el archivo (como G10). -->
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
@@ -56,16 +56,19 @@ function salir() {
 
         <div class="opciones">
           <RouterLink to="/portal/ficha" class="opcion" exact-active-class="activa">Ficha y cuestionario</RouterLink>
-          <!-- Se habilita al completar la ficha (HU0005-1.0). La pantalla de carga la crea HU0006. -->
-          <button
-            type="button"
+          <!-- Se habilita al completar la ficha (HU0005-1.0). P06 (HU0006). -->
+          <RouterLink
+            v-if="expedientes.expediente?.ficha_completa"
+            to="/portal/documentos"
             class="opcion"
+            exact-active-class="activa"
             data-testid="menu-documentos"
-            :disabled="!expedientes.expediente?.ficha_completa"
-            :aria-disabled="!expedientes.expediente?.ficha_completa"
           >
             Documentos
-          </button>
+          </RouterLink>
+          <button v-else type="button" class="opcion" data-testid="menu-documentos" disabled aria-disabled="true">Documentos</button>
+          <!-- «Pagos» lleva por ahora al derecho de admisión (P07b, HU0007); P07 llega con HU0013 y HU0014. -->
+          <RouterLink to="/portal/pagos/derecho-admision" class="opcion" exact-active-class="activa" data-testid="menu-pagos">Pagos</RouterLink>
         </div>
 
         <div class="ayuda">

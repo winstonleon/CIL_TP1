@@ -225,7 +225,7 @@ describe("S0-B7 unicidades", () => {
     const operacion = `OP-${unico()}`;
     await insertarPago(idExpediente, { operacion });
     const otro = await crearExpediente(db());
-    await esperaRestriccion(insertarPago(otro.idExpediente, { operacion }), "uq_pago_numero_operacion", UNIQUE);
+    await esperaRestriccion(insertarPago(otro.idExpediente, { operacion }), "uq_pago_banco_numero_operacion", UNIQUE);
     await esperaRestriccion(insertarPago(idExpediente), "uq_pago_expediente_tipo_fraccion", UNIQUE);
   });
 

@@ -1,7 +1,9 @@
 // Las pruebas de la API corren desde el host contra la BD admision_test (ADR-09),
 // con claves de cifrado y token de servicio aleatorios propios de la corrida (no los de .env).
 import { randomBytes } from "node:crypto";
-import { resolve } from "node:path";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { defineConfig } from "vitest/config";
 
 const RAIZ = resolve(import.meta.dirname, "..");
@@ -25,6 +27,11 @@ const entornoPrueba = {
   // Visita guiada (HU0003, ADR-19): el valor de D4 y sin dirección del colegio, para no depender del .env.
   RECORDATORIO_VISITA_HORAS: "24",
   DIRECCION_COLEGIO: "",
+  // Archivos (HU0006 y HU0007, ADR-21): directorio temporal y clave propios de la corrida, para no tocar los de dev.
+  STORAGE_DRIVER: "local",
+  STORAGE_LOCAL_DIR: mkdtempSync(join(tmpdir(), "cil-archivos-")),
+  ARCHIVOS_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
+  ARCHIVOS_ENCRYPTION_KEY_ANTERIOR: "",
 };
 Object.assign(process.env, entornoPrueba);
 

@@ -75,6 +75,11 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
 - **[EQUIPO]** Columnas cifradas: el **DNI** de `Apoderado` y de `Postulante` (`dni_cifrado` + `dni_hash`), ya definidas en el modelo de datos v1.1.
 - **[PENDIENTE]** Si se cifran más columnas, por ejemplo las observaciones del informe psicológico o del dictamen. No se cifra nada más sin aprobación.
 - **[EQUIPO, HU0005, 02/11/2026] Condición especial del postulante:** `tiene_condicion_especial` **no se cifra**, porque es solo un sí/no (boolean). Si alguna HU agrega un detalle en texto (diagnóstico, informe), se reabre esta decisión antes de guardarlo.
+- **[EQUIPO, HU0006 y HU0007, 03/11/2026] Archivos cifrados en reposo** (decisión P2 a): los documentos y comprobantes contienen DNI, documentación financiera e informes de terapia de menores.
+  - AES-256-GCM en la API, con la clave `ARCHIVOS_ENCRYPTION_KEY` (32 bytes en base64, en `.env`), distinta de `DATA_ENCRYPTION_KEY`. Lo hace un decorador sobre cualquier adaptador de almacenamiento (ADR-21).
+  - Formato: cabecera `CILF` + id de la clave (4 bytes del SHA-256 de la clave) + IV aleatorio de 12 bytes, luego el cifrado y la etiqueta. El dato asociado (AAD) es la cabecera más la clave de almacenamiento del archivo: un archivo movido a otro documento no se descifra.
+  - La descarga descifra y verifica la etiqueta en memoria (10 MB como máximo) antes de enviar el primer byte: nunca sale contenido sin verificar. La carga cifra en *stream*.
+  - Rotación: se escribe con la clave vigente y se lee con la que indique el id (`ARCHIVOS_ENCRYPTION_KEY_ANTERIOR`, opcional). El script que re-cifra los archivos viejos queda pendiente (C47). Perder la clave es perder los archivos: su respaldo se suma a C35.
 - Consecuencia: n8n **nunca** lee la BD de negocio directamente (ver ADR-04), porque no tiene la clave.
 
 ## ADR-04 n8n accede a los datos solo a través de la API
@@ -165,7 +170,7 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 - **[TI]** Servicios externos: Google Drive y Sheets, y Google Calendar.
 - **[EQUIPO, 29/10/2026] Almacenamiento (D1, antes PENDIENTE):**
   - En desarrollo se usa un adaptador de almacenamiento local (`STORAGE_DRIVER=local`).
-  - Se implementa en el bloque 3, con la abstracción `local|gdrive`: es el único punto de cambio ya decidido (ADR-19).
+  - Se implementa en el bloque 3, con la abstracción `local|gdrive`: es el único punto de cambio ya decidido (ADR-19). Implementado en HU0006 y HU0007 (ADR-21).
   - Si en producción el almacenamiento queda local, `pg_dump` no respalda los archivos (C35).
 - **[EQUIPO, 29/10/2026] Calendario (D2, antes PENDIENTE):**
   - Sin Google Calendar: la agenda vive solo en `Horario_Disponible` y `Cita` (HU0003, HU0009).
@@ -301,7 +306,7 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 
 | Decisión | Valor hoy | Dónde vive | Cómo se cambia | Prueba que lo protege |
 |---|---|---|---|---|
-| D1 Almacenamiento (ADR-12) | `local` | `STORAGE_DRIVER` en `.env`; la validación y el adaptador `local\|gdrive` llegan en el bloque 3 | Editar `.env` y recrear `api` | La prueba del adaptador (bloque 3) |
+| D1 Almacenamiento (ADR-12) | `local` | `STORAGE_DRIVER` y `STORAGE_LOCAL_DIR` (`config.ts`); adaptadores en `api/src/almacenamiento/` (ADR-21) | Un adaptador nuevo que pase la suite de contrato; editar `.env` y recrear `api` | La suite de contrato `api/test/almacenamiento/contrato.ts` |
 | D2 Calendario (ADR-12) | Solo BD | `horario_disponible` y `cita` (G09, P02) | Una HU nueva con su adaptador | `HU0003-*` (la reserva no llama a servicios externos) |
 | D3 Acceso de la familia (ADR-02) | Contraseña temporal con `UPDATE_PASSWORD`, enviada por `agendamiento` | `api/src/identidad/keycloakAdmin.ts`, `api/src/crypto/contrasenaTemporal.ts` y el realm | Plan de HU | `D3 …` (API y E2E) |
 | D4 Recordatorio de la visita | 24 h antes | `RECORDATORIO_VISITA_HORAS` (`config.ts`) | Editar `.env` y recrear `api` | `HU0003-1.0 … recordatorio …` |
@@ -311,6 +316,8 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 | Carpeta informativa (ADR-18) | URL ficticia en dev | `CARPETA_INFORMATIVA_URL` (opcional, `config.ts`) | Editar `.env` y recrear `api` (C33) | `HU0002-1.0 [parte: correo] los textos del colegio van entre corchetes, y sin CARPETA_INFORMATIVA_URL el cuerpo lo dice` |
 | Lugar de la visita (P02) | Vacío: «[Dirección del colegio]» | `DIRECCION_COLEGIO` (opcional, `config.ts`) | Editar `.env` y recrear `api` (C39) | `HU0003-1.0 … lugar …` |
 | Textos de los avisos de la visita | `borrador-1`, entre corchetes | `api/src/services/avisosVisita.ts` | El colegio entrega los textos (C39) y se sube la versión | `HU0003-1.0 …` y `HU0004-*` (correos) |
+| Bancos y cuenta del derecho de admisión (P07b) | `borrador-1`, entre corchetes | `api/src/services/derechoAdmision.ts` | El colegio entrega la lista de bancos y la cuenta (C48) y se sube la versión | `HU0007-*` |
+| Tope de archivos por requisito (P06) | 20 (provisional) | `MAX_DOCUMENTOS_POR_REQUISITO` (`config.ts`, de 1 a 100; opcional en `.env`) | Editar `.env` y recrear `api` | `HU0006-1.0 (tope técnico) …` |
 
 ## ADR-20 Ficha de inscripción y cuestionario de expectativas (HU0005)
 - **[EQUIPO, HU0005, 02/11/2026] Borrador de la ficha:** vive en las tablas del modelo v1.1, sin tablas nuevas (se descartó una tabla de borrador).
@@ -329,6 +336,28 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 - **[EQUIPO, HU0005] Abandono:** guardado automático del borrador 2 s después del último cambio, al salir de la pantalla y al ocultar la pestaña. Con dos pestañas abiertas **gana el último guardado**: riesgo aceptado.
 - **[EQUIPO, HU0005] Lista de documentos (R7):** `GET /familia/expedientes/:id/requisitos` es el contrato que consume HU0006. Responde 409 `FICHA_INCOMPLETA` mientras la ficha no esté completa.
 - **[PROPUESTA, HU0005] Cuestionario:** las preguntas viven en `api/src/services/cuestionarioExpectativas.ts` (`borrador-1`, entre corchetes) hasta que el colegio las entregue (C42, ADR-19).
+
+## ADR-21 Carga de documentos y comprobantes (HU0006 y HU0007)
+- **[EQUIPO, HU0006 y HU0007, 03/11/2026] Almacenamiento:** interfaz `Almacenamiento` (`guardar`, `abrir`, `eliminar`) en `api/src/almacenamiento/`, con el adaptador `local` (D1, ADR-12) y el decorador de cifrado (ADR-03). Todo adaptador futuro (`gdrive`) pasa la suite de contrato `api/test/almacenamiento/contrato.ts`.
+  - La clave de cada archivo es un UUID aleatorio; el nombre original no se usa como ruta ni se guarda (no hay columna, C49). `Documento.url_archivo` y `Pago.comprobante_url` guardan esa clave.
+  - **La clave la genera siempre el servidor** (`guardar(contenido, clave?)`): nunca sale de la petición, y un campo `clave`, `url_archivo` o `ruta` en la carga se rechaza con 400. El cifrado fija la clave antes de guardar porque la usa como dato asociado (ADR-03).
+  - **Guardar nunca pisa un archivo:** con una clave que ya existe, el adaptador falla con `CLAVE_EXISTENTE` y deja intacto el original. Lo exige la suite de contrato, así que todo adaptador futuro (`gdrive`) lo cumple.
+  - Los archivos nunca pasan por n8n. Si hace falta avisar a n8n, solo con ids (ADR-16).
+- **[EQUIPO, HU0006] Validación de la carga:** solo PDF, JPG y PNG, reconocidos por su firma (los primeros bytes), no por la extensión ni el `Content-Type`; un ejecutable renombrado se rechaza con 415 `FORMATO_NO_ADMITIDO`.
+  - Máximo 10 MB (10 × 1024 × 1024 bytes), cortado mientras se recibe: 413 `ARCHIVO_DEMASIADO_GRANDE`, sin fila y sin archivo. El archivo no se carga entero en memoria.
+  - Multipart con `busboy`: los campos van antes del archivo.
+  - Si algo falla después de guardar el archivo, se elimina. Si la API cae entre el guardado y el COMMIT, el archivo queda huérfano (C45).
+- **[EQUIPO, HU0006] Documentos:** la carga, el reemplazo y la confirmación se admiten en `en_postulacion` con la ficha completa. Un requisito admite varios archivos vigentes; el reemplazo inserta la fila nueva y marca `vigente = false` en la anterior, en la misma transacción.
+  - **Tope técnico provisional (John, 03/11/2026):** 20 archivos vigentes por requisito (y por apoderado, si el requisito es por apoderado), en `MAX_DOCUMENTOS_POR_REQUISITO` (`config.ts`, de 1 a 100). Por encima responde 409 `LIMITE_DOCUMENTOS_REQUISITO` con «Ya cargaste el máximo de 20 archivos para este documento…», antes de recibir el archivo y otra vez bajo el bloqueo. Reemplazar no suma. No es una regla de negocio: evita que una cuenta llene el almacenamiento.
+- **[EQUIPO, HU0006, P3 A] Confirmación:** «Confirmar documentos» registra el evento `documentos_confirmados` (§4.7) y no cambia el estado. Es la marca que toma HU0017 (C44). No verifica la completitud.
+- **[EQUIPO, HU0006] Descarga:** solo por la API, en `/familia/*` para la familia y solo de su expediente (404 como en ADR-20). Cabeceras: `Content-Type` según el formato, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox`, `Cache-Control: no-store` y `Content-Disposition: inline`. El personal no descarga en este bloque: lo hace HU0008 con R2 por documento (C17).
+- **[EQUIPO, HU0007, P1 a] Derecho de admisión:** `Pago` `derecho_admision` con el monto de R16 (constante de la API, C26), fracción 1 y `pendiente` de Tesorería. El número de operación es único por banco (R19), y `banco` sale de una lista cerrada (`derechoAdmision.ts`, `borrador-1`). Un duplicado responde 409 `COMPROBANTE_DUPLICADO` sin revelar el otro expediente.
+  - **Estado y fecha (Q-c y Q-g, John, 03/11/2026):** solo se registra con el expediente en `en_postulacion` (409 `DERECHO_NO_REGISTRABLE` en otro estado; si HU0017 pasa a `en_validacion` antes del pago, debe ampliar los estados, C44), y la fecha de pago debe ser una fecha real que no sea futura (validación técnica, hora de Lima). Un segundo comprobante del mismo expediente responde 409 `DERECHO_YA_REGISTRADO`.
+  - La constancia de P07b usa el código `CONST-<código del expediente>-<id_pago>` (modelo §7). «Registrado el» solo aparece en la respuesta del registro: `Pago` no guarda la fecha de registro (C49).
+- **[EQUIPO, HU0006, 03/11/2026] Desvíos respecto a los mockups de P05, P06 y P07b:**
+  - **«Ir a Documentos» (P05):** botón que lleva a P06 desde «Paso siguiente: Documentos», al completar la ficha. El mockup de P05 solo llega a P06 por el menú; el botón se mantiene por comodidad.
+  - **«Reemplazar» (P06):** se ofrece en todos los archivos vigentes, no solo en los observados como en el mockup («Subsana solo lo que esté observado»). Limitarlo a los observados queda para HU0011 (subsanación).
+  - **Lo que no se muestra por falta de una HU o de un dato (C49 y C50):** en P06 la franja «Condición laboral declarada en la ficha» con «Editar en la ficha» y el nombre original del archivo; en P07b «Volver a Pagos» y «Registrado el» al volver a la pantalla.
 
 ## Orden recomendado de implementación
 0. **Sprint 0, base técnica** (no es una HU; se documenta como habilitador):

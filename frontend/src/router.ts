@@ -8,6 +8,8 @@ import LayoutGestion from "./views/gestion/LayoutGestion.vue";
 import ConfiguracionCampana from "./views/gestion/ConfiguracionCampana.vue";
 import UsuariosRoles from "./views/gestion/UsuariosRoles.vue";
 import PantallaVisitas from "./views/gestion/PantallaVisitas.vue";
+import DerechoAdmision from "./views/portal/DerechoAdmision.vue";
+import DocumentosExpediente from "./views/portal/DocumentosExpediente.vue";
 import FichaInscripcion from "./views/portal/FichaInscripcion.vue";
 import LayoutPortal from "./views/portal/LayoutPortal.vue";
 import SolicitudInformacion from "./views/portal/SolicitudInformacion.vue";
@@ -39,6 +41,20 @@ export function crearEnrutador(historial: RouterHistory) {
         component: LayoutPortal,
         meta: { cliente: "portal", roles: ["familia"] },
         children: [{ path: "", component: FichaInscripcion }],
+      },
+      // P06 (HU0006): carga de documentos. P07b (HU0007): registro del derecho de admisión, dentro de «Pagos» (P07 llega con
+      // HU0013 y HU0014). Solo para el rol familia (la API vuelve a exigirlo).
+      {
+        path: "/portal/documentos",
+        component: LayoutPortal,
+        meta: { cliente: "portal", roles: ["familia"] },
+        children: [{ path: "", component: DocumentosExpediente }],
+      },
+      {
+        path: "/portal/pagos/derecho-admision",
+        component: LayoutPortal,
+        meta: { cliente: "portal", roles: ["familia"] },
+        children: [{ path: "", component: DerechoAdmision }],
       },
       {
         path: "/gestion",

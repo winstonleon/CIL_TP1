@@ -286,7 +286,7 @@ Table Documento {
   id_requisito integer [not null]
   id_personal_revisor integer [note: 'opcional: nulo hasta que alguien lo revise']
   id_apoderado integer [note: 'obligatorio si el requisito es por_apoderado: indica de qué padre es el documento']
-  url_archivo varchar(500) [not null, note: 'ruta en el almacenamiento documental (Google Drive)']
+  url_archivo varchar(500) [not null, note: 'clave del archivo en el adaptador de almacenamiento (UUID aleatorio, no el nombre original; ADR-12 y ADR-21). El archivo se guarda cifrado y solo se descarga por la API']
   formato varchar(10) [not null, note: 'pdf, jpg, png']
   tamano_kb integer [not null]
   fecha_carga timestamptz [not null, default: `now()`]
@@ -359,15 +359,16 @@ Table Pago {
   id_personal_validador integer [note: 'opcional: nulo hasta la validación de tesoreria']
   tipo_pago tipo_pago [not null]
   numero_fraccion smallint [not null, default: 1, note: '1 = pago único o primera fracción']
-  numero_operacion varchar(40) [unique, not null, note: 'impide registrar dos veces el mismo comprobante']
-  banco varchar(60) [not null]
+  numero_operacion varchar(40) [not null, note: 'único por banco (R19): impide registrar dos veces el mismo comprobante']
+  banco varchar(60) [not null, note: 'de la lista cerrada de bancos de P07b (HU0007, ADR-21)']
   monto numeric(10,2) [not null]
   fecha_pago date [not null]
-  comprobante_url varchar(500) [not null]
+  comprobante_url varchar(500) [not null, note: 'clave del archivo en el adaptador de almacenamiento, como Documento.url_archivo (ADR-21)']
   estado_validacion estado_revision [not null, default: 'pendiente']
   motivo_observacion text
   indexes {
     (id_expediente, tipo_pago, numero_fraccion) [unique]
+    (banco, numero_operacion) [unique, name: 'uq_pago_banco_numero_operacion', note: 'R19: el mismo número en otro banco es otro comprobante (HU0007-2.0)']
   }
   Note: 'Comprobantes registrados por la familia (no hay pasarela de pagos en línea). CHECK: monto > 0; numero_fraccion >= 1.'
 }
@@ -501,7 +502,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 | R16 | Derecho de admisión: S/ 300, un solo pago (`numero_fraccion = 1`). | API |
 | R17 | Cuota de ingreso: `Grado.monto_cuota_ingreso` (S/ 7000 en Inicial y Primaria, S/ 4000 en Secundaria), en pago único o fraccionado hasta `Grado.max_fracciones`. | API |
 | R18 | **Disparador de la carta:** cuando un Pago con `tipo_pago = 'cuota_ingreso'`, `numero_fraccion = 1` y `estado_validacion = 'conforme'` queda conciliado, n8n genera automáticamente la Carta de Vacante en PDF con la firma escaneada de la Directora, la envía a la familia y el expediente pasa a `carta_emitida`. Las fracciones posteriores no generan una nueva carta. | n8n |
-| R19 | `numero_operacion` es único en toda la tabla, de modo que un comprobante no puede registrarse dos veces. | BD |
+| R19 | `numero_operacion` es único **por banco** (`banco`, `numero_operacion`), de modo que un comprobante no puede registrarse dos veces. El mismo número en otro banco es otro comprobante (HU0007-2.0). | BD |
 
 ### 4.5 Seguimiento programado (flujo diario de n8n)
 | # | Regla | Dónde |
@@ -534,6 +535,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 | `cambio_configuracion` | Cambios en Grado, Requisito_Documental u Horario_Disponible | Secretaría |
 | `gestion_usuario` | Alta, cambio, desactivación o reactivación de Personal | Directora |
 | `notificacion_rebotada` | Rebote del correo de un prospecto | Sistema |
+| `documentos_confirmados` | La familia presiona «Confirmar documentos» en P06 (HU0006-1.0): solicita la verificación de completitud (HU0017). El expediente no cambia de estado; `detalle` lleva `documentos_vigentes` | Familia |
 
 **Medición (OE3, HU0019).** *Lead time* = de la creación del expediente a `carta_emitida`. *Cycle time* de una etapa = suma de los intervalos entre cada `atencion_inicio` y su `atencion_fin` correspondiente en esa etapa. Supuesto aceptado: si alguien abre un ítem y lo deja abierto, el cycle time se sobreestima; un `atencion_inicio` sin `atencion_fin` en 8 horas no se cuenta.
 
@@ -582,7 +584,7 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
   - La pasarela de pagos en línea.
   - El cálculo de devoluciones de la cuota.
   - El registro del admitido en SIEWEB o SIAGIE (el sistema académico existente no se integra ni se modifica).
-- **Almacenamiento de archivos:** las columnas `*_url` apuntan a Google Drive. La BD guarda la referencia, no el archivo.
+- **Almacenamiento de archivos:** las columnas `*_url` guardan la clave del archivo en el adaptador de almacenamiento (`STORAGE_DRIVER`: `local` en dev; ADR-12 y ADR-21). La BD guarda la referencia, no el archivo. Los archivos se guardan cifrados (ADR-03).
 - **Por definir con el colegio (v1.1):** la política de contraseñas y el tiempo de bloqueo en Keycloak (P03b, P03c).
 - **Datos derivados, sin columna propia:** el código de la constancia de P07b (`CONST-<código del expediente>-<id_pago>`) y la fecha de validación de un pago (P07) se obtienen de `Registro_Auditoria`.
 - **Vínculo de un aviso con su cita (HU0003 y HU0004, ADR-16):** `Notificacion` no tiene `id_cita`.
@@ -652,3 +654,10 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 | `Postulante.estudio_en_colegio_peruano` y `tiene_condicion_especial` admiten `NULL` (migración `20261102120000_postulante_booleanos_borrador.sql`; el `DEFAULT false` se conserva) | El borrador distingue «sin responder» de «No» (HU0005-2.0); la API exige true o false al completar la ficha |
 | `Postulante.tiene_condicion_especial` no se cifra | Es solo un sí/no (ADR-03, HU0005) |
 | Nota de los dos boolean: el `DEFAULT false` se conserva solo por compatibilidad y toda inserción escribe `NULL` explícito si la pregunta no se respondió | Lo protege HU0005-2.0 (migración, repositorio y prueba `HU0005-2.0 [parte: borrador] las preguntas sin responder vuelven como null…`) |
+
+### Ajustes por HU0006 y HU0007 (03/11/2026), sin tablas ni columnas nuevas
+| Cambio | Motivo |
+|---|---|
+| R19 y los índices de `Pago`: `numero_operacion` deja de ser único en toda la tabla y pasa a ser único por banco (`uq_pago_banco_numero_operacion`; migración `20261103120000_pago_unicidad_banco_operacion.sql`). `Pago.banco` sale de una lista cerrada | HU0007-2.0 («ya registrado para el mismo banco»); decisión P1 (a) de John. La Figura 12 del TI se regenera |
+| §4.7: evento `documentos_confirmados` (migración `20261103120100_evento_documentos_confirmados.sql`) | HU0006-1.0 («solicita la verificación de completitud») sin estado nuevo: el expediente sigue en `en_postulacion`, como dice HU0017-2.0 (decisión P3 A) |
+| Notas de `Documento.url_archivo` y `Pago.comprobante_url`, y §7: clave del adaptador de almacenamiento en lugar de «Google Drive» | D1 (ADR-12): almacenamiento local en dev; ADR-21 |

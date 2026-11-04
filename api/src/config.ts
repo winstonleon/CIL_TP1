@@ -40,9 +40,26 @@ const esquema = z.object({
   // Dirección del colegio para «Lugar» de P02 y de los correos de la visita (ADR-19). Vacía hasta que el colegio la
   // entregue (C39): se muestra «[Dirección del colegio]».
   DIRECCION_COLEGIO: z.preprocess((v) => (v === "" ? undefined : v), z.string().trim().min(1).max(200).optional()),
+  // Almacenamiento de los archivos de documentos y comprobantes (HU0006 y HU0007, ADR-12 D1 y ADR-21). Un adaptador nuevo
+  // (gdrive) se agrega a este enum junto con su configuración y su paso por la suite de contrato.
+  STORAGE_DRIVER: z.enum(["local"]),
+  // Directorio del adaptador local: el volumen `archivos` de la api (docker-compose.yml). Su respaldo es C35.
+  STORAGE_LOCAL_DIR: z.string().min(1),
+  // Tope técnico provisional de archivos vigentes por requisito (y por apoderado) en P06 (HU0006, ADR-19, decisión de John
+  // del 03/11/2026). No es una regla de negocio: evita que una cuenta llene el almacenamiento. Reemplazar no cuenta.
+  MAX_DOCUMENTOS_POR_REQUISITO: z.coerce.number().int().min(1).max(100).default(20),
+  // Cifrado de los archivos en reposo (ADR-03). La anterior solo se define durante una rotación (C47).
+  ARCHIVOS_ENCRYPTION_KEY: clave32,
+  ARCHIVOS_ENCRYPTION_KEY_ANTERIOR: z.preprocess((v) => (v === "" ? undefined : v), clave32.optional()),
 });
 
 export type Config = z.infer<typeof esquema>;
+
+// Nombres de las variables inválidas o faltantes de un entorno, sin tocar la caché (las pruebas de la configuración).
+export function variablesInvalidas(entorno: NodeJS.ProcessEnv): string[] {
+  const r = esquema.safeParse(entorno);
+  return r.success ? [] : [...new Set(r.error.issues.map((i) => i.path.join(".")))];
+}
 
 let cache: Config | undefined;
 

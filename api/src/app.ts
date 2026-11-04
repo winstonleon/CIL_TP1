@@ -1,4 +1,5 @@
 import express, { type Express } from "express";
+import { crearAlmacenamientoDesdeConfig, type Almacenamiento } from "./almacenamiento";
 import { requirePersonalActivo } from "./auth/requirePersonalActivo";
 import { requireRol } from "./auth/requireRol";
 import { crearVerificarToken, opcionesTokenDesdeConfig, type OpcionesToken } from "./auth/verificarToken";
@@ -26,6 +27,8 @@ export interface Dependencias {
   eventos?: DisparadorN8n;
   limitePublico?: OpcionesLimite;
   limiteLecturaVisita?: OpcionesLimite;
+  // Almacenamiento de los archivos (HU0006 y HU0007): las pruebas usan un directorio temporal.
+  almacenamiento?: Almacenamiento;
 }
 
 export function crearApp(dependencias: Dependencias = {}): Express {
@@ -42,6 +45,7 @@ export function crearApp(dependencias: Dependencias = {}): Express {
   const identidad = dependencias.identidad ?? crearKeycloakAdminDesdeConfig();
   const campanaActiva = dependencias.campanaActiva ?? obtenerConfig().CAMPANA_ACTIVA;
   const eventos = dependencias.eventos ?? crearDisparadorN8nDesdeConfig();
+  const almacenamiento = dependencias.almacenamiento ?? crearAlmacenamientoDesdeConfig();
 
   app.use(rutaSalud);
   app.use("/internal", rutasInternas(identidad));
@@ -66,7 +70,7 @@ export function crearApp(dependencias: Dependencias = {}): Express {
     rutaCampanaActiva(campanaActiva),
   );
   // Portal de la familia (HU0005): solo el rol familia, y solo su propio expediente (ADR-20).
-  app.use("/familia", verificarToken, requireRol("familia"), rutasFamilia());
+  app.use("/familia", verificarToken, requireRol("familia"), rutasFamilia(almacenamiento));
   app.use("/configuracion", verificarToken, requireRol("secretaria"), requirePersonalActivo("secretaria"), rutasConfiguracion(campanaActiva));
   app.use("/prospectos", verificarToken, requireRol("secretaria"), requirePersonalActivo("secretaria"), rutasProspectos(campanaActiva));
   app.use(

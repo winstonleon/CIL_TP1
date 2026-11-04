@@ -160,6 +160,9 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
 
 ## 9. Notas del entorno de desarrollo
 
+- **Después de traer cambios (`git pull`) o de cambiar de rama, corre `npm run db:migrate`.**
+  - Las migraciones nuevas de `db/migrations/` no se aplican solas a la base de dev. Sin ellas, las pantallas o rutas que dependen de un cambio de esquema pueden responder 500. Por ejemplo, el bloque de HU0006 y HU0007 agregó dos migraciones (R19 por banco y el evento `documentos_confirmados`).
+  - Es seguro repetirlo: aplica solo las pendientes, con el rol de migración. Las pruebas de la API (`npm run test:api`) usan `admision_test`, que recrean solas.
 - **`docker compose up -d` recrea contenedores sin que hayas cambiado nada.** Puede deberse a que la letra de unidad se escribe distinto según la terminal: `c:\Users\…` en la terminal de VS Code y `C:\Users\…` en otras.
   - Compose calcula el *config-hash* de cada servicio con la ruta absoluta de sus montajes *bind* (`./infra/...`, `./api/src`, `./frontend/src`). Si la mayúscula cambia, el hash cambia y el servicio se recrea. Afecta a `postgres`, `keycloak`, `api` y `frontend`, pero no a `n8n` ni a `mailpit`, que no tienen montajes *bind*.
   - Es inofensivo: los datos se conservan en los volúmenes (`pgdata`, `n8n_data`).

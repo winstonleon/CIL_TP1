@@ -9,7 +9,8 @@ export type TipoEventoAuditoria =
   | "acceso_denegado"
   | "cambio_configuracion"
   | "gestion_usuario"
-  | "notificacion_rebotada";
+  | "notificacion_rebotada"
+  | "documentos_confirmados";
 
 export interface EventoAuditoria {
   tipoEvento: TipoEventoAuditoria;
@@ -27,6 +28,15 @@ export async function existeRebote(db: Consultable, idNotificacion: number): Pro
     [idNotificacion],
   );
   return (rowCount ?? 0) > 0;
+}
+
+// Fecha del último evento de ese tipo en el expediente (null si no hay). HU0006: «confirmado_en» de P06.
+export async function fechaUltimoEvento(db: Consultable, idExpediente: number, tipoEvento: TipoEventoAuditoria): Promise<Date | null> {
+  const { rows } = await db.query<{ fecha_hora: Date | null }>(
+    "SELECT max(fecha_hora) AS fecha_hora FROM registro_auditoria WHERE id_expediente = $1 AND tipo_evento = $2",
+    [idExpediente, tipoEvento],
+  );
+  return rows[0]?.fecha_hora ?? null;
 }
 
 export async function insertarEvento(db: Consultable, e: EventoAuditoria): Promise<number> {
