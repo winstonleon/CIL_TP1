@@ -1,0 +1,427 @@
+{
+  "name": "recepcion-registro",
+  "nodes": [
+    {
+      "id": "1901ef8d-4297-4514-bef8-796ced214cc9",
+      "name": "Webhook recepcion-registro",
+      "webhookId": "987e96a5-ba4f-496c-8e88-ab415742cfd7",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "recepcion-registro",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-webhook-secret"
+        }
+      }
+    },
+    {
+      "id": "cb1999d8-8cf7-4185-9d1b-abdde4a959bb",
+      "name": "Validar evento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Valida el evento que envía la API después de «Confirmar documentos» en P06 (HU0017-1.0 y HU0017-2.0), según ADR-16\n// «Receptor recepcion-registro»: el cuerpo es exactamente { id_expediente } con un entero de 1 a 2147483647. Cualquier\n// otro campo lo invalida: el contrato lleva solo identificadores (C10, C11). La salida lleva solo { valido, id_expediente }.\nconst esObjeto = (valor) => valor !== null && typeof valor === 'object' && !Array.isArray(valor);\n\nreturn $input.all().map((item, indice) => {\n  const cuerpo = esObjeto(item.json?.body) ? item.json.body : null;\n  const claves = cuerpo ? Object.keys(cuerpo) : [];\n  const id = cuerpo?.id_expediente;\n  const valido = claves.length === 1 && claves[0] === 'id_expediente' && Number.isSafeInteger(id) && id > 0 && id <= 2147483647;\n  return { json: { valido, id_expediente: valido ? id : null }, pairedItem: { item: indice } };\n});"
+      }
+    },
+    {
+      "id": "c76aad4d-de1c-410e-8a49-bc5109cdc41d",
+      "name": "¿Evento válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "7e22ff2b-338e-412a-9ced-b6713452c81e",
+              "leftValue": "={{ $json.valido }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": false,
+        "options": {}
+      }
+    },
+    {
+      "id": "c46ba57e-3701-4c0f-93d5-3433e920d62b",
+      "name": "Responder 202",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        720,
+        -80
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ estado: 'recibido' }) }}",
+        "options": {
+          "responseCode": 202
+        }
+      }
+    },
+    {
+      "id": "7405d316-1238-434d-8dac-dd65555ec697",
+      "name": "Responder 400 (evento inválido)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        720,
+        120
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: { codigo: 'VALIDACION', mensaje: 'El evento debe ser { id_expediente } con un entero mayor que 0.' } }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "1f7ff280-d36c-4c71-9e90-ee07ba6d0c9e",
+      "name": "Detener: evento inválido",
+      "notes": "Debe quedar más abajo en el lienzo que sus ramas hermanas que registran un resultado: con executionOrder v1 las ramas corren de arriba abajo y un Stop and Error detiene toda la ejecución.",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        960,
+        360
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "recepcion-registro: evento inválido; el cuerpo debe ser solo { id_expediente }"
+      }
+    },
+    {
+      "id": "20fdfe9f-7875-46b1-92c5-91cf79b89689",
+      "name": "Cada minuto",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        240
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ac2050b7-3aa0-4692-8e95-3e963d4dc536",
+      "name": "Pedir pendientes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        240,
+        240
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/completitud/pendientes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "948dcbc0-6669-4433-886f-b41ada721699",
+      "name": "Un ítem por expediente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        240
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Barrido de recepcion-registro (ADR-16, C27): un ítem por cada expediente de GET /internal/completitud/pendientes\n// (confirmaciones de documentos sin verificar de hace más de 1 min, y avisos de faltantes cuyo último intento lleva más de\n// 10 min pendiente). Recupera la verificación de completitud (HU0017-1.0 y HU0017-2.0) cuando el evento del webhook no\n// llegó o el aviso quedó pendiente. Si no hay pendientes no sale ningún ítem y la ejecución termina aquí. Solo lleva\n// id_expediente.\nconst salida = [];\n$input.all().forEach((item, indice) => {\n  const expedientes = Array.isArray(item.json?.expedientes) ? item.json.expedientes : [];\n  for (const e of expedientes) {\n    if (Number.isSafeInteger(e?.id_expediente) && e.id_expediente > 0 && e.id_expediente <= 2147483647) {\n      salida.push({ json: { id_expediente: e.id_expediente }, pairedItem: { item: indice } });\n    }\n  }\n});\nreturn salida;"
+      }
+    },
+    {
+      "id": "be98046e-44d3-454f-aa48-75203dc8ff16",
+      "name": "Expediente recibido",
+      "notes": "Punto de convergencia del webhook y del barrido: ambos pasan solo { id_expediente } a «Verificar completitud».",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        960,
+        120
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "a91f3ce3-e160-44b5-b50c-8ede675da912",
+      "name": "Verificar completitud",
+      "notes": "onError continueErrorOutput: un expediente que falla no frena a los demás del barrido y su fallo se registra en la API por la salida 1 (no se usa continueRegularOutput: la ejecución terminaría sin error y registro-errores no se dispararía).",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "onError": "continueErrorOutput",
+      "position": [
+        1200,
+        120
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "verificacion-completitud",
+          "cachedResultName": "verificacion-completitud"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id_expediente": "={{ $json.id_expediente }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "id_expediente",
+              "displayName": "id_expediente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "ac1d491a-391c-48d9-931d-650d81e5142c",
+      "name": "Fallo al verificar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        240
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Rama de error de «Verificar completitud» (HU0017-2.0, C2): cuando el subflujo verificacion-completitud falla para un\n// expediente, el barrido sigue con los demás y este nodo prepara el registro del fallo. Emite solo los identificadores\n// que admite POST /internal/errores-flujo: el flujo, el nodo y el id de esta ejecución. NO lee el ítem de entrada: trae el\n// mensaje del error, que puede traer datos personales. Un ítem de salida por cada expediente que falló.\nconst id = String($execution?.id ?? '');\nconst id_ejecucion = /^[0-9A-Za-z-]{1,40}$/.test(id) ? id : 'sin-id';\n\nreturn $input.all().map((_item, indice) => ({\n  json: { flujo: 'recepcion-registro', nodo: 'Verificar completitud', id_ejecucion },\n  pairedItem: { item: indice },\n}));"
+      }
+    },
+    {
+      "id": "433fe340-86fb-4f19-9206-1738cfe06306",
+      "name": "Registrar fallo en la API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        1680,
+        240
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/errores-flujo",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ flujo: $json.flujo, nodo: $json.nodo, id_ejecucion: $json.id_ejecucion }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook recepcion-registro": {
+      "main": [
+        [
+          {
+            "node": "Validar evento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar evento": {
+      "main": [
+        [
+          {
+            "node": "¿Evento válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Evento válido?": {
+      "main": [
+        [
+          {
+            "node": "Responder 202",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 400 (evento inválido)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder 202": {
+      "main": [
+        [
+          {
+            "node": "Expediente recibido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder 400 (evento inválido)": {
+      "main": [
+        [
+          {
+            "node": "Detener: evento inválido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cada minuto": {
+      "main": [
+        [
+          {
+            "node": "Pedir pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir pendientes": {
+      "main": [
+        [
+          {
+            "node": "Un ítem por expediente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Un ítem por expediente": {
+      "main": [
+        [
+          {
+            "node": "Expediente recibido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expediente recibido": {
+      "main": [
+        [
+          {
+            "node": "Verificar completitud",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar completitud": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Fallo al verificar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallo al verificar": {
+      "main": [
+        [
+          {
+            "node": "Registrar fallo en la API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "saveExecutionProgress": false,
+    "saveManualExecutions": false,
+    "saveDataSuccessExecution": "none",
+    "executionTimeout": 480,
+    "errorWorkflow": "registro-errores",
+    "executionOrder": "v1"
+  }
+}

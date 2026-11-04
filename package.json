@@ -19,7 +19,7 @@
     "dev:limpiar-personal-huerfano": "npm run limpiar-personal-huerfano --workspace api",
     "test:api": "npm run test --workspace api",
     "test:front": "npm run test --workspace frontend",
-    "test:e2e": "npm run test --workspace e2e",
+    "test:e2e": "npm run db:migrate && npm run test --workspace e2e --",
     "test:scripts": "node --test scripts/lib/matriz.test.mjs",
     "evidencias:matriz": "npm run test:scripts && node scripts/matriz-trazabilidad.mjs",
     "n8n:importar": "node scripts/importar-workflows.mjs",

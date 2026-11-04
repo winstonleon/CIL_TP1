@@ -8,7 +8,7 @@
 //      elegir. Verifica que la versión publicada sea la importada (activeVersionId = versionId).
 //   4. Verifica en la instancia que cada nodo quedó con la credencial que declara el repo.
 //   5. Exporta el estado real de la instancia al repo, con nombres en lugar de IDs y sin campos propios de la instancia.
-// Importa en orden de dependencias: registro-errores, notificacion-multicanal y luego el resto. Si falla uno del que
+// Importa en orden de dependencias: registro-errores, notificacion-multicanal, verificacion-completitud y luego el resto. Si falla uno del que
 // dependen otros, no importa los siguientes (un flujo nuevo no queda activo llamando a una versión vieja).
 // Usa N8N_CIL_API_URL y N8N_CIL_API_KEY (variables de Windows, las mismas del MCP). No imprime secretos.
 // Uso: node scripts/importar-workflows.mjs [nombre-del-flujo ...]
@@ -27,8 +27,9 @@ const FLUJOS_TI = new Set([
 ]);
 // Workflows técnicos que no cuentan entre los 7 del TI (C2, ADR-06).
 const FLUJOS_TECNICOS = new Set(["registro-errores"]);
-// Los que otros flujos referencian van primero (el Error Workflow y el subflujo de notificaciones).
-const ORDEN = ["registro-errores", "notificacion-multicanal"];
+// Los que otros flujos referencian van primero (el Error Workflow, el subflujo de notificaciones y la verificación de
+// completitud, que recepcion-registro llama).
+const ORDEN = ["registro-errores", "notificacion-multicanal", "verificacion-completitud"];
 const posicion = (nombre) => (ORDEN.includes(nombre) ? ORDEN.indexOf(nombre) : ORDEN.length);
 
 const EXECUTE_WORKFLOW = "n8n-nodes-base.executeWorkflow";

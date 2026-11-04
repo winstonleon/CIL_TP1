@@ -19,8 +19,10 @@ import {
 } from "../repositories/documento";
 import { bloquearFichaDeExpediente, type ExpedienteDeFamilia } from "../repositories/expediente";
 import { leerPostulante } from "../repositories/postulante";
+import { hayCambiosDesde, ultimaVerificacion } from "../repositories/completitud";
 import { requisitosExigidos } from "../repositories/requisito";
 import { crearInspector, type FormatoArchivo } from "./cargaArchivo";
+import { verificacionVigente } from "./completitud";
 
 const ESTADO_EDITABLE = "en_postulacion";
 
@@ -70,14 +72,16 @@ async function exigirEditable(e: ExpedienteDeFamilia) {
 export async function listarDocumentos(e: ExpedienteDeFamilia) {
   await exigirFichaCompleta(e);
   const db = obtenerPool();
-  const [requisitos, documentos, confirmado] = await Promise.all([
+  const [requisitos, documentos, confirmado, verificacion] = await Promise.all([
     requisitosExigidos(db, e.id_expediente),
     listarDocumentosVigentes(db, e.id_expediente),
     fechaUltimoEvento(db, e.id_expediente, "documentos_confirmados"),
+    verificacionVigente(db, e.id_expediente),
   ]);
   return {
     editable: e.estado === ESTADO_EDITABLE,
     confirmado_en: confirmado?.toISOString() ?? null,
+    verificacion, // HU0017 (ajuste 3): resultado de la verificación de la última confirmación, o null
     requisitos: requisitos.map((r) => ({
       ...r,
       documentos: documentos
@@ -154,12 +158,19 @@ export async function cargarDocumento(
   }
 }
 
-// «Confirmar documentos» (HU0006-1.0): solicita la verificación de completitud. No la hace (HU0017) ni cambia el estado.
+const sinCambios = () =>
+  new ErrorApi(409, "SIN_CAMBIOS", "No hay cambios desde la última verificación: carga los documentos que faltan antes de confirmar");
+
+// «Confirmar documentos» (HU0006-1.0): solicita la verificación de completitud, que hace HU0017 en n8n y la API (la ruta
+// avisa a recepcion-registro después de responder). No cambia el estado. Después de una verificación incompleta, solo se
+// acepta si algo cambió (ajuste 2 de ADR-22): un documento, el pago del derecho o la configuración de G09.
 export async function confirmarDocumentos(e: ExpedienteDeFamilia): Promise<{ confirmado_en: string }> {
   await exigirEditable(e);
   return enTransaccion(async (db) => {
     const bloqueo = await bloquearFichaDeExpediente(db, e.id_expediente);
     if (bloqueo?.estado !== ESTADO_EDITABLE) throw noEditable();
+    const verificacion = await ultimaVerificacion(db, e.id_expediente);
+    if (verificacion?.resultado === "incompleto" && !(await hayCambiosDesde(db, e.id_expediente, verificacion))) throw sinCambios();
     const vigentes = await listarDocumentosVigentes(db, e.id_expediente);
     await insertarEvento(db, {
       tipoEvento: "documentos_confirmados",

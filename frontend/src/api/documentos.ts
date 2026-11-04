@@ -17,9 +17,19 @@ export interface RequisitoConDocumentos extends Requisito {
   documentos: DocumentoCargado[];
 }
 
+// HU0017 (ADR-22): resultado de la verificación de completitud de la última confirmación. Los faltantes se nombran por
+// tipo de documento y, si es por apoderado, por su parentesco.
+export interface VerificacionCompletitud {
+  resultado: "completo" | "incompleto";
+  verificado_en: string; // ISO 8601
+  faltantes: { tipo_documento: string; parentesco: string | null }[];
+  falta_derecho: boolean;
+}
+
 export interface ListaDocumentos {
   editable: boolean;
   confirmado_en: string | null;
+  verificacion?: VerificacionCompletitud | null;
   requisitos: RequisitoConDocumentos[];
 }
 

@@ -70,7 +70,7 @@ Enum estado_expediente {
   visita_agendada
   portal_habilitado    [note: 'asistió a la visita y se le enviaron credenciales']
   en_postulacion       [note: 'llenando la ficha y cargando documentos']
-  incompleto           [note: 'el sistema detectó documentos faltantes']
+  incompleto           [note: 'sin uso: un expediente incompleto se mantiene en en_postulacion (HU0017-2.0, R8); el valor se conserva']
   en_validacion        [note: 'tres validaciones en paralelo']
   en_evaluacion
   en_observacion       [note: 'dictamen En observación; requisitos complementarios']
@@ -483,7 +483,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 |---|---|---|
 | R6 | **Toda** transición de `Expediente.estado`, `estado_documental` o `estado_financiero` inserta una fila en `Registro_Auditoria` con `estado_anterior` y `estado_nuevo`. Registro_Auditoria es solo de inserción. | API (o trigger en BD) |
 | R7 | Lista de documentos exigidos para un expediente = filas de `Requisito_Documental` del grado donde `condicion_aplicacion = 'todos'`, más las de `'solo_colegio_peruano'` si `Postulante.estudio_en_colegio_peruano`, más las de `'solo_condicion_especial'` si `Postulante.tiene_condicion_especial`. Los requisitos con `por_apoderado = true` se exigen **una vez por cada apoderado** del postulante (`Postulante_Apoderado`); los de `'si_dependiente'` o `'si_independiente'`, solo a los apoderados con esa `condicion_laboral`. Solo cuentan los documentos con `vigente = true`. | API / n8n |
-| R8 | Verificación de completitud: si falta algún documento obligatorio, el estado pasa a `incompleto` y se notifica qué falta. Si está completo, el expediente pasa a `en_validacion`. | n8n |
+| R8 | Verificación de completitud (HU0017): la solicita la familia con «Confirmar documentos» (`documentos_confirmados`). El expediente está completo si cada requisito **obligatorio** de la lista de R7 tiene al menos un documento vigente **y** existe el Pago `derecho_admision` del expediente, en cualquier `estado_validacion`. Si está completo, pasa de `en_postulacion` a `en_validacion` y las tres ramas de R9 quedan abiertas en `pendiente`, sin transición propia. Si falta algo, el expediente **se mantiene en `en_postulacion`** (HU0017-2.0) y se notifica a la familia qué falta. Cada verificación deja el evento `completitud_verificada` (§4.7). | API (decide) y n8n (orquesta y notifica) |
 | R9 | Las **tres validaciones son paralelas e independientes**: documental (`estado_documental`, rol `secretaria`), derecho de admisión (Pago `derecho_admision`, rol `tesoreria`) y documentación financiera (`estado_financiero`, rol `tesoreria`). Cada una tiene su propio ciclo de observación y subsanación. Las evaluaciones se habilitan solo cuando las tres están `conforme`. | API / n8n |
 | R10 | No se consultan centrales de riesgo. La revisión financiera es documental. | Alcance |
 
@@ -536,6 +536,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 | `gestion_usuario` | Alta, cambio, desactivación o reactivación de Personal | Directora |
 | `notificacion_rebotada` | Rebote del correo de un prospecto | Sistema |
 | `documentos_confirmados` | La familia presiona «Confirmar documentos» en P06 (HU0006-1.0): solicita la verificación de completitud (HU0017). El expediente no cambia de estado; `detalle` lleva `documentos_vigentes` | Familia |
+| `completitud_verificada` | La API verifica la completitud de una confirmación (R8, HU0017), a pedido de n8n. Una sola vez por confirmación. `detalle` lleva `resultado` (`completo` o `incompleto`), `faltantes` (`[{ id_requisito, id_apoderado }]`), `derecho_registrado` y, si es incompleto, `id_notificacion` (primer intento del aviso de faltantes), solo con ids. Si el resultado es `completo`, la `transicion_estado` a `en_validacion` va en la misma transacción | Sistema |
 
 **Medición (OE3, HU0019).** *Lead time* = de la creación del expediente a `carta_emitida`. *Cycle time* de una etapa = suma de los intervalos entre cada `atencion_inicio` y su `atencion_fin` correspondiente en esa etapa. Supuesto aceptado: si alguien abre un ítem y lo deja abierto, el cycle time se sobreestima; un `atencion_inicio` sin `atencion_fin` en 8 horas no se cuenta.
 
@@ -561,8 +562,8 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 | Flujo | Disparador | Tablas principales |
 |---|---|---|
 | F1 Captación | Webhook: evento de la API tras el registro de P01 (ADR-16), más un barrido cada minuto de los prospectos sin carpeta (C27) | Apoderado, Consentimiento, Expediente, Notificacion, Registro_Auditoria |
-| F2 Recepción y registro | Webhook: ficha/documentos | Postulante, Postulante_Apoderado, Cuestionario_Expectativas, Documento |
-| F3 Verificación de completitud | Webhook: carga de documento | Documento, Requisito_Documental, Expediente |
+| F2 Recepción y registro | Webhook: evento de la API con `{ id_expediente }` tras «Confirmar documentos» en P06 (HU0017), más un barrido cada minuto de las confirmaciones sin verificar y de los avisos de faltantes por retomar (ADR-16). Entrega cada expediente a F3. La ficha y los archivos los registra la API: no pasan por n8n (ADR-21) | Expediente, Registro_Auditoria (lectura, a través de la API) |
+| F3 Verificación de completitud | Invocado por F2 (sub-workflow). Pide la verificación a la API (R8) y, si falta algo, notifica por F6 | Documento, Requisito_Documental, Pago, Expediente, Notificacion, Registro_Auditoria |
 | F4 Agendamiento | Webhook: evento de la API con `{ id_cita }` tras la reserva en P02 (HU0003) y el registro de la asistencia en G04 (HU0004), más un barrido cada minuto de los avisos pendientes (ADR-16) | Horario_Disponible, Cita, Cuenta_Acceso, Notificacion |
 | F5 Generación de carta | Webhook: pago conciliado (R18) | Pago, Carta_Vacante, Expediente |
 | F6 Notificación multicanal | Invocado por los demás flujos | Notificacion |
@@ -660,4 +661,12 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 |---|---|
 | R19 y los índices de `Pago`: `numero_operacion` deja de ser único en toda la tabla y pasa a ser único por banco (`uq_pago_banco_numero_operacion`; migración `20261103120000_pago_unicidad_banco_operacion.sql`). `Pago.banco` sale de una lista cerrada | HU0007-2.0 («ya registrado para el mismo banco»); decisión P1 (a) de John. La Figura 12 del TI se regenera |
 | §4.7: evento `documentos_confirmados` (migración `20261103120100_evento_documentos_confirmados.sql`) | HU0006-1.0 («solicita la verificación de completitud») sin estado nuevo: el expediente sigue en `en_postulacion`, como dice HU0017-2.0 (decisión P3 A) |
+
+### Ajustes por HU0017 (03/11/2026), sin tablas ni columnas nuevas
+| Cambio | Motivo |
+|---|---|
+| R8: el expediente incompleto se mantiene en `en_postulacion` (antes «pasa a `incompleto`»), y el comprobante del derecho de admisión cuenta para la completitud. El valor `incompleto` del enum queda sin uso y no se borra | HU0017-2.0 («mantiene el expediente en postulación»), decisión D1-A. Con D2-a, las tres ramas de R9 tienen qué validar al abrirse, y el derecho se sigue registrando solo en `en_postulacion` (ADR-21, Q-c) |
+| Transición `en_postulacion → en_validacion`. `estado_documental` y `estado_financiero` quedan en `pendiente` | HU0017-1.0; «abrir» una rama = expediente en `en_validacion` con la rama en `pendiente` (D4-X) |
+| §4.7: evento `completitud_verificada` (migración del CHECK) | Una verificación incompleta no cambia el estado: el evento deja el ciclo confirmación → verificación en la bitácora y es el ancla del aviso de faltantes (D5) |
+| §6, F2 y F3: F2 recibe el evento de la confirmación y hace el barrido; F3 lo invoca F2 | Se mantienen los siete flujos del TI (D3-i). La ficha y los archivos no pasan por n8n (ADR-21) |
 | Notas de `Documento.url_archivo` y `Pago.comprobante_url`, y §7: clave del adaptador de almacenamiento en lugar de «Google Drive» | D1 (ADR-12): almacenamiento local en dev; ADR-21 |

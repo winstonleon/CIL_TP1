@@ -1,0 +1,710 @@
+{
+  "name": "verificacion-completitud",
+  "nodes": [
+    {
+      "id": "a258ef71-3190-4c4a-8e6d-688445f071b4",
+      "name": "Expediente a verificar",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        220
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "id_expediente",
+              "type": "number"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "cba51307-c4eb-4e36-8de5-4a7d33944f9d",
+      "name": "Verificar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        240,
+        220
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/expedientes/{{ $json.id_expediente }}/verificacion-completitud",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "1f64a327-9ad0-4b3e-83d2-79dd4a833d25",
+      "name": "Según la verificación",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        480,
+        220
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "completo",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "3c682304-a50a-4066-9208-2e534d198593",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 200,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "incompleto",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "74c8e81f-c341-4610-a099-6208809126b1",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 201,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "conflicto",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "3b0d98f8-dde0-4d86-8710-414924cee972",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 409,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "otro error"
+        }
+      }
+    },
+    {
+      "id": "31b7aaf2-c2f7-4c4d-85cb-417e6c101b2f",
+      "name": "Expediente completo",
+      "notes": "HU0017-1.0: el expediente pasó a en_validacion y no se notifica.",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        720,
+        360
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "48544554-f6d3-4dc7-baf9-11247ff71c0c",
+      "name": "Enviar faltantes",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "onError": "continueRegularOutput",
+      "position": [
+        720,
+        40
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "notificacion-multicanal",
+          "cachedResultName": "notificacion-multicanal"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id_expediente": "={{ $json.body.id_expediente }}",
+            "tipo_evento": "={{ $json.body.tipo_evento }}",
+            "asunto": "={{ $json.body.asunto }}",
+            "cuerpo": "={{ $json.body.cuerpo }}",
+            "id_notificacion": "={{ $json.body.id_notificacion }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "id_expediente",
+              "displayName": "id_expediente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "tipo_evento",
+              "displayName": "tipo_evento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "asunto",
+              "displayName": "asunto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "cuerpo",
+              "displayName": "cuerpo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "id_notificacion",
+              "displayName": "id_notificacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "b2693604-bd63-4413-9006-a48ee9d9bbdb",
+      "name": "Sin acción",
+      "notes": "409: VERIFICACION_NO_CORRESPONDE, AVISO_YA_REGISTRADO o AVISO_AGOTADO. La API ya decidió que no hay nada que hacer.",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        720,
+        500
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "24ece337-0070-4e5b-b90b-e58bf393868a",
+      "name": "Detener: verificación fallida",
+      "notes": "Debe quedar más abajo en el lienzo que sus ramas hermanas que registran un resultado: con executionOrder v1 las ramas corren de arriba abajo y un Stop and Error detiene toda la ejecución.",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        720,
+        700
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "=verificacion-completitud: no se pudo verificar la completitud (expediente {{ $('Expediente a verificar').item.json.id_expediente }}, HTTP {{ $json.statusCode }})"
+      }
+    },
+    {
+      "id": "c20015e6-ed3e-4cc4-bdb4-2d6d31973b86",
+      "name": "Clasificar resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        40
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Decide qué hace verificacion-completitud con lo que devolvió notificacion-multicanal para el aviso de\n// documentos faltantes (HU0017-2.0). Sigue ADR-07 «Fallos de los avisos de la visita» y ADR-22: la clasificación de D7,\n// sin rebote ni transición (P-j).\n// Entrada: un ítem por aviso, emparejado con su aviso de la salida «incompleto» de «Según la verificación» por el pairedItem\n// que pone Execute Workflow (el subflujo corre una vez por ítem); si falta, por la posición. Es el resultado del\n// subflujo, { id_expediente, correo: { estado_envio, id_notificacion }, whatsapp }, o, si falló, { error: \"<mensaje>\" }\n// (Execute Workflow con onError continueRegularOutput, C9).\n//   enviado   <- correo.estado_envio = enviado: el subflujo ya cerró la fila                    -> termina\n//   fallido   <- correo.estado_envio = fallido: rechazo permanente del destinatario; con la fila reservada el subflujo\n//                no la cierra                      (motivo rechazo_destinatario) -> PATCH fallido y termina sin error\n//             <- error «notificacion-multicanal: entrada inválida…» (400): un defecto, la entrada la arma la API\n//                                                  (motivo entrada_invalida)     -> PATCH fallido y Stop and Error\n//   pendiente <- correo.estado_envio = pendiente (error técnico de SMTP, o un 5xx que no es rechazo permanente), un 502,\n//                un 500 o cualquier otro error: resultado desconocido (R22), nunca se marca fallido\n//                                                  -> sin PATCH y Stop and Error; el barrido lo retoma a los 10 min\n//                                                     con un intento nuevo (una fila por intento, ADR-07)\n// Lo que no se reconoce cae en pendiente.\n// La salida lleva solo la acción, el motivo y los ids del expediente y la notificación. Nunca el asunto ni el cuerpo del\n// aviso (trae la lista de faltantes), ni el mensaje del error del subflujo (C11).\nconst ENTRADA_INVALIDA = 'notificacion-multicanal: entrada inválida';\nconst reservas = $('Según la verificación').all(1);\n\nconst clasificar = (resultado) => {\n  if (resultado.error !== undefined) {\n    const mensaje = typeof resultado.error === 'string' ? resultado.error : String(resultado.error?.message ?? '');\n    return mensaje.startsWith(ENTRADA_INVALIDA)\n      ? { accion: 'fallido', motivo: 'entrada_invalida' }\n      : { accion: 'pendiente', motivo: 'notificacion_no_disponible' };\n  }\n  switch (resultado.correo?.estado_envio) {\n    case 'enviado':\n      return { accion: 'enviado', motivo: 'enviado' };\n    case 'fallido':\n      return { accion: 'fallido', motivo: 'rechazo_destinatario' };\n    case 'pendiente':\n      return { accion: 'pendiente', motivo: 'smtp_pendiente' };\n    default:\n      return { accion: 'pendiente', motivo: 'resultado_desconocido' };\n  }\n};\n\nreturn $input.all().map((item, indice) => {\n  const reserva = reservas[item.pairedItem?.item ?? indice]?.json?.body ?? {};\n  return {\n    json: {\n      ...clasificar(item.json ?? {}),\n      id_expediente: reserva.id_expediente ?? null,\n      id_notificacion: reserva.id_notificacion ?? null,\n    },\n    pairedItem: { item: indice },\n  };\n});"
+      }
+    },
+    {
+      "id": "9c85e119-1c3f-4bac-892b-ce224e8c5520",
+      "name": "Según el resultado",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1200,
+        40
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "enviado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "983d6362-9d65-4c53-9045-4cab8f145251",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "enviado",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "fallido",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "5cdb9e67-92c5-4669-bcc4-4450a63b52a3",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "fallido",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "pendiente",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "ed53d462-8b60-4e6a-8ee1-6826ce971565",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "pendiente",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": 2
+        }
+      }
+    },
+    {
+      "id": "2fa4c077-4359-4cf8-933c-5d809e21cffc",
+      "name": "Aviso enviado",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        -140
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "db4f7cd1-9603-4467-83b8-ea1c6de15315",
+      "name": "Marcar fallido",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        1440,
+        40
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/notificaciones/{{ $json.id_notificacion }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ estado_envio: 'fallido' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "fd22e01a-7f57-4549-a634-334a01e89231",
+      "name": "Detener: envío pospuesto",
+      "notes": "Debe quedar más abajo en el lienzo que sus ramas hermanas que registran un resultado: con executionOrder v1 las ramas corren de arriba abajo y un Stop and Error detiene toda la ejecución.",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        360
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "=verificacion-completitud: envío del aviso pospuesto ({{ $json.motivo }}, expediente {{ $json.id_expediente }}, notificación {{ $json.id_notificacion }}); el barrido de recepcion-registro lo retoma con un intento nuevo"
+      }
+    },
+    {
+      "id": "17c67b4c-8666-4dde-86b5-084d58e15a72",
+      "name": "Según el cierre",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1680,
+        40
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "entrada rechazada",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "e9d1c71c-b1a8-446d-912a-b8521a5e6528",
+                    "leftValue": "={{ $('Clasificar resultado').item.json.motivo }}",
+                    "rightValue": "entrada_invalida",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "cerrado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "or",
+                "conditions": [
+                  {
+                    "id": "9dc3c102-5ccf-419d-9db7-cf3775267133",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 200,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "0e982570-a588-4cc9-8faa-d01bc0a6129a",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 409,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "cierre fallido"
+        }
+      }
+    },
+    {
+      "id": "195980d1-1d7c-4146-a782-aa444fe756f1",
+      "name": "Aviso no entregado",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        -60
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "493d2ae1-0342-480f-b633-3d40ea25496b",
+      "name": "Detener: entrada rechazada",
+      "notes": "Debe quedar más abajo en el lienzo que sus ramas hermanas que registran un resultado: con executionOrder v1 las ramas corren de arriba abajo y un Stop and Error detiene toda la ejecución.",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        100
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "=verificacion-completitud: notificacion-multicanal rechazó la entrada del aviso (expediente {{ $('Clasificar resultado').item.json.id_expediente }}, notificación {{ $('Clasificar resultado').item.json.id_notificacion }}, PATCH fallido: HTTP {{ $json.statusCode }}); {{ $json.statusCode === 200 || $json.statusCode === 409 ? 'no se reintenta' : 'sigue pendiente y el barrido lo retoma con un intento nuevo' }}"
+      }
+    },
+    {
+      "id": "006a41e2-b4b1-4ce8-acb5-33449c22e99f",
+      "name": "Detener: cierre fallido",
+      "notes": "Debe quedar más abajo en el lienzo que sus ramas hermanas que registran un resultado: con executionOrder v1 las ramas corren de arriba abajo y un Stop and Error detiene toda la ejecución.",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        260
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "=verificacion-completitud: no se pudo cerrar como fallido el aviso rechazado (expediente {{ $('Clasificar resultado').item.json.id_expediente }}, notificación {{ $('Clasificar resultado').item.json.id_notificacion }}, PATCH fallido: HTTP {{ $json.statusCode }}); sigue pendiente y el barrido lo retoma con un intento nuevo"
+      }
+    }
+  ],
+  "connections": {
+    "Expediente a verificar": {
+      "main": [
+        [
+          {
+            "node": "Verificar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar": {
+      "main": [
+        [
+          {
+            "node": "Según la verificación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según la verificación": {
+      "main": [
+        [
+          {
+            "node": "Expediente completo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar faltantes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sin acción",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Detener: verificación fallida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar faltantes": {
+      "main": [
+        [
+          {
+            "node": "Clasificar resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clasificar resultado": {
+      "main": [
+        [
+          {
+            "node": "Según el resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según el resultado": {
+      "main": [
+        [
+          {
+            "node": "Aviso enviado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar fallido",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Detener: envío pospuesto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar fallido": {
+      "main": [
+        [
+          {
+            "node": "Según el cierre",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según el cierre": {
+      "main": [
+        [
+          {
+            "node": "Detener: entrada rechazada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Aviso no entregado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Detener: cierre fallido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "saveExecutionProgress": false,
+    "saveManualExecutions": false,
+    "saveDataSuccessExecution": "none",
+    "executionTimeout": 480,
+    "errorWorkflow": "registro-errores",
+    "executionOrder": "v1"
+  }
+}

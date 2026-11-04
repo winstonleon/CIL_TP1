@@ -250,6 +250,14 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
   - **Unicidad:** un solo recordatorio por cita, con la misma ancla que `agendamiento`.
   - **Sin nodos Wait:** el recordatorio queda «programado» por los datos.
   - Los barridos diarios de R20 y R21 son de HU0018.
+- **[EQUIPO, HU0017, D3-i, 03/11/2026] Receptor `recepcion-registro`:**
+  - **Evento:** la API lo envía después de «Confirmar documentos» en P06. El cuerpo es solo `{ "id_expediente": 7 }`.
+  - **Recepción:** valida y responde 202 antes de procesar; un cuerpo inválido recibe 400.
+  - **Recuperación:** como C27, un Schedule cada minuto pide `GET /internal/completitud/pendientes`. Devuelve:
+    - las confirmaciones sin verificar de hace más de 1 min;
+    - los avisos de faltantes con el último intento `pendiente` hace más de 10 min.
+  - Cada expediente pasa a `verificacion-completitud` (Execute Workflow), que pide la verificación con `POST /internal/expedientes/:id/verificacion-completitud` (ADR-22).
+  - **Ejecuciones:** `recepcion-registro` y `verificacion-completitud` no guardan las exitosas y sí las de error, como `captacion` (C10 y C11).
 
 ## ADR-17 Rutas públicas y formulario P01
 - **[EQUIPO, HU0001]** Las rutas `/publico/*` no llevan token ni rol, porque la familia no tiene cuenta hasta HU0004.
@@ -317,6 +325,7 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 | Lugar de la visita (P02) | Vacío: «[Dirección del colegio]» | `DIRECCION_COLEGIO` (opcional, `config.ts`) | Editar `.env` y recrear `api` (C39) | `HU0003-1.0 … lugar …` |
 | Textos de los avisos de la visita | `borrador-1`, entre corchetes | `api/src/services/avisosVisita.ts` | El colegio entrega los textos (C39) y se sube la versión | `HU0003-1.0 …` y `HU0004-*` (correos) |
 | Bancos y cuenta del derecho de admisión (P07b) | `borrador-1`, entre corchetes | `api/src/services/derechoAdmision.ts` | El colegio entrega la lista de bancos y la cuenta (C48) y se sube la versión | `HU0007-*` |
+| Textos del aviso de documentos faltantes (HU0017) | `borrador-1`, entre corchetes | `api/src/services/avisosCompletitud.ts` | El colegio entrega los textos y se sube la versión | `HU0017-2.0 …` |
 | Tope de archivos por requisito (P06) | 20 (provisional) | `MAX_DOCUMENTOS_POR_REQUISITO` (`config.ts`, de 1 a 100; opcional en `.env`) | Editar `.env` y recrear `api` | `HU0006-1.0 (tope técnico) …` |
 
 ## ADR-20 Ficha de inscripción y cuestionario de expectativas (HU0005)
@@ -352,12 +361,47 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 - **[EQUIPO, HU0006, P3 A] Confirmación:** «Confirmar documentos» registra el evento `documentos_confirmados` (§4.7) y no cambia el estado. Es la marca que toma HU0017 (C44). No verifica la completitud.
 - **[EQUIPO, HU0006] Descarga:** solo por la API, en `/familia/*` para la familia y solo de su expediente (404 como en ADR-20). Cabeceras: `Content-Type` según el formato, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox`, `Cache-Control: no-store` y `Content-Disposition: inline`. El personal no descarga en este bloque: lo hace HU0008 con R2 por documento (C17).
 - **[EQUIPO, HU0007, P1 a] Derecho de admisión:** `Pago` `derecho_admision` con el monto de R16 (constante de la API, C26), fracción 1 y `pendiente` de Tesorería. El número de operación es único por banco (R19), y `banco` sale de una lista cerrada (`derechoAdmision.ts`, `borrador-1`). Un duplicado responde 409 `COMPROBANTE_DUPLICADO` sin revelar el otro expediente.
-  - **Estado y fecha (Q-c y Q-g, John, 03/11/2026):** solo se registra con el expediente en `en_postulacion` (409 `DERECHO_NO_REGISTRABLE` en otro estado; si HU0017 pasa a `en_validacion` antes del pago, debe ampliar los estados, C44), y la fecha de pago debe ser una fecha real que no sea futura (validación técnica, hora de Lima). Un segundo comprobante del mismo expediente responde 409 `DERECHO_YA_REGISTRADO`.
+  - **Estado y fecha (Q-c y Q-g, John, 03/11/2026):** solo se registra con el expediente en `en_postulacion` (409 `DERECHO_NO_REGISTRABLE` en otro estado; HU0017 no lo amplía: el comprobante cuenta para la completitud, así que ningún expediente llega a `en_validacion` sin él, ADR-22 D2-a), y la fecha de pago debe ser una fecha real que no sea futura (validación técnica, hora de Lima). Un segundo comprobante del mismo expediente responde 409 `DERECHO_YA_REGISTRADO`.
   - La constancia de P07b usa el código `CONST-<código del expediente>-<id_pago>` (modelo §7). «Registrado el» solo aparece en la respuesta del registro: `Pago` no guarda la fecha de registro (C49).
 - **[EQUIPO, HU0006, 03/11/2026] Desvíos respecto a los mockups de P05, P06 y P07b:**
   - **«Ir a Documentos» (P05):** botón que lleva a P06 desde «Paso siguiente: Documentos», al completar la ficha. El mockup de P05 solo llega a P06 por el menú; el botón se mantiene por comodidad.
   - **«Reemplazar» (P06):** se ofrece en todos los archivos vigentes, no solo en los observados como en el mockup («Subsana solo lo que esté observado»). Limitarlo a los observados queda para HU0011 (subsanación).
   - **Lo que no se muestra por falta de una HU o de un dato (C49 y C50):** en P06 la franja «Condición laboral declarada en la ficha» con «Editar en la ficha» y el nombre original del archivo; en P07b «Volver a Pagos» y «Registrado el» al volver a la pantalla.
+
+## ADR-22 Verificación automática de completitud (HU0017)
+- **[EQUIPO, HU0017, 03/11/2026] Qué decide cada componente:**
+  - La **API** decide: aplica R7 y R8 sobre la BD, bloquea el expediente, hace la transición con auditoría y arma el mensaje.
+  - **n8n** coordina: `recepcion-registro` recibe el evento o lo recupera con el barrido, y `verificacion-completitud` pide la decisión, ramifica y notifica por `notificacion-multicanal` (ADR-04 y ADR-16).
+- **[EQUIPO, D1-A] Expediente incompleto:** se mantiene en `en_postulacion` (HU0017-2.0). R8 se corrigió, y el valor `incompleto` del enum queda sin uso.
+- **[EQUIPO, D2-a] Derecho de admisión:** completo = cada requisito **obligatorio** de R7 con al menos un documento vigente **y** el Pago `derecho_admision` registrado, en cualquier estado de validación.
+  - Si falta el pago, el aviso lo incluye, con el enlace a P07b.
+  - Q-c no cambia: el derecho se registra solo en `en_postulacion` (ADR-21).
+- **[EQUIPO, D4-X] Apertura de las ramas:** `en_postulacion → en_validacion` es la única transición. `estado_documental`, `estado_financiero` y el Pago quedan en `pendiente`: una rama abierta es una rama `pendiente` de un expediente `en_validacion`.
+- **[EQUIPO, D5] Evento `completitud_verificada`** (§4.7, actor Sistema):
+  - Se registra una vez por confirmación, bajo el bloqueo del expediente (el mismo de la carga y el reemplazo, ADR-21).
+  - `detalle`: `resultado`, `faltantes` (`id_requisito`, `id_apoderado`), `derecho_registrado` y, si es incompleto, `id_notificacion` (el primer intento del aviso), solo con ids.
+  - Una confirmación está pendiente de verificar si su `documentos_confirmados` es posterior al último `completitud_verificada`. «Posterior» se compara por `id_evento`: los dos eventos se insertan con el expediente bloqueado.
+- **Idempotencia y aviso:**
+  - `POST /internal/expedientes/:id/verificacion-completitud`:
+    - responde 200 si el expediente está completo;
+    - responde 201 con el aviso `documentos_faltantes` si no lo está;
+    - responde 409 `VERIFICACION_NO_CORRESPONDE` si no está en `en_postulacion` o ya se verificó esa confirmación sin un aviso por retomar.
+  - El aviso sigue ADR-07: una fila por intento, retoma a los 10 min y tope de 6 intentos con una fila de cierre `fallido`.
+    - Sus filas son las `documentos_faltantes` con `id_notificacion` ≥ el `detalle.id_notificacion` de la verificación, no un ancla de tiempo como en `agendamiento`.
+    - **Por qué:** cerrar un intento de la verificación anterior mueve su `fecha_envio`, que caería después del ancla de la nueva y cerraría un aviso ajeno.
+    - Los reintentos usan los faltantes registrados en la verificación.
+  - Una confirmación nueva es otra verificación.
+- **[EQUIPO, ajuste 2] Confirmación sin cambios:** responde 409 `SIN_CAMBIOS`, sin evento ni correo, si la última verificación fue `incompleto` y desde entonces:
+  - no hay un documento vigente con `fecha_carga` posterior;
+  - y no apareció el Pago del derecho (`derecho_registrado` era `false`). `Pago` no guarda la fecha de registro (C49);
+  - y no hubo ningún evento `cambio_configuracion` después de la verificación (John, 03/11/2026): si Secretaría quita o cambia en G09 el requisito faltante, la familia puede volver a confirmar sin cargar nada. Lo prueba `HU0017-2.0 (G09) …`.
+    - **Alcance amplio, aceptado (John, 03/11/2026):** cuenta cualquier `cambio_configuracion`, aunque sea de otro grado o de un horario, sin filtrar por grado ni campaña. Se queda así hasta que C25 (7) defina qué pasa con los expedientes en curso cuando cambia la configuración.
+    - **Hora real:** la `fecha_carga` del documento y la `fecha_hora` de la verificación se fijan con `clock_timestamp()` y no con el inicio de la transacción, para que una carga que esperó el bloqueo no quede fechada antes de una verificación que no la vio. Lo prueba `HU0017-2.0 (carrera) …`.
+- **[EQUIPO, ajustes 3 y 4] Faltantes visibles:**
+  - P06 muestra «Faltan: …» con los datos de la última `completitud_verificada` (`tipo_documento` y `parentesco`, y el derecho si falta).
+  - El correo y P06 usan el **parentesco** del apoderado, nunca su nombre: el cuerpo del correo queda en las ejecuciones de error de n8n (C11).
+  - Los textos del correo viven en `api/src/services/avisosCompletitud.ts` (`borrador-1`, ADR-19). El enlace es `${FRONTEND_PUBLIC_URL}/portal/documentos`.
+- **Matriz:** HU0017-1.0 se verifica por partes: «estado y ramas» (HU0017) y «bandeja» (HU0008, C51).
 
 ## Orden recomendado de implementación
 0. **Sprint 0, base técnica** (no es una HU; se documenta como habilitador):

@@ -5,6 +5,8 @@
      - HU0006-2.0: un archivo que no es PDF, JPG o PNG, o que pasa de 10 MB, se rechaza resaltando el requisito con el aviso.
        La comprobación previa es una comodidad: la API vuelve a validar (413 y 415).
      - «Confirmar documentos» solicita la verificación de completitud (HU0017); no cambia el estado del expediente.
+     - HU0017-2.0 (ADR-22): después de una verificación incompleta muestra «Faltan: …» por tipo de documento y parentesco,
+       y el derecho de admisión si falta. Confirmar otra vez sin cambios recibe 409 SIN_CAMBIOS, con el mensaje de la API.
      - El mockup muestra «Condición laboral declarada en la ficha» y «Editar en la ficha»: la ficha completa queda en solo
        lectura (ADR-20) y reabrirla no lo define ninguna HU del bloque, así que esa franja no se muestra. -->
 <script setup lang="ts">
@@ -49,6 +51,12 @@ const confirmando = ref(false);
 const errorConfirmacion = ref("");
 
 const claveDe = (r: RequisitoConDocumentos) => `${r.id_requisito}-${r.id_apoderado ?? 0}`;
+const faltan = computed(() => {
+  const v = lista.value?.verificacion;
+  if (v?.resultado !== "incompleto") return null;
+  const documentos = v.faltantes.map((f) => (f.parentesco ? `${f.tipo_documento} (${f.parentesco})` : f.tipo_documento));
+  return documentos.length || v.falta_derecho ? { documentos, derecho: v.falta_derecho } : null;
+});
 const etiqueta = (r: RequisitoConDocumentos) => (r.por_apoderado && r.apoderado ? `${r.tipo_documento} — ${r.apoderado}` : r.tipo_documento);
 
 function estadoDe(r: RequisitoConDocumentos) {
@@ -144,7 +152,8 @@ async function confirmar() {
   confirmando.value = true;
   try {
     const { confirmado_en } = await confirmarDocumentos(idExpediente);
-    if (lista.value) lista.value = { ...lista.value, confirmado_en };
+    // La confirmación nueva aún no está verificada: los faltantes anteriores dejan de mostrarse.
+    if (lista.value) lista.value = { ...lista.value, confirmado_en, verificacion: null };
   } catch (e) {
     errorConfirmacion.value = mensajeDe(e);
   } finally {
@@ -173,6 +182,16 @@ onMounted(cargar);
       <p v-if="!editable" class="aviso" role="status" data-testid="no-editable">
         Los documentos no se pueden modificar en el estado actual de tu expediente.
       </p>
+      <section v-if="faltan" class="faltantes" role="status" data-testid="faltantes">
+        <p><strong>Faltan:</strong></p>
+        <ul>
+          <li v-for="d in faltan.documentos" :key="d">{{ d }}</li>
+          <li v-if="faltan.derecho">
+            Comprobante del derecho de admisión · <RouterLink to="/portal/pagos/derecho-admision">Registrar el pago</RouterLink>
+          </li>
+        </ul>
+        <p>Cuando los cargues, vuelve a presionar «Confirmar documentos».</p>
+      </section>
       <p v-if="lista.requisitos.length === 0" class="suave">Por ahora el colegio no ha configurado documentos para este grado.</p>
 
       <div class="rejilla">
@@ -244,10 +263,10 @@ onMounted(cargar);
 
       <footer class="pie">
         <p class="suave">Arrastra tus archivos al documento que corresponde o selecciónalos. PDF, JPG o PNG de hasta 10 MB por archivo. La ficha y el cuestionario se completan en línea, no se suben.</p>
-        <p v-if="lista.confirmado_en" class="confirmado" role="status" data-testid="confirmado">
+        <p v-if="lista.confirmado_en && !lista.verificacion" class="confirmado" role="status" data-testid="confirmado">
           Confirmaste tus documentos el {{ fechaHora(lista.confirmado_en) }}. Se verificará que el expediente esté completo.
         </p>
-        <p v-if="errorConfirmacion" class="mensaje" role="alert">{{ errorConfirmacion }}</p>
+        <p v-if="errorConfirmacion" class="mensaje" role="alert" data-testid="error-confirmacion">{{ errorConfirmacion }}</p>
         <button v-if="editable" type="button" class="boton primario" :disabled="confirmando" @click="confirmar">Confirmar documentos</button>
       </footer>
     </template>
@@ -502,6 +521,21 @@ onMounted(cargar);
 }
 
 .pie p {
+  margin: 0;
+}
+
+.faltantes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--aviso-fondo);
+  color: var(--observado);
+}
+
+.faltantes p,
+.faltantes ul {
   margin: 0;
 }
 

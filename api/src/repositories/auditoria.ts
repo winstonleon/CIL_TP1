@@ -10,7 +10,8 @@ export type TipoEventoAuditoria =
   | "cambio_configuracion"
   | "gestion_usuario"
   | "notificacion_rebotada"
-  | "documentos_confirmados";
+  | "documentos_confirmados"
+  | "completitud_verificada";
 
 export interface EventoAuditoria {
   tipoEvento: TipoEventoAuditoria;
@@ -19,6 +20,9 @@ export interface EventoAuditoria {
   estadoAnterior?: string | null;
   estadoNuevo?: string | null;
   detalle?: Record<string, unknown> | null;
+  // La hora real de la inserción (clock_timestamp) y no la del inicio de la transacción. HU0017: la verificación se
+  // compara con la fecha_carga de los documentos, que se fija con la misma hora real.
+  horaReal?: boolean;
 }
 
 // ¿Ya se registró el rebote de esta notificación? (HU0002-2.0: repetir el aviso no duplica eventos).
@@ -41,8 +45,8 @@ export async function fechaUltimoEvento(db: Consultable, idExpediente: number, t
 
 export async function insertarEvento(db: Consultable, e: EventoAuditoria): Promise<number> {
   const { rows } = await db.query<{ id_evento: string }>(
-    `INSERT INTO registro_auditoria (id_expediente, id_personal, tipo_evento, estado_anterior, estado_nuevo, detalle)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO registro_auditoria (id_expediente, id_personal, tipo_evento, estado_anterior, estado_nuevo, detalle, fecha_hora)
+     VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $7::boolean THEN clock_timestamp() ELSE now() END)
      RETURNING id_evento`,
     [
       e.idExpediente ?? null,
@@ -51,6 +55,7 @@ export async function insertarEvento(db: Consultable, e: EventoAuditoria): Promi
       e.estadoAnterior ?? null,
       e.estadoNuevo ?? null,
       e.detalle ? JSON.stringify(e.detalle) : null,
+      e.horaReal === true,
     ],
   );
   return Number(rows[0]!.id_evento);

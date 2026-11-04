@@ -9,7 +9,7 @@
 import { obtenerConfig } from "../config";
 
 // Flujos que la API dispara (ADR-06). La lista crece con cada HU que agregue un evento.
-export type FlujoN8n = "captacion" | "agendamiento";
+export type FlujoN8n = "captacion" | "agendamiento" | "recepcion-registro";
 
 // Solo identificadores numéricos, p. ej. { id_expediente: 123 }: el tipo impide enviar datos personales.
 export type CuerpoEvento = Readonly<Record<string, number>>;

@@ -38,6 +38,7 @@ const listaBase = () => ({
 let lista: ReturnType<typeof listaBase>;
 let respuestaListado: () => { status: number; cuerpo: unknown };
 let respuestaSubida: () => { status: number; cuerpo: unknown };
+let respuestaConfirmacion: () => { status: number; cuerpo: unknown };
 let subidas: FormData[];
 let confirmaciones: number;
 
@@ -58,7 +59,8 @@ function apiFalsa(url: string, init: RequestInit = {}): Response {
   }
   if (url === `/api/familia/expedientes/${ID}/documentos/confirmacion` && metodo === "POST") {
     confirmaciones++;
-    return responder(200, { confirmado_en: "2026-11-03T15:30:00.000Z" });
+    const r = respuestaConfirmacion();
+    return responder(r.status, r.cuerpo);
   }
   return responder(404, { error: { codigo: "NO_ENCONTRADO", mensaje: "Recurso no encontrado" } });
 }
@@ -72,6 +74,7 @@ beforeEach(() => {
   confirmaciones = 0;
   respuestaListado = () => ({ status: 200, cuerpo: lista });
   respuestaSubida = () => ({ status: 201, cuerpo: documento(99) });
+  respuestaConfirmacion = () => ({ status: 200, cuerpo: { confirmado_en: "2026-11-03T15:30:00.000Z" } });
   vi.stubEnv("VITE_API_URL", "/api");
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => apiFalsa(url, init)));
   vi.mocked(usuarioActual).mockResolvedValue(usuarioFalso(["familia"], "María Fernanda Quispe Rojas"));
@@ -226,5 +229,66 @@ describe("HU0006-2.0 P06 rechaza un archivo con formato o tamaño no soportado",
     respuestaSubida = () => error(413, "ARCHIVO_DEMASIADO_GRANDE", "Solo se aceptan archivos PDF, JPG o PNG de hasta 10 MB");
     await elegir(e, "archivo-2-0", archivo(PDF, "pesado.pdf"));
     expect(e.get('[data-testid="error-2-0"]').text()).toBe(MENSAJE);
+  });
+});
+
+describe("HU0017-2.0 P06 después de la verificación de completitud", () => {
+  const incompleta = {
+    resultado: "incompleto",
+    verificado_en: "2026-11-03T15:31:00.000Z",
+    faltantes: [
+      { tipo_documento: "Partida de nacimiento", parentesco: null },
+      { tipo_documento: "Boletas de pago", parentesco: "madre" },
+    ],
+    falta_derecho: true,
+  };
+
+  it("HU0017-2.0 P06 muestra los faltantes por tipo de documento y parentesco, y el derecho de admisión con su enlace", async () => {
+    respuestaListado = () => ({ status: 200, cuerpo: { ...lista, confirmado_en: "2026-11-03T15:30:00.000Z", verificacion: incompleta } });
+    const e = await abrir();
+
+    const faltantes = e.get('[data-testid="faltantes"]');
+    expect(faltantes.findAll("li").map((li) => li.text())).toEqual([
+      "Partida de nacimiento",
+      "Boletas de pago (madre)",
+      "Comprobante del derecho de admisión · Registrar el pago",
+    ]);
+    expect(faltantes.get("a").attributes("href")).toBe("/portal/pagos/derecho-admision");
+    // La confirmación ya se verificó: no se promete otra verificación.
+    expect(e.find('[data-testid="confirmado"]').exists()).toBe(false);
+  });
+
+  it("HU0017-2.0 P06 sin faltantes por verificar no muestra la lista, y una verificación completa tampoco", async () => {
+    const e = await abrir();
+    expect(e.find('[data-testid="faltantes"]').exists()).toBe(false);
+
+    respuestaListado = () => ({ status: 200, cuerpo: { ...lista, editable: false, verificacion: { ...incompleta, resultado: "completo", faltantes: [], falta_derecho: false } } });
+    const otra = await abrir();
+    expect(otra.find('[data-testid="faltantes"]').exists()).toBe(false);
+  });
+
+  it("HU0017-2.0 P06 confirmar sin cambios muestra el mensaje SIN_CAMBIOS y conserva los faltantes", async () => {
+    respuestaListado = () => ({ status: 200, cuerpo: { ...lista, confirmado_en: "2026-11-03T15:30:00.000Z", verificacion: incompleta } });
+    const mensaje = "No hay cambios desde la última verificación: carga los documentos que faltan antes de confirmar";
+    respuestaConfirmacion = () => error(409, "SIN_CAMBIOS", mensaje);
+    const e = await abrir();
+
+    await e.findAll("button").find((b) => b.text() === "Confirmar documentos")!.trigger("click");
+    await esperar();
+
+    expect(confirmaciones).toBe(1);
+    expect(e.get('[data-testid="error-confirmacion"]').text()).toBe(mensaje);
+    expect(e.find('[data-testid="faltantes"]').exists()).toBe(true);
+  });
+
+  it("HU0017-2.0 P06 una confirmación aceptada oculta los faltantes anteriores hasta la nueva verificación", async () => {
+    respuestaListado = () => ({ status: 200, cuerpo: { ...lista, confirmado_en: "2026-11-03T15:00:00.000Z", verificacion: incompleta } });
+    const e = await abrir();
+
+    await e.findAll("button").find((b) => b.text() === "Confirmar documentos")!.trigger("click");
+    await esperar();
+
+    expect(e.find('[data-testid="faltantes"]').exists()).toBe(false);
+    expect(e.get('[data-testid="confirmado"]').text()).toContain("Se verificará que el expediente esté completo");
   });
 });

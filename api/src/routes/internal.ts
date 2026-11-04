@@ -7,6 +7,7 @@ import { requireTokenServicio } from "../auth/requireTokenServicio";
 import type { IdentidadAdmin } from "../identidad/keycloakAdmin";
 import { avisosPendientes, cerrarAviso, reservarAviso } from "../services/agendamiento";
 import { ORIGENES_REBOTE, carpetasPendientes, registrarRebote, reservarCarpeta } from "../services/captacion";
+import { verificacionesPendientes, verificarCompletitud } from "../services/completitud";
 import { registrarErrorFlujo } from "../services/erroresFlujo";
 import { obtenerContactoExpediente, registrarNotificacion } from "../services/notificaciones";
 import { recordatoriosPendientes, reservarRecordatorio } from "../services/recordatorios";
@@ -105,6 +106,20 @@ export function rutasInternas(identidad: IdentidadAdmin): Router {
   // GET /internal/recordatorios/pendientes → { citas: [{ id_cita }] }
   rutas.get("/recordatorios/pendientes", async (_req, res) => {
     res.json(await recordatoriosPendientes());
+  });
+
+  // HU0017 (flujo verificacion-completitud, ADR-22): POST /internal/expedientes/:id/verificacion-completitud
+  // → 200 { id_expediente, resultado: "completo" } (HU0017-1.0)
+  // → 201 { id_expediente, resultado: "incompleto", id_notificacion, tipo_evento, asunto, cuerpo } (HU0017-2.0)
+  // · 409 VERIFICACION_NO_CORRESPONDE, AVISO_YA_REGISTRADO o AVISO_AGOTADO · 404
+  rutas.post("/expedientes/:id/verificacion-completitud", async (req, res) => {
+    const r = await verificarCompletitud(validar(idRuta, req.params.id));
+    res.status(r.resultado === "completo" ? 200 : 201).json(r);
+  });
+
+  // Barrido de recepcion-registro (ADR-16): GET /internal/completitud/pendientes → { expedientes: [{ id_expediente }] }
+  rutas.get("/completitud/pendientes", async (_req, res) => {
+    res.json(await verificacionesPendientes());
   });
 
   // C2 (workflow registro-errores): POST /internal/errores-flujo { flujo, nodo, id_ejecucion } → 204

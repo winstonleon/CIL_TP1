@@ -150,10 +150,11 @@ describe("HU0006-1.0 carga exitosa del legajo documental digital", () => {
     expect((await transiciones(f.idExpediente)).length).toBe(transicionesAntes);
     expect((await db().query("SELECT estado::text FROM expediente WHERE id_expediente = $1", [f.idExpediente])).rows[0].estado).toBe("en_postulacion");
 
-    // P06 recuerda la confirmación, y HU0017 la toma de la bitácora (C44); la API no avisa a n8n en este bloque.
+    // P06 recuerda la confirmación, y HU0017 la toma de la bitácora (C44); desde HU0017 la API avisa a recepcion-registro
+    // después de responder, solo con el id del expediente (ADR-16).
     const lista = await request(e.app).get(rutaDocumentos(f.idExpediente)).set("Authorization", `Bearer ${f.token}`);
     expect(lista.body.confirmado_en).toBe(res.body.confirmado_en);
-    expect(e.eventos.disparar).not.toHaveBeenCalled();
+    expect(e.eventos.disparar).toHaveBeenCalledWith("recepcion-registro", { id_expediente: f.idExpediente });
 
     // El cuerpo no admite campos de más.
     const conCampo = await request(e.app).post(rutaConfirmacion(f.idExpediente)).set("Authorization", `Bearer ${f.token}`).send({ id_expediente: 1 });

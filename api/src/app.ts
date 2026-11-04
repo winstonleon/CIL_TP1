@@ -70,7 +70,7 @@ export function crearApp(dependencias: Dependencias = {}): Express {
     rutaCampanaActiva(campanaActiva),
   );
   // Portal de la familia (HU0005): solo el rol familia, y solo su propio expediente (ADR-20).
-  app.use("/familia", verificarToken, requireRol("familia"), rutasFamilia(almacenamiento));
+  app.use("/familia", verificarToken, requireRol("familia"), rutasFamilia(almacenamiento, eventos));
   app.use("/configuracion", verificarToken, requireRol("secretaria"), requirePersonalActivo("secretaria"), rutasConfiguracion(campanaActiva));
   app.use("/prospectos", verificarToken, requireRol("secretaria"), requirePersonalActivo("secretaria"), rutasProspectos(campanaActiva));
   app.use(

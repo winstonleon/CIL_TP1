@@ -24,8 +24,10 @@ export async function insertarDocumento(
   d: { idExpediente: number; idRequisito: number; idApoderado: number | null; clave: string; formato: string; tamanoKb: number },
 ): Promise<FilaDocumento> {
   const { rows } = await db.query<FilaDocumento>(
-    `INSERT INTO documento (id_expediente, id_requisito, id_apoderado, url_archivo, formato, tamano_kb)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${COLUMNAS}`,
+    // fecha_carga = la hora real de la inserción (clock_timestamp), no la del inicio de la transacción: una carga que
+    // esperó el bloqueo del expediente no queda fechada antes de la verificación que se hizo mientras esperaba (HU0017).
+    `INSERT INTO documento (id_expediente, id_requisito, id_apoderado, url_archivo, formato, tamano_kb, fecha_carga)
+     VALUES ($1, $2, $3, $4, $5, $6, clock_timestamp()) RETURNING ${COLUMNAS}`,
     [d.idExpediente, d.idRequisito, d.idApoderado, d.clave, d.formato, d.tamanoKb],
   );
   return rows[0]!;

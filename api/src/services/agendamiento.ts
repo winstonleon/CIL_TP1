@@ -12,7 +12,7 @@ import { generarContrasenaTemporal } from "../crypto/contrasenaTemporal";
 import { enTransaccion, obtenerPool, type Consultable } from "../db/pool";
 import { ErrorApi } from "../errores";
 import type { IdentidadAdmin } from "../identidad/keycloakAdmin";
-import { anclaDeCita, bloquearIntentos, esUltimaCitaDeVisita, insertarIntento, listarAvisosPendientes } from "../repositories/aviso";
+import { anclaDeCita, bloquearIntentos, esUltimaCitaDeVisita, insertarIntento, listarAvisosPendientes, type IntentoAviso } from "../repositories/aviso";
 import { bloquearCita, leerCita, type FilaCita } from "../repositories/cita";
 import { usuarioDelExpediente } from "../repositories/cuentaAcceso";
 import { bloquearDatosFamilia, type DatosFamilia } from "../repositories/expediente";
@@ -43,7 +43,11 @@ export interface AvisoReservado {
 export type Decision = { accion: "nuevo" } | { accion: "en_curso" | "cerrado" } | { accion: "retomar" | "agotar"; ultima: number };
 
 export async function decidirIntento(db: Consultable, a: { idExpediente: number; tipoEvento: string; ancla: Date }): Promise<Decision> {
-  const intentos = await bloquearIntentos(db, { ...a, minutosReintento: MINUTOS_REINTENTO });
+  return decidir(await bloquearIntentos(db, { ...a, minutosReintento: MINUTOS_REINTENTO }));
+}
+
+// La misma regla sobre intentos ya bloqueados (también el aviso de faltantes de HU0017).
+export function decidir(intentos: IntentoAviso[]): Decision {
   if (intentos.some((i) => i.estado_envio !== "pendiente")) return { accion: "cerrado" };
   const ultima = intentos.at(-1);
   if (!ultima) return { accion: "nuevo" };

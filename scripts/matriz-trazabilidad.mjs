@@ -1,5 +1,6 @@
 // Genera docs/evidencias/matriz-trazabilidad.md: HU → escenario → prueba → resultado (compromiso C1, ADR-09).
 // Uso: npm run evidencias:matriz            (corre test:api, test:front y test:e2e; el E2E necesita dev levantado)
+//                                            (antes del E2E aplica db:migrate sobre la base de dev)
 //      npm run evidencias:matriz -- --sin-e2e (no corre el E2E: sus pruebas figuran como «no ejecutada»)
 // La salida de cada suite se muestra completa; además se guarda un reporte JSON en test-results/trazabilidad/.
 // Una prueba cubre un escenario si su título empieza con el ID exacto (p. ej. «HU0021-1.0 …»). Las pruebas del
@@ -58,6 +59,12 @@ if (SIN_E2E) {
     PLAYWRIGHT_JSON_OUTPUT_FILE: rutaReporte("e2e"),
   });
 } else {
+  // El E2E corre contra la base de dev: se aplican antes las migraciones pendientes (idempotente). Sin ellas, las rutas que
+  // dependen de un cambio de esquema responden 500 y el E2E falla por una causa ajena a la prueba.
+  if (correr("Migraciones de dev (db:migrate)", ["run", "db:migrate"]) !== 0) {
+    console.error("db:migrate falló: no se corre el E2E contra una base de dev sin migrar.");
+    process.exit(1);
+  }
   correr("E2E (Playwright)", ["run", "test", "--workspace", "e2e", "--", "--reporter=list,json"], {
     PLAYWRIGHT_JSON_OUTPUT_FILE: rutaReporte("e2e"),
   });

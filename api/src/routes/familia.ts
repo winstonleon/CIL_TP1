@@ -5,6 +5,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireExpedienteDeFamilia } from "../auth/expedienteDeFamilia";
 import type { Almacenamiento } from "../almacenamiento";
+import type { DisparadorN8n } from "../orquestacion/n8n";
 import { registrarAccesoDenegado } from "../auth/requireRol";
 import { ErrorApi } from "../errores";
 import { esPregunta, LARGO_MAXIMO_RESPUESTA } from "../services/cuestionarioExpectativas";
@@ -62,7 +63,7 @@ const esquemaFicha = z
 
 const esquemaConfirmacion = z.object({}).strict();
 
-export function rutasFamilia(almacenamiento: Almacenamiento): Router {
+export function rutasFamilia(almacenamiento: Almacenamiento, eventos: DisparadorN8n): Router {
   const rutas = Router();
 
   // GET /familia/expedientes → 200 [{ id_expediente, codigo, estado, grado, postulante, ficha_completa }]: solo los del
@@ -95,7 +96,7 @@ export function rutasFamilia(almacenamiento: Almacenamiento): Router {
 
   // ---- P06 · documentos (HU0006, ADR-21). Los archivos solo se descargan por aquí, nunca por una URL del almacenamiento.
 
-  // GET /familia/expedientes/:id/documentos → 200 { editable, confirmado_en, requisitos: [{ …requisito, documentos }] }
+  // GET /familia/expedientes/:id/documentos → 200 { editable, confirmado_en, verificacion, requisitos: [{ …requisito, documentos }] }
   // · 404 · 409 FICHA_INCOMPLETA
   rutas.get("/expedientes/:id/documentos", async (req, res) => {
     res.json(await listarDocumentos(req.expedienteFamilia!));
@@ -111,10 +112,13 @@ export function rutasFamilia(almacenamiento: Almacenamiento): Router {
   });
 
   // POST /familia/expedientes/:id/documentos/confirmacion {} → 200 { confirmado_en } (HU0006-1.0: solicita la verificación)
-  // · 404 · 409 FICHA_INCOMPLETA o DOCUMENTOS_NO_EDITABLES
+  // · 404 · 409 FICHA_INCOMPLETA, DOCUMENTOS_NO_EDITABLES o SIN_CAMBIOS (HU0017-2.0, ADR-22)
   rutas.post("/expedientes/:id/documentos/confirmacion", async (req, res) => {
     validar(esquemaConfirmacion, req.body ?? {});
-    res.json(await confirmarDocumentos(req.expedienteFamilia!));
+    const e = req.expedienteFamilia!;
+    res.json(await confirmarDocumentos(e));
+    // ADR-16 (HU0017): después del COMMIT y de responder; disparar() nunca rechaza y la familia no espera a n8n.
+    void eventos.disparar("recepcion-registro", { id_expediente: e.id_expediente });
   });
 
   // GET /familia/expedientes/:id/documentos/:idDoc/archivo → 200 con el archivo (ya descifrado y verificado)

@@ -20,6 +20,8 @@ export const ESCENARIOS_POR_PARTES = {
   // Un segundo apoderado a medias no se guarda en el servidor y se pierde al recargar (C43): la parte «conservado» no tiene
   // prueba a propósito y sigue pendiente hasta que el compromiso se cumpla.
   "HU0005-2.0": { compromiso: "C43", partes: ["borrador", "segundo apoderado parcial", "segundo apoderado conservado"] },
+  // HU0017 deja el expediente en en_validacion con las ramas abiertas; mostrarlo en la bandeja G02 es de HU0008 (C51).
+  "HU0017-1.0": { compromiso: "C51", partes: ["estado y ramas", "bandeja"] },
 };
 export const SUITES_QUE_VERIFICAN = ["API", "E2E"];
 
