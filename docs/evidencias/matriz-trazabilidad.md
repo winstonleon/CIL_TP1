@@ -1,20 +1,20 @@
 # Matriz de trazabilidad (HU → escenario → prueba → resultado)
 
-> Generada con `npm run evidencias:matriz` el 3/11/26, 10:28 p. m. (America/Lima) sobre el commit `e933d3c` **con cambios sin commit**. No se edita a mano.
+> Generada con `npm run evidencias:matriz` el 3/11/26, 11:49 p. m. (America/Lima) sobre el commit `d5353d2` **con cambios sin commit**. No se edita a mano.
 
 ## Resumen
 
 | Suite | Pruebas | Pasan | Fallan | Omitidas o no ejecutadas |
 |---|---|---|---|---|
-| API | 349 | 349 | 0 | 0 |
-| Frontend | 104 | 104 | 0 | 0 |
-| E2E | 63 | 63 | 0 | 0 |
+| API | 373 | 373 | 0 | 0 |
+| Frontend | 108 | 108 | 0 | 0 |
+| E2E | 66 | 66 | 0 | 0 |
 
-- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **22**.
-- Estados: cubierto: 16 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · sin prueba: 33 · mecanismo probado; verificación en ruta real pendiente (C17): 1 · verificado: almacenamiento; pendiente: completitud, agendamiento, adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
+- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **24**.
+- Estados: cubierto: 17 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · sin prueba: 31 · verificado: estado y ramas; pendiente: bandeja (C51): 1 · mecanismo probado; verificación en ruta real pendiente (C17): 1 · verificado: almacenamiento, completitud; pendiente: agendamiento, adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
 - Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.
 - «mecanismo probado; verificación en ruta real pendiente (C17)»: todas las pruebas del escenario llevan la marca `[política, ruta de prueba]` (compromiso C17).
-- «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34; HU0005-2.0, C43). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
+- «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34; HU0005-2.0, C43; HU0017-1.0, C51). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
 
 ## HU con pruebas
 
@@ -231,6 +231,40 @@
 |  |  | Frontend | `frontend/src/views/portal/DerechoAdmision.test.ts` | HU0007-2.0 ante un número de operación ya registrado muestra la alerta, marca el campo y deja el formulario para corregir | pasó |
 |  |  | E2E | `e2e/cargas.spec.ts` | HU0007-2.0 un comprobante ya registrado para el mismo banco se bloquea con la alerta y el campo marcado | pasó |
 
+### HU0017 — Que el sistema verifique automáticamente la completitud del expediente según el grado y lo declarado en la ficha de inscripción
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0017-1.0 — Verificación de expediente completo | verificado: estado y ramas; pendiente: bandeja (C51) | API | `api/test/completitud.test.ts` | HU0017-1.0 [parte: estado y ramas] con cada requisito obligatorio cargado (también el de colegio de procedencia) y el derecho registrado, pasa a en_validacion con las tres ramas en pendiente | pasó |
+|  |  | API | `api/test/completitud.test.ts` | HU0017-1.0 [parte: estado y ramas] con condición especial declarada se exige el informe de terapia | pasó |
+|  |  | API | `api/test/completitud.test.ts` | HU0017-1.0 [parte: estado y ramas] (idempotencia) dos verificaciones a la vez de la misma confirmación dejan una sola transición | pasó |
+|  |  | API | `api/test/completitud.test.ts` | HU0017-1.0 [parte: estado y ramas] (bloqueo) la verificación espera a que termine una carga del mismo expediente y ve el documento | pasó |
+|  |  | API | `api/test/n8nCompletitud.test.ts` | HU0017-1.0 [parte: estado y ramas] «Según la verificación» envía el 200 (completo) a «Expediente completo», que no notifica | pasó |
+|  |  | E2E | `e2e/completitud.spec.ts` | HU0017-1.0 [parte: estado y ramas] la familia completa lo que faltaba y vuelve a confirmar: el expediente pasa a En validación con las tres validaciones abiertas en pendiente | pasó |
+| HU0017-2.0 — Detección de expediente incompleto | cubierto | API | `api/test/completitud.test.ts` | HU0017-2.0 falta un documento obligatorio: el expediente se mantiene en en_postulacion y el aviso trae los faltantes por tipo y parentesco, el derecho y los enlaces | pasó |
+|  |  | API | `api/test/completitud.test.ts` | HU0017-2.0 (idempotencia) dos verificaciones a la vez de la misma confirmación dejan un solo aviso, y el barrido no la vuelve a tomar | pasó |
+|  |  | API | `api/test/completitud.test.ts` | HU0017-2.0 la familia carga lo que faltaba y vuelve a confirmar: la nueva verificación da completo y el expediente pasa a en_validacion | pasó |
+|  |  | API | `api/test/completitud.test.ts` | HU0017-2.0 (sin cambios) después de una verificación incompleta, confirmar sin cargar nada responde 409 SIN_CAMBIOS sin evento ni aviso; un documento o el pago del derecho la habilitan | pasó |
+|  |  | API | `api/test/completitud.test.ts` | HU0017-2.0 (carrera) un documento de una carga que empezó antes de la verificación y se insertó después cuenta como cambio: la reconfirmación no recibe un SIN_CAMBIOS falso | pasó |
+|  |  | API | `api/test/completitud.test.ts` | HU0017-2.0 (G09) incompleto → Secretaría quita en G09 el requisito faltante → la confirmación sin cargas nuevas se acepta y la verificación da completo | pasó |
+|  |  | API | `api/test/completitud.test.ts` | HU0017-2.0 (ADR-07) un aviso de resultado desconocido se retoma a los 10 min con una fila nueva y los mismos faltantes; a los 6 intentos se cierra fallido | pasó |
+|  |  | API | `api/test/completitud.test.ts` | HU0017-2.0 (barrido) toma la confirmación sin verificar de hace más de 1 min y suelta el aviso cerrado; no toma un expediente en en_validacion | pasó |
+|  |  | API | `api/test/completitud.test.ts` | HU0017-2.0 (autorización) las rutas internas de completitud exigen el token de servicio; la familia no las alcanza | pasó |
+|  |  | API | `api/test/n8nCompletitud.test.ts` | HU0017-2.0 «Validar evento» de recepcion-registro acepta solo { id_expediente } con un entero de 1 a 2147483647 (ADR-16) | pasó |
+|  |  | API | `api/test/n8nCompletitud.test.ts` | HU0017-2.0 «Un ítem por expediente» saca un ítem por cada expediente pendiente del barrido y solo con id_expediente | pasó |
+|  |  | API | `api/test/n8nCompletitud.test.ts` | HU0017-2.0 «Según la verificación» envía el 201 a «Enviar faltantes», el 409 a «Sin acción» y cualquier otro estado a «Detener: verificación fallida» | pasó |
+|  |  | API | `api/test/n8nCompletitud.test.ts` | HU0017-2.0 «Clasificar resultado» de verificacion-completitud elige la rama de ADR-07 ante cada resultado de notificacion-multicanal | pasó |
+|  |  | API | `api/test/n8nCompletitud.test.ts` | HU0017-2.0 sin el campo pairedItem «Clasificar resultado» empareja el resultado con su aviso por la posición | pasó |
+|  |  | API | `api/test/n8nCompletitud.test.ts` | HU0017-2.0 ningún Stop and Error ni Code de recepcion-registro o verificacion-completitud interpola el ítem, el asunto ni el cuerpo | pasó |
+|  |  | API | `api/test/n8nCompletitud.test.ts` | HU0017-2.0 «Fallo al verificar» emite solo { flujo, nodo, id_ejecucion } y no arrastra el ítem de error ni su id_expediente | pasó |
+|  |  | API | `api/test/n8nCompletitud.test.ts` | HU0017-2.0 «Verificar completitud» continúa por su salida de error (no por la regular), que registra el fallo en la API y deja el éxito sin destino | pasó |
+|  |  | API | `api/test/n8nCompletitud.test.ts` | HU0017-2.0 los dos flujos usan el Error Workflow por nombre, no guardan ejecuciones exitosas y autentican por nombre de credencial | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DocumentosExpediente.test.ts` | HU0017-2.0 P06 muestra los faltantes por tipo de documento y parentesco, y el derecho de admisión con su enlace | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DocumentosExpediente.test.ts` | HU0017-2.0 P06 sin faltantes por verificar no muestra la lista, y una verificación completa tampoco | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DocumentosExpediente.test.ts` | HU0017-2.0 P06 confirmar sin cambios muestra el mensaje SIN_CAMBIOS y conserva los faltantes | pasó |
+|  |  | Frontend | `frontend/src/views/portal/DocumentosExpediente.test.ts` | HU0017-2.0 P06 una confirmación aceptada oculta los faltantes anteriores hasta la nueva verificación | pasó |
+|  |  | E2E | `e2e/completitud.spec.ts` | HU0017-2.0 con documentos faltantes el expediente sigue en postulación, la familia recibe el correo con lo que falta y P06 lo muestra; confirmar sin cambios no repite el aviso | pasó |
+
 ### HU0021 — Crear, modificar, desactivar y reactivar las cuentas del personal y asignarles un rol (secretaría, Tesorería, psicóloga, evaluador académico o Directora)
 
 | Escenario | Estado | Suite | Archivo | Prueba | Resultado |
@@ -307,7 +341,8 @@
 
 | Escenario | Estado | Suite | Archivo | Prueba | Resultado |
 |---|---|---|---|---|---|
-| HU0022-1.0 — Configuración de un grado de la campaña | verificado: almacenamiento; pendiente: completitud, agendamiento, adjudicación (C25) | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] GET /configuracion lista solo los grados de la campaña activa, con sus vacantes adjudicadas y el derecho de admisión de R16 | pasó |
+| HU0022-1.0 — Configuración de un grado de la campaña | verificado: almacenamiento, completitud; pendiente: agendamiento, adjudicación (C25) | API | `api/test/completitud.test.ts` | HU0022-1.0 [parte: completitud] un requisito creado por la ruta de G09 con condición de colegio peruano se exige solo a quien lo declaró en la ficha | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] GET /configuracion lista solo los grados de la campaña activa, con sus vacantes adjudicadas y el derecho de admisión de R16 | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] guarda vacantes, evaluaciones, cuota y máximo de fracciones de un grado: ajusta las disponibles sin cambiar las adjudicadas y registra cambio_configuracion con el valor anterior y el nuevo | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] acepta una cuota de ingreso de 0 (plan HU0022, P10: colegios sin cuota) | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] un guardado sin cambios responde 200 y no registra eventos | pasó |
@@ -385,8 +420,6 @@
 | HU0015 | HU0015-2.0 — Rechazo por inconsistencia en el monto o número de operación | sin prueba |
 | HU0016 | HU0016-1.0 — Generación y despacho automático de la Carta de Vacante | sin prueba |
 | HU0016 | HU0016-2.0 — Bloqueo de emisión de Carta de Vacante ante pagos pendientes | sin prueba |
-| HU0017 | HU0017-1.0 — Verificación de expediente completo | sin prueba |
-| HU0017 | HU0017-2.0 — Detección de expediente incompleto | sin prueba |
 | HU0018 | HU0018-1.0 — Envío de recordatorio por inactividad de la familia | sin prueba |
 | HU0018 | HU0018-2.0 — Expiración de postulación por vencimiento del plazo de la etapa | sin prueba |
 | HU0019 | HU0019-1.0 — Visualización del embudo de conversión y tiempos de atención | sin prueba |
