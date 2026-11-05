@@ -8,6 +8,7 @@ import { manejadorErrores, noEncontrado } from "./errores";
 import { crearKeycloakAdminDesdeConfig, ROLES_PERSONAL, type IdentidadAdmin } from "./identidad/keycloakAdmin";
 import { LIMITE_LECTURA_VISITA, LIMITE_PUBLICO, type OpcionesLimite } from "./limitePorIp";
 import { crearDisparadorN8nDesdeConfig, type DisparadorN8n } from "./orquestacion/n8n";
+import { rutasBandeja } from "./routes/bandeja";
 import { rutaCampanaActiva } from "./routes/campana";
 import { rutasConfiguracion } from "./routes/configuracion";
 import { rutasFamilia } from "./routes/familia";
@@ -16,6 +17,7 @@ import { rutasPersonal } from "./routes/personal";
 import { rutasProspectos } from "./routes/prospectos";
 import { rutasPublicas } from "./routes/publico";
 import { rutaSalud } from "./routes/salud";
+import { rutasTesoreria } from "./routes/tesoreria";
 import { rutasVisitas } from "./routes/visitas";
 
 // Dependencias externas inyectables: las pruebas usan un JWKS local, un Keycloak simulado, su propia campaña,
@@ -79,6 +81,21 @@ export function crearApp(dependencias: Dependencias = {}): Express {
     requireRol("secretaria"),
     requirePersonalActivo("secretaria"),
     rutasVisitas(campanaActiva, identidad, eventos),
+  );
+  // Validaciones en paralelo (HU0008, HU0011 y HU0024): G02 y G03 de Secretaría, G05 de Tesorería.
+  app.use(
+    "/bandeja",
+    verificarToken,
+    requireRol("secretaria"),
+    requirePersonalActivo("secretaria"),
+    rutasBandeja(campanaActiva, almacenamiento, eventos),
+  );
+  app.use(
+    "/tesoreria",
+    verificarToken,
+    requireRol("tesoreria"),
+    requirePersonalActivo("tesoreria"),
+    rutasTesoreria(campanaActiva, almacenamiento, eventos),
   );
 
   app.use(noEncontrado);

@@ -354,8 +354,8 @@ describe("Flujos recepcion-registro y verificacion-completitud (n8n)", () => {
     const webhook = nodo(recepcion, "Webhook recepcion-registro");
     expect(webhook.parameters.authentication).toBe("headerAuth");
     expect(webhook.credentials).toEqual({ httpHeaderAuth: { name: "cil-webhook-secret" } });
-    // verificacion-completitud no tiene webhook: solo la llama recepcion-registro.
-    expect(verificacion.nodes.some((x) => x.type === "n8n-nodes-base.webhook")).toBe(false);
+    // verificacion-completitud tiene el webhook de la rama validación (bloque 5); la entrada de HU0017 sigue siendo la de recepcion-registro.
+    expect(verificacion.nodes.some((x) => x.type === "n8n-nodes-base.webhook")).toBe(true);
     expect(nodo(verificacion, "Expediente a verificar").type).toBe("n8n-nodes-base.executeWorkflowTrigger");
   });
 });

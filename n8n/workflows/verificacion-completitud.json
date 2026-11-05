@@ -558,6 +558,708 @@
         "errorType": "errorMessage",
         "errorMessage": "=verificacion-completitud: no se pudo cerrar como fallido el aviso rechazado (expediente {{ $('Clasificar resultado').item.json.id_expediente }}, notificación {{ $('Clasificar resultado').item.json.id_notificacion }}, PATCH fallido: HTTP {{ $json.statusCode }}); sigue pendiente y el barrido lo retoma con un intento nuevo"
       }
+    },
+    {
+      "id": "81e1b567-56a7-492e-b1ed-3843ded2cb6a",
+      "name": "Webhook verificacion-completitud",
+      "webhookId": "764bf4d1-c0cd-4979-af8a-777d32e04b3a",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        1000
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "verificacion-completitud",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-webhook-secret"
+        }
+      }
+    },
+    {
+      "id": "e96299c5-a35d-4cc5-bbcd-9378f0ec57e0",
+      "name": "Validar evento de observación",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        1000
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Valida el evento que envía la API después del COMMIT de una observación (HU0008-2.0, HU0011-2.0 y HU0024-2.0), según\n// ADR-16: el cuerpo es exactamente { id_expediente, id_notificacion } con enteros de 1 a 2147483647. Cualquier otro campo\n// lo invalida: el contrato lleva solo identificadores (C10, C11). La salida lleva solo { valido, id_expediente, id_notificacion }.\nconst esObjeto = (valor) => valor !== null && typeof valor === 'object' && !Array.isArray(valor);\nconst entero = (n) => Number.isSafeInteger(n) && n > 0 && n <= 2147483647;\n\nreturn $input.all().map((item, indice) => {\n  const cuerpo = esObjeto(item.json?.body) ? item.json.body : null;\n  const claves = cuerpo ? Object.keys(cuerpo).sort() : [];\n  const valido = claves.length === 2 && claves[0] === 'id_expediente' && claves[1] === 'id_notificacion' && entero(cuerpo.id_expediente) && entero(cuerpo.id_notificacion);\n  return {\n    json: { valido, id_expediente: valido ? cuerpo.id_expediente : null, id_notificacion: valido ? cuerpo.id_notificacion : null },\n    pairedItem: { item: indice },\n  };\n});"
+      }
+    },
+    {
+      "id": "499fdfd9-e087-46a0-8774-b13473e13f0c",
+      "name": "¿Evento de observación válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        480,
+        1000
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "71dfee18-114f-4bd4-b912-fabadc879cb4",
+              "leftValue": "={{ $json.valido }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": false,
+        "options": {}
+      }
+    },
+    {
+      "id": "8bbe3ba1-5c1c-44e8-866f-859e09a3caac",
+      "name": "Responder 202 (observación)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        720,
+        920
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ estado: 'recibido' }) }}",
+        "options": {
+          "responseCode": 202
+        }
+      }
+    },
+    {
+      "id": "6a8464a1-66dd-494e-a3d9-b862af264c64",
+      "name": "Responder 400 (observación inválida)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        720,
+        1120
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: { codigo: 'VALIDACION', mensaje: 'El evento debe ser { id_expediente, id_notificacion } con enteros mayores que 0.' } }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "0df37b5f-0191-4c2a-9c8d-c0ced23659ca",
+      "name": "Detener: evento de observación inválido",
+      "notes": "Debe quedar más abajo en el lienzo que sus ramas hermanas que registran un resultado: con executionOrder v1 las ramas corren de arriba abajo y un Stop and Error detiene toda la ejecución.",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        960,
+        1900
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "verificacion-completitud: evento de observación inválido; el cuerpo debe ser solo { id_expediente, id_notificacion }"
+      }
+    },
+    {
+      "id": "ccd48f37-3259-4821-97d9-a19509dbabd3",
+      "name": "Cada minuto (observaciones)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        1240
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "4e58ab86-cbdb-4594-900c-b91d610678b3",
+      "name": "Pedir observaciones pendientes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        240,
+        1240
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/observaciones/pendientes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "5ab07f34-45d6-4b84-b73f-62758d4b2a24",
+      "name": "Un ítem por expediente observado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        1240
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Barrido de la rama validación de verificacion-completitud (ADR-16, C27; HU0008-2.0, HU0011-2.0 y HU0024-2.0): un ítem por\n// cada expediente de GET /internal/observaciones/pendientes (observaciones cuyo aviso nunca se reservó o cuyo último intento\n// lleva más de 10 min pendiente). Sin id_notificacion: la API retoma con una fila nueva o cierra por tope (ADR-07). Si no hay\n// pendientes no sale ningún ítem y la ejecución termina aquí. Solo lleva identificadores.\nconst salida = [];\n$input.all().forEach((item, indice) => {\n  const expedientes = Array.isArray(item.json?.expedientes) ? item.json.expedientes : [];\n  for (const e of expedientes) {\n    if (Number.isSafeInteger(e?.id_expediente) && e.id_expediente > 0 && e.id_expediente <= 2147483647) {\n      salida.push({ json: { id_expediente: e.id_expediente, id_notificacion: null }, pairedItem: { item: indice } });\n    }\n  }\n});\nreturn salida;"
+      }
+    },
+    {
+      "id": "f1080e8f-929d-44f9-848b-5f80d332ec3c",
+      "name": "Observación recibida",
+      "notes": "Punto de convergencia del webhook y del barrido: ambos pasan solo { id_expediente, id_notificacion } (null en el barrido) a «Reservar aviso de observación».",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        960,
+        1120
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "bde1f840-bf2e-4b7c-8363-bd43e35da7e9",
+      "name": "Reservar aviso de observación",
+      "notes": "Con id_notificacion (webhook) la API envía el primer intento ya reservado; sin él (barrido) aplica ADR-07: retoma con una fila nueva o cierra por tope. onError continueErrorOutput: un expediente que falla no frena a los demás del barrido (C41-4).",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        1200,
+        1120
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/expedientes/{{ $json.id_expediente }}/aviso-observacion",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.id_notificacion ? { id_notificacion: $json.id_notificacion } : {}) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "7e861990-c938-4cc6-96d2-e1d5288ec61e",
+      "name": "Según la reserva",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1440,
+        1120
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "reservado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "18801cf7-089c-4a76-8186-3840d7b8041c",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 201,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "sin acción",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "379fc666-b857-454f-866b-a7a537706219",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 409,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "otro error"
+        }
+      }
+    },
+    {
+      "id": "a8f619a6-2860-40b6-aaeb-e94458f00506",
+      "name": "Sin acción (observación)",
+      "notes": "409: AVISO_NO_CORRESPONDE, AVISO_YA_REGISTRADO o AVISO_AGOTADO. La API ya decidió que no hay nada que hacer.",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        1500
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "692a49c3-69bb-4767-bea7-110e6ef039e0",
+      "name": "Enviar observación",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "onError": "continueRegularOutput",
+      "position": [
+        1680,
+        920
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "notificacion-multicanal",
+          "cachedResultName": "notificacion-multicanal"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id_expediente": "={{ $json.body.id_expediente }}",
+            "tipo_evento": "={{ $json.body.tipo_evento }}",
+            "asunto": "={{ $json.body.asunto }}",
+            "cuerpo": "={{ $json.body.cuerpo }}",
+            "id_notificacion": "={{ $json.body.id_notificacion }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "id_expediente",
+              "displayName": "id_expediente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "tipo_evento",
+              "displayName": "tipo_evento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "asunto",
+              "displayName": "asunto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "cuerpo",
+              "displayName": "cuerpo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "id_notificacion",
+              "displayName": "id_notificacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "6a35034f-2bc7-48f9-a040-d15270551bd2",
+      "name": "Clasificar resultado de observación",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        920
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Decide qué hace la rama validación de verificacion-completitud con lo que devolvió notificacion-multicanal para el aviso\n// de observaciones (HU0008-2.0, HU0011-2.0 y HU0024-2.0). Sigue ADR-07 «Fallos de los avisos» (clasificación de D7, sin\n// rebote ni transición).\n// Entrada: un ítem por aviso, emparejado con su reserva (salida «reservado» de «Según la reserva») por el pairedItem que pone\n// Execute Workflow; si falta, por la posición. Es el resultado del subflujo, { id_expediente, correo: { estado_envio,\n// id_notificacion }, whatsapp }, o, si falló, { error: \"<mensaje>\" } (Execute Workflow con onError continueRegularOutput, C9).\n//   enviado   <- correo.estado_envio = enviado: el subflujo ya cerró la fila                    -> termina\n//   fallido   <- correo.estado_envio = fallido: rechazo permanente del destinatario (motivo rechazo_destinatario)\n//                                                                                              -> PATCH fallido, sin error\n//             <- error «notificacion-multicanal: entrada inválida…» (400): un defecto (motivo entrada_invalida)\n//                                                                                              -> PATCH fallido y registro del fallo\n//   pendiente <- correo.estado_envio = pendiente, un 502, un 500 o cualquier otro error: resultado desconocido (R22), nunca\n//                se marca fallido -> sin PATCH y registro del fallo; el barrido lo retoma a los 10 min con un intento nuevo\n// Lo que no se reconoce cae en pendiente.\n// La salida lleva solo la acción, el motivo y los ids del expediente y la notificación. Nunca el asunto ni el cuerpo del\n// aviso (llevan el motivo de la observación), ni el mensaje del error del subflujo (C11).\nconst ENTRADA_INVALIDA = 'notificacion-multicanal: entrada inválida';\nconst reservas = $('Según la reserva').all(0);\n\nconst clasificar = (resultado) => {\n  if (resultado.error !== undefined) {\n    const mensaje = typeof resultado.error === 'string' ? resultado.error : String(resultado.error?.message ?? '');\n    return mensaje.startsWith(ENTRADA_INVALIDA)\n      ? { accion: 'fallido', motivo: 'entrada_invalida' }\n      : { accion: 'pendiente', motivo: 'notificacion_no_disponible' };\n  }\n  switch (resultado.correo?.estado_envio) {\n    case 'enviado':\n      return { accion: 'enviado', motivo: 'enviado' };\n    case 'fallido':\n      return { accion: 'fallido', motivo: 'rechazo_destinatario' };\n    case 'pendiente':\n      return { accion: 'pendiente', motivo: 'smtp_pendiente' };\n    default:\n      return { accion: 'pendiente', motivo: 'resultado_desconocido' };\n  }\n};\n\nreturn $input.all().map((item, indice) => {\n  const reserva = reservas[item.pairedItem?.item ?? indice]?.json?.body ?? {};\n  return {\n    json: {\n      ...clasificar(item.json ?? {}),\n      id_expediente: reserva.id_expediente ?? null,\n      id_notificacion: reserva.id_notificacion ?? null,\n    },\n    pairedItem: { item: indice },\n  };\n});"
+      }
+    },
+    {
+      "id": "09fd0983-c4c6-4fc3-a39a-c3dc3ff02371",
+      "name": "Según el resultado de la observación",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2160,
+        920
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "enviado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "0a79d5ab-a2fc-4734-a8be-81050ad58e3a",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "enviado",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "fallido",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "2bf551d0-4667-4ac8-b4de-b47efa93c0d8",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "fallido",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "pendiente",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "5b314208-bb7c-44b4-bf48-775a23b4622d",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "pendiente",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": 2
+        }
+      }
+    },
+    {
+      "id": "b319da8c-3cfb-4ce2-bff6-44ca91fd7bfe",
+      "name": "Observación enviada",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        740
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "69529695-a46d-4362-93dc-e215a67d273d",
+      "name": "Marcar observación fallida",
+      "notes": "onError continueErrorOutput: si el PATCH no llega, el fallo se registra y el barrido retoma el aviso.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        2400,
+        920
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/notificaciones/{{ $json.id_notificacion }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ estado_envio: 'fallido' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "d1712324-e290-4cfa-b504-726839630585",
+      "name": "Según el cierre de la observación",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2640,
+        920
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "entrada rechazada",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "40e88dbf-e7d1-4870-b9a3-353909951209",
+                    "leftValue": "={{ $('Clasificar resultado de observación').item.json.motivo }}",
+                    "rightValue": "entrada_invalida",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "cerrado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "or",
+                "conditions": [
+                  {
+                    "id": "bec504e4-3c63-4928-8251-518c3ab1644c",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 200,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "c19b5267-fd15-4b09-9a89-43383abce2ca",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 409,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "cierre fallido"
+        }
+      }
+    },
+    {
+      "id": "2ec05fd2-d7be-44ba-af37-9b29eed51e59",
+      "name": "Observación no entregada",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2880,
+        820
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "9085c287-1279-4ffb-b9ab-8b55bb802c3c",
+      "name": "Fallo al reservar observación",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        1500
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Rama de error de «Reservar aviso de observación» en la rama validación de verificacion-completitud (HU0008-2.0, HU0011-2.0 y HU0024-2.0, C2 y\n// C41-4): un expediente que falla no frena a los demás del barrido, y este nodo prepara el registro del fallo. Emite solo los\n// identificadores que admite POST /internal/errores-flujo: el flujo, el nodo y el id de esta ejecución. NO lee el ítem de\n// entrada: trae el mensaje del error o el asunto y el cuerpo del aviso (llevan el motivo de la observación, C11).\n// Un ítem de salida por cada expediente que falló.\nconst id = String($execution?.id ?? '');\nconst id_ejecucion = /^[0-9A-Za-z-]{1,40}$/.test(id) ? id : 'sin-id';\n\nreturn $input.all().map((_item, indice) => ({\n  json: { flujo: 'verificacion-completitud', nodo: 'Reservar aviso de observación', id_ejecucion },\n  pairedItem: { item: indice },\n}));"
+      }
+    },
+    {
+      "id": "b14740d7-849b-498c-bd40-2db131c39f39",
+      "name": "Fallo al enviar observación",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        1500
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Rama de error de «Enviar observación» en la rama validación de verificacion-completitud (HU0008-2.0, HU0011-2.0 y HU0024-2.0, C2 y\n// C41-4): un expediente que falla no frena a los demás del barrido, y este nodo prepara el registro del fallo. Emite solo los\n// identificadores que admite POST /internal/errores-flujo: el flujo, el nodo y el id de esta ejecución. NO lee el ítem de\n// entrada: trae el mensaje del error o el asunto y el cuerpo del aviso (llevan el motivo de la observación, C11).\n// Un ítem de salida por cada expediente que falló.\nconst id = String($execution?.id ?? '');\nconst id_ejecucion = /^[0-9A-Za-z-]{1,40}$/.test(id) ? id : 'sin-id';\n\nreturn $input.all().map((_item, indice) => ({\n  json: { flujo: 'verificacion-completitud', nodo: 'Enviar observación', id_ejecucion },\n  pairedItem: { item: indice },\n}));"
+      }
+    },
+    {
+      "id": "7479b5b7-92f8-46b0-b97a-f6b62c95a64e",
+      "name": "Registrar fallo de observación en la API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        3120,
+        1500
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/errores-flujo",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ flujo: $json.flujo, nodo: $json.nodo, id_ejecucion: $json.id_ejecucion }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
     }
   ],
   "connections": {
@@ -692,6 +1394,267 @@
         [
           {
             "node": "Detener: cierre fallido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook verificacion-completitud": {
+      "main": [
+        [
+          {
+            "node": "Validar evento de observación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar evento de observación": {
+      "main": [
+        [
+          {
+            "node": "¿Evento de observación válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Evento de observación válido?": {
+      "main": [
+        [
+          {
+            "node": "Responder 202 (observación)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 400 (observación inválida)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder 202 (observación)": {
+      "main": [
+        [
+          {
+            "node": "Observación recibida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder 400 (observación inválida)": {
+      "main": [
+        [
+          {
+            "node": "Detener: evento de observación inválido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cada minuto (observaciones)": {
+      "main": [
+        [
+          {
+            "node": "Pedir observaciones pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir observaciones pendientes": {
+      "main": [
+        [
+          {
+            "node": "Un ítem por expediente observado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Un ítem por expediente observado": {
+      "main": [
+        [
+          {
+            "node": "Observación recibida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Observación recibida": {
+      "main": [
+        [
+          {
+            "node": "Reservar aviso de observación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservar aviso de observación": {
+      "main": [
+        [
+          {
+            "node": "Según la reserva",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al reservar observación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según la reserva": {
+      "main": [
+        [
+          {
+            "node": "Enviar observación",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sin acción (observación)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al reservar observación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar observación": {
+      "main": [
+        [
+          {
+            "node": "Clasificar resultado de observación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clasificar resultado de observación": {
+      "main": [
+        [
+          {
+            "node": "Según el resultado de la observación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según el resultado de la observación": {
+      "main": [
+        [
+          {
+            "node": "Observación enviada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar observación fallida",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al enviar observación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar observación fallida": {
+      "main": [
+        [
+          {
+            "node": "Según el cierre de la observación",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al enviar observación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según el cierre de la observación": {
+      "main": [
+        [
+          {
+            "node": "Fallo al enviar observación",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Observación no entregada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al enviar observación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallo al reservar observación": {
+      "main": [
+        [
+          {
+            "node": "Registrar fallo de observación en la API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallo al enviar observación": {
+      "main": [
+        [
+          {
+            "node": "Registrar fallo de observación en la API",
             "type": "main",
             "index": 0
           }

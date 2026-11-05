@@ -22,6 +22,8 @@ export const ESCENARIOS_POR_PARTES = {
   "HU0005-2.0": { compromiso: "C43", partes: ["borrador", "segundo apoderado parcial", "segundo apoderado conservado"] },
   // HU0017 deja el expediente en en_validacion con las ramas abiertas; mostrarlo en la bandeja G02 es de HU0008 (C51).
   "HU0017-1.0": { compromiso: "C51", partes: ["estado y ramas", "bandeja"] },
+  // WhatsApp Cloud API todavía no existe (C30): la observación se notifica por correo; la parte «WhatsApp» queda pendiente.
+  "HU0008-2.0": { compromiso: "C30", partes: ["correo", "WhatsApp"] },
 };
 export const SUITES_QUE_VERIFICAN = ["API", "E2E"];
 

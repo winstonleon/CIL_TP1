@@ -293,7 +293,7 @@ Table Documento {
   estado_verificacion estado_revision [not null, default: 'pendiente']
   motivo_observacion text [note: 'obligatorio si estado_verificacion = observado; lo recibe la familia']
   vigente boolean [not null, default: true, note: 'false = reemplazado por una subsanación; queda como historial']
-  Note: 'Archivo cargado por la familia para cumplir un requisito. Un requisito puede tener varios archivos vigentes (p. ej. 3 boletas). Una subsanación inserta la fila nueva y marca vigente = false en la reemplazada, en la misma transacción.'
+  Note: 'Archivo cargado por la familia para cumplir un requisito. Un requisito puede tener varios archivos vigentes (p. ej. 3 boletas). Una subsanación inserta la fila nueva y marca vigente = false en la reemplazada, en la misma transacción. En en_validacion (HU0008-2.0 y HU0011-2.0) la familia solo reemplaza un documento vigente observado: la fila nueva queda pendiente, la reemplazada conserva su estado_verificacion y su motivo_observacion, y se registra subsanacion_registrada (§4.7). Cuando la rama ya no tiene documentos observados vigentes, estado_documental o estado_financiero vuelve de observado a pendiente.'
 }
 
 // =====================================================================
@@ -370,7 +370,7 @@ Table Pago {
     (id_expediente, tipo_pago, numero_fraccion) [unique]
     (banco, numero_operacion) [unique, name: 'uq_pago_banco_numero_operacion', note: 'R19: el mismo número en otro banco es otro comprobante (HU0007-2.0)']
   }
-  Note: 'Comprobantes registrados por la familia (no hay pasarela de pagos en línea). CHECK: monto > 0; numero_fraccion >= 1.'
+  Note: 'Comprobantes registrados por la familia (no hay pasarela de pagos en línea). CHECK: monto > 0; numero_fraccion >= 1. Subsanación del derecho de admisión (HU0024-2.0): con estado_validacion = observado y el expediente en en_validacion, la familia registra el comprobante nuevo en la misma fila (se mantiene la unicidad por expediente, tipo y fracción, y R19), y estado_validacion vuelve a pendiente. motivo_observacion se conserva hasta la nueva decisión de Tesorería. El banco, el número de operación y la clave del comprobante anterior quedan en subsanacion_registrada (§4.7), y su archivo no se borra.'
 }
 
 Table Carta_Vacante {
@@ -530,7 +530,8 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 |---|---|---|
 | `transicion_estado` | Cambio de `Expediente.estado`, `estado_documental` o `estado_financiero` (R6); lleva `estado_anterior` y `estado_nuevo` | Personal, familia o sistema |
 | `atencion_inicio` | El personal **abre** un ítem para atenderlo: detalle del expediente (G03), pago o documentación financiera (G05), cita o dictamen (G06), evaluación académica (G11), postulante apto (G07). `detalle` indica el ítem | Personal |
-| `atencion_fin` | El personal **registra su decisión** sobre ese ítem: conforme, observado, resultado, inasistencia, dictamen o asignación de vacante | Personal |
+| `atencion_fin` | El personal **registra su decisión** sobre ese ítem: conforme, observado, resultado, inasistencia, dictamen o asignación de vacante. `detalle` lleva `item`, `decision` e `id_evento_inicio` (el último `atencion_inicio` abierto de la misma persona y el mismo ítem, o nulo). En las validaciones (HU0008, HU0011 y HU0024), una observación agrega el documento o el pago observado (`id_documento` o `id_pago`) y el `id_notificacion` del primer intento del aviso; la decisión que deja conformes las tres ramas de R9 agrega `habilita_agendamiento: true` (una sola vez por expediente) | Personal |
+| `subsanacion_registrada` | La familia subsana una observación en `en_validacion`: reemplaza un documento observado (HU0008-2.0, HU0011-2.0) o registra un comprobante nuevo del derecho de admisión observado (HU0024-2.0). `detalle`: documento `{ item, id_documento_nuevo, id_documento_anterior }`; pago `{ item, id_pago, anterior: { banco, numero_operacion, clave } }`. `item` es el de la rama (`validacion_documental` o `documentacion_financiera` con el id del expediente, o `pago` con el id del pago). Con el `atencion_fin` de la observación, mide el tiempo de subsanación (HU0019) | Familia |
 | `acceso_denegado` | Intento de ver datos restringidos por rol (HU0021-2.0) | Personal |
 | `cambio_configuracion` | Cambios en Grado, Requisito_Documental u Horario_Disponible | Secretaría |
 | `gestion_usuario` | Alta, cambio, desactivación o reactivación de Personal | Directora |
@@ -670,3 +671,11 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 | §4.7: evento `completitud_verificada` (migración del CHECK) | Una verificación incompleta no cambia el estado: el evento deja el ciclo confirmación → verificación en la bitácora y es el ancla del aviso de faltantes (D5) |
 | §6, F2 y F3: F2 recibe el evento de la confirmación y hace el barrido; F3 lo invoca F2 | Se mantienen los siete flujos del TI (D3-i). La ficha y los archivos no pasan por n8n (ADR-21) |
 | Notas de `Documento.url_archivo` y `Pago.comprobante_url`, y §7: clave del adaptador de almacenamiento en lugar de «Google Drive» | D1 (ADR-12): almacenamiento local en dev; ADR-21 |
+
+### Ajustes por HU0008, HU0011 y HU0024 (04/11/2026), sin tablas ni columnas nuevas
+| Cambio | Motivo |
+|---|---|
+| Transiciones `pendiente → observado`, `pendiente → conforme` y `observado → pendiente` en `estado_documental` y `estado_financiero`. `Expediente.estado` sigue en `en_validacion`; `en_revision` queda sin uso en este bloque | R9: cada rama tiene su propio ciclo de observación y subsanación (HU0008, HU0011). La rama vuelve a `pendiente` cuando la familia reemplaza el último documento observado (A1) |
+| «Habilita el agendamiento» = expediente en `en_validacion` con las tres ramas de R9 en `conforme`, sin estado ni transición propios. La decisión que completa la unión lo marca en su `atencion_fin` (`habilita_agendamiento`) | HU0008-1.0, HU0011-1.0, HU0024-1.0 (decisión B1). HU0009-1.0 parte de esa condición y hace `en_validacion → en_evaluacion` |
+| Notas de `Documento` y `Pago`: subsanación en `en_validacion` (solo lo observado; el pago se actualiza en la misma fila y conserva el comprobante anterior) | Decisión A1: los tres escenarios 2.0 piden que la familia reemplace lo observado o regularice el pago |
+| §4.7: evento `subsanacion_registrada` (migración del CHECK) y detalle de `atencion_fin` (`id_evento_inicio`, observación y unión) | Evidencia de la subsanación y del comprobante anterior (el pago no tiene historial), y el par inicio/fin y el tiempo de subsanación para HU0019 |

@@ -11,7 +11,8 @@ export type TipoEventoAuditoria =
   | "gestion_usuario"
   | "notificacion_rebotada"
   | "documentos_confirmados"
-  | "completitud_verificada";
+  | "completitud_verificada"
+  | "subsanacion_registrada";
 
 export interface EventoAuditoria {
   tipoEvento: TipoEventoAuditoria;
@@ -41,6 +42,19 @@ export async function fechaUltimoEvento(db: Consultable, idExpediente: number, t
     [idExpediente, tipoEvento],
   );
   return rows[0]?.fecha_hora ?? null;
+}
+
+// Último atencion_inicio de esa persona y ese ítem que ningún atencion_fin cerró todavía (§4.7, par inicio/fin).
+export async function inicioAbierto(db: Consultable, idPersonal: number, item: { tipo: string; id: number | string }): Promise<number | null> {
+  const { rows } = await db.query<{ id_evento: string }>(
+    `SELECT i.id_evento FROM registro_auditoria i
+      WHERE i.tipo_evento = 'atencion_inicio' AND i.id_personal = $1 AND i.detalle->'item' = $2::jsonb
+        AND NOT EXISTS (SELECT 1 FROM registro_auditoria f
+                         WHERE f.tipo_evento = 'atencion_fin' AND (f.detalle->>'id_evento_inicio')::bigint = i.id_evento)
+      ORDER BY i.id_evento DESC LIMIT 1`,
+    [idPersonal, JSON.stringify(item)],
+  );
+  return rows[0] ? Number(rows[0].id_evento) : null;
 }
 
 export async function insertarEvento(db: Consultable, e: EventoAuditoria): Promise<number> {

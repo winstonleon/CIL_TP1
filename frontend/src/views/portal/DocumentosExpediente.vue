@@ -8,7 +8,10 @@
      - HU0017-2.0 (ADR-22): después de una verificación incompleta muestra «Faltan: …» por tipo de documento y parentesco,
        y el derecho de admisión si falta. Confirmar otra vez sin cambios recibe 409 SIN_CAMBIOS, con el mensaje de la API.
      - El mockup muestra «Condición laboral declarada en la ficha» y «Editar en la ficha»: la ficha completa queda en solo
-       lectura (ADR-20) y reabrirla no lo define ninguna HU del bloque, así que esa franja no se muestra. -->
+       lectura (ADR-20) y reabrirla no lo define ninguna HU del bloque, así que esa franja no se muestra.
+     - Subsanación (A1, HU0008-2.0 y HU0011-2.0): mientras se valida el expediente, cada documento observado muestra su
+       motivo y «Reemplazar»; los demás quedan en solo lectura. El de una observación ya subsanada muestra su motivo como
+       «Motivo anterior». -->
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import {
@@ -74,6 +77,11 @@ const secciones = computed(() =>
   }).filter((s) => s.requisitos.length > 0),
 );
 const editable = computed(() => lista.value?.editable ?? false);
+const subsanacion = computed(() => lista.value?.subsanacion ?? false);
+const reemplazable = (d: DocumentoCargado) => editable.value || (subsanacion.value && d.estado_verificacion === "observado");
+const hayObservados = computed(() =>
+  (lista.value?.requisitos ?? []).some((r) => r.documentos.some((d) => d.estado_verificacion === "observado")),
+);
 
 async function cargar() {
   carga.value = "cargando";
@@ -179,7 +187,10 @@ onMounted(cargar);
     </div>
 
     <template v-else-if="lista">
-      <p v-if="!editable" class="aviso" role="status" data-testid="no-editable">
+      <p v-if="subsanacion && hayObservados" class="aviso" role="status" data-testid="subsanacion">
+        Tu expediente tiene documentos observados. Subsana solo lo que esté observado: reemplaza cada documento con el motivo indicado.
+      </p>
+      <p v-else-if="!editable" class="aviso" role="status" data-testid="no-editable">
         Los documentos no se pueden modificar en el estado actual de tu expediente.
       </p>
       <section v-if="faltan" class="faltantes" role="status" data-testid="faltantes">
@@ -226,7 +237,11 @@ onMounted(cargar);
                   </span>
                   <span class="archivo-estado" :class="ESTADOS[d.estado_verificacion].clase">{{ ESTADOS[d.estado_verificacion].texto }}</span>
                   <button type="button" class="icono" :aria-label="`Ver ${etiqueta(r)}`" @click="ver(r, d)">Ver</button>
-                  <label v-if="editable" class="boton secundario pequeno">
+                  <span v-if="d.motivo_observacion" class="motivo observado" data-testid="motivo-vigente">
+                    {{ r.categoria === "financiero" ? "Tesorería" : "Secretaría" }}: {{ d.motivo_observacion }}
+                  </span>
+                  <span v-if="d.motivo_anterior" class="motivo" data-testid="motivo-anterior">Motivo anterior: {{ d.motivo_anterior }}</span>
+                  <label v-if="reemplazable(d)" class="boton secundario pequeno">
                     Reemplazar
                     <input
                       type="file"
@@ -396,6 +411,16 @@ onMounted(cargar);
 .estado.observado,
 .archivo-estado.observado {
   background: var(--aviso-fondo);
+  color: var(--observado);
+}
+
+.motivo {
+  flex-basis: 100%;
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.motivo.observado {
   color: var(--observado);
 }
 

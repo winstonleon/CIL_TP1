@@ -17,10 +17,11 @@ export interface FilaPago {
   fecha_pago: string; // AAAA-MM-DD
   comprobante_url: string;
   estado_validacion: string;
+  motivo_observacion: string | null;
 }
 
 const COLUMNAS = `id_pago, id_expediente, tipo_pago::text AS tipo_pago, numero_fraccion, numero_operacion, banco, monto::text AS monto,
-  to_char(fecha_pago, 'YYYY-MM-DD') AS fecha_pago, comprobante_url, estado_validacion::text AS estado_validacion`;
+  to_char(fecha_pago, 'YYYY-MM-DD') AS fecha_pago, comprobante_url, estado_validacion::text AS estado_validacion, motivo_observacion`;
 
 // R16: el derecho de admisión es un solo pago (numero_fraccion = 1).
 export async function leerDerechoAdmision(db: Consultable, idExpediente: number): Promise<FilaPago | null> {

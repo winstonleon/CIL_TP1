@@ -5,8 +5,11 @@ import Callback from "./views/Callback.vue";
 import Inicio from "./views/Inicio.vue";
 import SesionIniciada from "./views/SesionIniciada.vue";
 import LayoutGestion from "./views/gestion/LayoutGestion.vue";
+import BandejaExpedientes from "./views/gestion/BandejaExpedientes.vue";
 import ConfiguracionCampana from "./views/gestion/ConfiguracionCampana.vue";
+import DetalleExpediente from "./views/gestion/DetalleExpediente.vue";
 import UsuariosRoles from "./views/gestion/UsuariosRoles.vue";
+import ValidacionesTesoreria from "./views/gestion/ValidacionesTesoreria.vue";
 import PantallaVisitas from "./views/gestion/PantallaVisitas.vue";
 import DerechoAdmision from "./views/portal/DerechoAdmision.vue";
 import DocumentosExpediente from "./views/portal/DocumentosExpediente.vue";
@@ -73,6 +76,10 @@ export function crearEnrutador(historial: RouterHistory) {
           },
           // G04: agenda y registro de la asistencia (HU0004) y «Prospectos con contacto no entregado» (HU0002-2.0).
           { path: "visitas", component: PantallaVisitas, meta: { titulo: "Visitas guiadas", roles: ["secretaria"] } },
+          // G02 y G03 (HU0008): bandeja de expedientes y validación documental. G05 (HU0011 y HU0024): validaciones de Tesorería.
+          { path: "bandeja", component: BandejaExpedientes, meta: { titulo: "Bandeja de expedientes", roles: ["secretaria"] } },
+          { path: "bandeja/:id(\\d+)", component: DetalleExpediente, meta: { titulo: "Detalle del expediente", roles: ["secretaria"] } },
+          { path: "tesoreria", component: ValidacionesTesoreria, meta: { titulo: "Validaciones de Tesorería", roles: ["tesoreria"] } },
         ],
       },
       { path: "/callback/:cliente(portal|gestion)", component: Callback },

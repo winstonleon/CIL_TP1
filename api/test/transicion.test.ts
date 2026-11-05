@@ -40,8 +40,16 @@ describe("S0-B5 transicionarExpediente", () => {
         ["portal_habilitado", "en_postulacion"], // HU0005-2.0
         ["en_postulacion", "en_validacion"], // HU0017-1.0
       ],
-      estado_documental: [],
-      estado_financiero: [],
+      estado_documental: [
+        ["pendiente", "observado"], // HU0008-2.0
+        ["pendiente", "conforme"], // HU0008-1.0
+        ["observado", "pendiente"], // HU0008-2.0 (subsanación, A1)
+      ],
+      estado_financiero: [
+        ["pendiente", "observado"], // HU0011-2.0
+        ["pendiente", "conforme"], // HU0011-1.0
+        ["observado", "pendiente"], // HU0011-2.0 (subsanación, A1)
+      ],
     });
   });
 

@@ -52,11 +52,11 @@ const ICONO = {
 
 export const MENU: Record<RolPersonal, OpcionMenu[]> = {
   secretaria: [
-    { etiqueta: "Bandeja de expedientes", icono: ICONO.bandeja, columnas: ["datos_postulante", "documentos"] },
+    { etiqueta: "Bandeja de expedientes", icono: ICONO.bandeja, ruta: "/gestion/bandeja", columnas: ["datos_postulante", "documentos"] },
     { etiqueta: "Visitas guiadas", icono: ICONO.visitas, ruta: "/gestion/visitas", columnas: ["visitas"] },
     { etiqueta: "Configuración de campaña", icono: ICONO.configuracion, ruta: "/gestion/configuracion", columnas: ["configuracion"] },
   ],
-  tesoreria: [{ etiqueta: "Validaciones de Tesorería", icono: ICONO.tesoreria, columnas: ["datos_postulante"] }],
+  tesoreria: [{ etiqueta: "Validaciones de Tesorería", icono: ICONO.tesoreria, ruta: "/gestion/tesoreria", columnas: ["datos_postulante"] }],
   psicologa: [{ etiqueta: "Agenda y dictámenes", icono: ICONO.psicologia, columnas: ["datos_postulante"] }],
   evaluador_academico: [{ etiqueta: "Evaluaciones académicas", icono: ICONO.evaluacion, columnas: ["datos_postulante"] }],
   directora: [

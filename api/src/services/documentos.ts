@@ -2,6 +2,7 @@
 // por n8n; la BD guarda la clave en `documento.url_archivo`. La carga, el reemplazo y la confirmación se admiten en
 // `en_postulacion` con la ficha completa y no cambian el estado: «Confirmar documentos» solo deja el evento
 // `documentos_confirmados` (P3 A) que toma HU0017 para verificar la completitud.
+// En `en_validacion` solo se admite la subsanación (A1, bloque 5): reemplazar un documento vigente observado.
 import { pipeline, type Readable } from "node:stream";
 import { z } from "zod";
 import { ErrorAlmacenamiento, type Almacenamiento } from "../almacenamiento";
@@ -21,8 +22,10 @@ import { bloquearFichaDeExpediente, type ExpedienteDeFamilia } from "../reposito
 import { leerPostulante } from "../repositories/postulante";
 import { hayCambiosDesde, ultimaVerificacion } from "../repositories/completitud";
 import { requisitosExigidos } from "../repositories/requisito";
+import { leerDocumentoDeExpediente, motivosAnteriores } from "../repositories/validacion";
 import { crearInspector, type FormatoArchivo } from "./cargaArchivo";
 import { verificacionVigente } from "./completitud";
+import { ESTADO_SUBSANACION, registrarSubsanacionDocumento } from "./subsanacion";
 
 const ESTADO_EDITABLE = "en_postulacion";
 
@@ -63,23 +66,38 @@ const topeAlcanzado = (tope: number) =>
 
 const noEditable = () => new ErrorApi(409, "DOCUMENTOS_NO_EDITABLES", "Los documentos no se pueden modificar en el estado actual del expediente");
 
+const noObservado = () =>
+  new ErrorApi(409, "DOCUMENTO_NO_OBSERVADO", "Solo puedes reemplazar los documentos observados mientras se valida tu expediente");
+
 async function exigirEditable(e: ExpedienteDeFamilia) {
   await exigirFichaCompleta(e);
   if (e.estado !== ESTADO_EDITABLE) throw noEditable();
+}
+
+// La carga: libre en en_postulacion; en en_validacion, solo el reemplazo de un documento observado (antes de recibir el
+// archivo, y otra vez bajo el bloqueo).
+async function exigirCargable(e: ExpedienteDeFamilia, reemplaza: number | undefined) {
+  await exigirFichaCompleta(e);
+  if (e.estado === ESTADO_EDITABLE) return;
+  if (e.estado !== ESTADO_SUBSANACION || reemplaza === undefined) throw noEditable();
+  const anterior = await leerDocumentoDeExpediente(obtenerPool(), reemplaza, e.id_expediente);
+  if (anterior?.vigente && anterior.estado_verificacion !== "observado") throw noObservado();
 }
 
 // GET /documentos: los requisitos de R7 con sus archivos vigentes (el historial reemplazado no se muestra).
 export async function listarDocumentos(e: ExpedienteDeFamilia) {
   await exigirFichaCompleta(e);
   const db = obtenerPool();
-  const [requisitos, documentos, confirmado, verificacion] = await Promise.all([
+  const [requisitos, documentos, confirmado, verificacion, anteriores] = await Promise.all([
     requisitosExigidos(db, e.id_expediente),
     listarDocumentosVigentes(db, e.id_expediente),
     fechaUltimoEvento(db, e.id_expediente, "documentos_confirmados"),
     verificacionVigente(db, e.id_expediente),
+    motivosAnteriores(db, e.id_expediente),
   ]);
   return {
     editable: e.estado === ESTADO_EDITABLE,
+    subsanacion: e.estado === ESTADO_SUBSANACION, // A1: solo se reemplazan los observados
     confirmado_en: confirmado?.toISOString() ?? null,
     verificacion, // HU0017 (ajuste 3): resultado de la verificación de la última confirmación, o null
     requisitos: requisitos.map((r) => ({
@@ -92,6 +110,9 @@ export async function listarDocumentos(e: ExpedienteDeFamilia) {
           tamano_kb: d.tamano_kb,
           fecha_carga: d.fecha_carga.toISOString(),
           estado_verificacion: d.estado_verificacion,
+          // El motivo vigente solo si está observado; el de una observación ya subsanada es el «motivo anterior».
+          motivo_observacion: d.estado_verificacion === "observado" ? d.motivo_observacion : null,
+          motivo_anterior: d.estado_verificacion === "pendiente" ? (anteriores.get(d.id_documento) ?? null) : null,
         })),
     })),
   };
@@ -109,11 +130,12 @@ export async function cargarDocumento(
     throw new ErrorApi(400, "VALIDACION", `Datos inválidos: ${nombres}`);
   }
   const { id_requisito: idRequisito, id_apoderado: idApoderado = null, reemplaza } = entrada.data;
-  await exigirEditable(e);
+  await exigirCargable(e, reemplaza);
 
   // El requisito debe ser de la lista de R7 de este expediente y, si es por apoderado, de uno de sus apoderados.
   const exigidos = await requisitosExigidos(obtenerPool(), e.id_expediente);
-  if (!exigidos.some((r) => r.id_requisito === idRequisito && r.id_apoderado === idApoderado)) {
+  const exigido = exigidos.find((r) => r.id_requisito === idRequisito && r.id_apoderado === idApoderado);
+  if (!exigido) {
     throw new ErrorApi(400, "VALIDACION", "Datos inválidos: id_requisito, id_apoderado");
   }
 
@@ -127,12 +149,14 @@ export async function cargarDocumento(
   try {
     return await enTransaccion(async (db) => {
       const bloqueo = await bloquearFichaDeExpediente(db, e.id_expediente);
-      if (bloqueo?.estado !== ESTADO_EDITABLE) throw noEditable();
+      const subsanacion = bloqueo?.estado === ESTADO_SUBSANACION && reemplaza !== undefined;
+      if (bloqueo?.estado !== ESTADO_EDITABLE && !subsanacion) throw noEditable();
       if (reemplaza !== undefined) {
         const anterior = await bloquearDocumentoVigente(db, reemplaza, e.id_expediente);
         if (!anterior || anterior.id_requisito !== idRequisito || anterior.id_apoderado !== idApoderado) {
           throw new ErrorApi(400, "VALIDACION", "Datos inválidos: reemplaza");
         }
+        if (subsanacion && anterior.estado_verificacion !== "observado") throw noObservado();
         await marcarNoVigente(db, anterior.id_documento);
       } else if ((await contarVigentesDeRequisito(db, e.id_expediente, idRequisito, idApoderado)) >= tope) {
         throw topeAlcanzado(tope);
@@ -145,6 +169,14 @@ export async function cargarDocumento(
         formato: guardado.formato,
         tamanoKb: Math.max(1, Math.ceil(guardado.bytes / 1024)),
       });
+      if (subsanacion) {
+        await registrarSubsanacionDocumento(db, {
+          idExpediente: e.id_expediente,
+          categoria: exigido.categoria,
+          idDocumentoNuevo: d.id_documento,
+          idDocumentoAnterior: reemplaza!,
+        });
+      }
       return {
         id_documento: d.id_documento,
         formato: d.formato,

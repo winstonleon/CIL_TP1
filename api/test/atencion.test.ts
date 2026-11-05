@@ -43,7 +43,8 @@ describe("S0-B6 eventos atencion_inicio y atencion_fin", () => {
 
     const eventos = await eventosDe(pool, idExpediente);
     expect(eventos.map((e) => e.tipo_evento)).toEqual(["atencion_inicio", "transicion_estado", "atencion_fin"]);
-    expect(eventos[2].detalle).toEqual({ item, decision: "conforme" });
+    // §4.7 (bloque 5): id_evento_inicio es el atencion_inicio abierto de la misma persona y el mismo ítem.
+    expect(eventos[2].detalle).toEqual({ item, decision: "conforme", id_evento_inicio: Number(eventos[0].id_evento) });
   });
 
   it("S0-B6 si la decisión falla, atencion_fin y la transición no quedan registrados", async () => {

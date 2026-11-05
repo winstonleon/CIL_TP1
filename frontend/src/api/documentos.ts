@@ -11,6 +11,9 @@ export interface DocumentoCargado {
   tamano_kb: number;
   fecha_carga: string; // ISO 8601
   estado_verificacion: "pendiente" | "en_revision" | "conforme" | "observado";
+  // A1 (bloque 5): el motivo vigente si está observado; el de una observación ya subsanada, como «motivo anterior».
+  motivo_observacion?: string | null;
+  motivo_anterior?: string | null;
 }
 
 export interface RequisitoConDocumentos extends Requisito {
@@ -28,6 +31,7 @@ export interface VerificacionCompletitud {
 
 export interface ListaDocumentos {
   editable: boolean;
+  subsanacion?: boolean; // en_validacion: solo se reemplazan los documentos observados (HU0008-2.0 y HU0011-2.0)
   confirmado_en: string | null;
   verificacion?: VerificacionCompletitud | null;
   requisitos: RequisitoConDocumentos[];

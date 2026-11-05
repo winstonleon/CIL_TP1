@@ -21,8 +21,17 @@ export const TRANSICIONES_PERMITIDAS: TransicionesPermitidas = {
     ["portal_habilitado", "en_postulacion"], // HU0005-2.0: primer guardado de la ficha (borrador o completa)
     ["en_postulacion", "en_validacion"], // HU0017-1.0: la verificación de completitud encontró el expediente completo
   ],
-  estado_documental: [],
-  estado_financiero: [],
+  // R9: cada rama tiene su propio ciclo de observación y subsanación (HU0008 y HU0011, plan del bloque 5).
+  estado_documental: [
+    ["pendiente", "observado"], // HU0008-2.0: «Solicitar subsanación» de un documento
+    ["pendiente", "conforme"], // HU0008-1.0: «Dar conformidad» con todos los documentos conformes
+    ["observado", "pendiente"], // A1: la familia reemplazó el último documento observado de la rama
+  ],
+  estado_financiero: [
+    ["pendiente", "observado"], // HU0011-2.0
+    ["pendiente", "conforme"], // HU0011-1.0
+    ["observado", "pendiente"], // A1
+  ],
 };
 
 export interface Transicion {

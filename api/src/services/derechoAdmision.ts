@@ -1,6 +1,8 @@
 // Derecho de admisión (P07b, HU0007): la familia registra el comprobante de su depósito o transferencia. El monto es la
 // constante de R16 (C26 punto 2) y el pago queda pendiente de Tesorería; la constancia se muestra en pantalla.
 // Los textos que debe entregar el colegio (bancos y cuenta) van entre corchetes en `borrador-1` (ADR-19, C48).
+// Subsanación (A1, bloque 5; HU0024-2.0): con el comprobante observado y el expediente en en_validacion, la familia
+// registra el comprobante nuevo en la misma fila del Pago, que vuelve a `pendiente`; el anterior no se borra.
 import type { Readable } from "node:stream";
 import { z } from "zod";
 import type { Almacenamiento } from "../almacenamiento";
@@ -16,6 +18,8 @@ import {
   type FilaPago,
 } from "../repositories/pago";
 import { leerPostulante } from "../repositories/postulante";
+import { bloquearPagoDerecho, existeComprobanteDeOtroPago, subsanarPagoDerecho } from "../repositories/validacion";
+import { ESTADO_SUBSANACION, registrarSubsanacionPago } from "./subsanacion";
 import { DERECHO_ADMISION } from "./configuracion";
 import { guardarInspeccionado, quitarArchivo } from "./documentos";
 import { codigoExpediente } from "./fichaInscripcion";
@@ -41,6 +45,8 @@ const esquemaDerecho = z
 
 const noRegistrable = () => new ErrorApi(409, "DERECHO_NO_REGISTRABLE", "El derecho de admisión no se puede registrar en el estado actual del expediente");
 const yaRegistrado = () => new ErrorApi(409, "DERECHO_YA_REGISTRADO", "El derecho de admisión de este expediente ya tiene un comprobante registrado");
+const noSubsanable = () =>
+  new ErrorApi(409, "DERECHO_NO_SUBSANABLE", "El comprobante solo se puede reemplazar cuando Tesorería lo observó");
 const duplicado = () =>
   new ErrorApi(409, "COMPROBANTE_DUPLICADO", "Este comprobante ya fue registrado. Revisa el N.° de operación.", { campo: "numero_operacion" });
 
@@ -72,7 +78,15 @@ export async function leerDerecho(e: ExpedienteDeFamilia) {
     bancos: BANCOS,
     cuenta_colegio: CUENTA_COLEGIO,
     registrable: e.estado === ESTADO_REGISTRABLE && !pago,
-    pago: pago ? await constancia(e, pago, null) : null,
+    pago: pago
+      ? {
+          ...(await constancia(e, pago, null)),
+          subsanable: e.estado === ESTADO_SUBSANACION && pago.estado_validacion === "observado",
+          motivo_observacion: pago.estado_validacion === "observado" ? pago.motivo_observacion : null,
+          // El motivo se conserva hasta la nueva decisión (nota de Pago): en `pendiente` es el de la observación subsanada.
+          motivo_anterior: pago.estado_validacion === "pendiente" ? pago.motivo_observacion : null,
+        }
+      : null,
   };
 }
 
@@ -119,4 +133,49 @@ export async function registrarDerecho(
   }
   // Ya confirmado: un fallo al armar la constancia no debe borrar el archivo del pago registrado.
   return constancia(e, pago, pago.registrado_en);
+}
+
+const esObservado = (p: FilaPago | null): p is FilaPago => p?.estado_validacion === "observado";
+
+// PUT /derecho-admision: el comprobante nuevo del derecho observado (A1). Misma validación que el registro; R19 sin contar
+// el propio pago. El banco, el número de operación y la clave anteriores quedan en subsanacion_registrada.
+export async function subsanarDerecho(
+  almacenamiento: Almacenamiento,
+  e: ExpedienteDeFamilia,
+  campos: Record<string, string>,
+  archivo: Readable,
+) {
+  const entrada = z.safeParse(esquemaDerecho, campos);
+  if (!entrada.success) {
+    const nombres = [...new Set(entrada.error.issues.map((i) => i.path.join(".") || "cuerpo"))].join(", ");
+    throw new ErrorApi(400, "VALIDACION", `Datos inválidos: ${nombres}`);
+  }
+  const { banco, numero_operacion: numeroOperacion, fecha_pago: fechaPago } = entrada.data;
+  const db = obtenerPool();
+  const previo = await leerDerechoAdmision(db, e.id_expediente);
+  if (e.estado !== ESTADO_SUBSANACION || !esObservado(previo)) throw noSubsanable();
+  if (await existeComprobanteDeOtroPago(db, banco, numeroOperacion, previo.id_pago)) throw duplicado();
+
+  const guardado = await guardarInspeccionado(almacenamiento, archivo);
+  try {
+    await enTransaccion(async (tx) => {
+      // Orden de bloqueo: expediente y después pago (el mismo de la decisión de Tesorería).
+      const bloqueo = await bloquearFichaDeExpediente(tx, e.id_expediente);
+      const pago = await bloquearPagoDerecho(tx, previo.id_pago);
+      if (bloqueo?.estado !== ESTADO_SUBSANACION || pago?.estado_validacion !== "observado") throw noSubsanable();
+      await subsanarPagoDerecho(tx, { idPago: pago.id_pago, banco, numeroOperacion, fechaPago, clave: guardado.clave });
+      await registrarSubsanacionPago(tx, {
+        idExpediente: e.id_expediente,
+        idPago: pago.id_pago,
+        anterior: { banco: pago.banco, numero_operacion: pago.numero_operacion, clave: pago.comprobante_url, motivo: pago.motivo_observacion },
+      });
+    });
+  } catch (error) {
+    // Solo se quita el archivo NUEVO: el comprobante anterior se conserva (ajuste 1 de John).
+    await quitarArchivo(almacenamiento, guardado.clave);
+    const pg = error as { code?: string; constraint?: string };
+    if (pg.code === "23505" && pg.constraint === UNICIDAD_COMPROBANTE) throw duplicado();
+    throw error;
+  }
+  return leerDerecho({ ...e, estado: ESTADO_SUBSANACION });
 }

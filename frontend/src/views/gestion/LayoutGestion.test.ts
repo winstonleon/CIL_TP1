@@ -49,12 +49,14 @@ describe("HU0021-1.0 navegación de la gestión interna por rol", () => {
     expect(visibles).toEqual(opciones);
     expect(menu.text()).toContain("Solo ves las opciones de tu rol.");
 
-    // Tienen pantalla «Usuarios y roles» (G10, HU0021), «Configuración de campaña» (G09, HU0022) y «Visitas guiadas»
-    // (G04, HU0002); las demás se ven pero no navegan (plan HU0021, P4).
+    // Tienen pantalla «Usuarios y roles» (G10, HU0021), «Configuración de campaña» (G09, HU0022), «Visitas guiadas»
+    // (G04, HU0002), «Bandeja de expedientes» (G02, HU0008) y «Validaciones de Tesorería» (G05, HU0011 y HU0024); las
+    // demás se ven pero no navegan (plan HU0021, P4).
     const enlaces = menu.findAll("a.opcion").map((a) => a.text());
     const conPantalla: Record<string, string[]> = {
       directora: ["Usuarios y roles"],
-      secretaria: ["Visitas guiadas", "Configuración de campaña"],
+      secretaria: ["Bandeja de expedientes", "Visitas guiadas", "Configuración de campaña"],
+      tesoreria: ["Validaciones de Tesorería"],
     };
     expect(enlaces).toEqual(conPantalla[rol] ?? []);
     for (const deshabilitada of menu.findAll('[aria-disabled="true"]')) {

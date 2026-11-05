@@ -9,7 +9,7 @@ import type { DisparadorN8n } from "../orquestacion/n8n";
 import { registrarAccesoDenegado } from "../auth/requireRol";
 import { ErrorApi } from "../errores";
 import { esPregunta, LARGO_MAXIMO_RESPUESTA } from "../services/cuestionarioExpectativas";
-import { leerDerecho, registrarDerecho } from "../services/derechoAdmision";
+import { leerDerecho, registrarDerecho, subsanarDerecho } from "../services/derechoAdmision";
 import {
   abrirArchivo,
   cargarDocumento,
@@ -103,8 +103,9 @@ export function rutasFamilia(almacenamiento: Almacenamiento, eventos: Disparador
   });
 
   // POST /familia/expedientes/:id/documentos · multipart: id_requisito, id_apoderado?, reemplaza?, y al final «archivo»
-  // → 201 { id_documento, formato, tamano_kb, fecha_carga } (HU0006-1.0)
-  // · 400 VALIDACION · 404 · 409 FICHA_INCOMPLETA o DOCUMENTOS_NO_EDITABLES
+  // → 201 { id_documento, formato, tamano_kb, fecha_carga } (HU0006-1.0; en en_validacion, solo el reemplazo de un
+  // documento observado: HU0008-2.0 y HU0011-2.0, A1)
+  // · 400 VALIDACION · 404 · 409 FICHA_INCOMPLETA, DOCUMENTOS_NO_EDITABLES o DOCUMENTO_NO_OBSERVADO
   // · 413 ARCHIVO_DEMASIADO_GRANDE y 415 FORMATO_NO_ADMITIDO (HU0006-2.0)
   rutas.post("/expedientes/:id/documentos", async (req, res) => {
     const e = req.expedienteFamilia!;
@@ -159,6 +160,14 @@ export function rutasFamilia(almacenamiento: Almacenamiento, eventos: Disparador
   rutas.post("/expedientes/:id/derecho-admision", async (req, res) => {
     const e = req.expedienteFamilia!;
     res.status(201).json(await recibirCarga(req, (campos, archivo) => registrarDerecho(almacenamiento, e, campos, archivo)));
+  });
+
+  // PUT /familia/expedientes/:id/derecho-admision · multipart: banco, numero_operacion, fecha_pago y al final «archivo»
+  // → 200 como el GET, con el pago de vuelta en `pendiente` (HU0024-2.0, subsanación A1) · 400 VALIDACION · 404
+  // · 409 DERECHO_NO_SUBSANABLE o COMPROBANTE_DUPLICADO · 413 · 415
+  rutas.put("/expedientes/:id/derecho-admision", async (req, res) => {
+    const e = req.expedienteFamilia!;
+    res.json(await recibirCarga(req, (campos, archivo) => subsanarDerecho(almacenamiento, e, campos, archivo)));
   });
 
   return rutas;

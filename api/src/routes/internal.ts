@@ -11,6 +11,7 @@ import { verificacionesPendientes, verificarCompletitud } from "../services/comp
 import { registrarErrorFlujo } from "../services/erroresFlujo";
 import { obtenerContactoExpediente, registrarNotificacion } from "../services/notificaciones";
 import { recordatoriosPendientes, reservarRecordatorio } from "../services/recordatorios";
+import { observacionesPendientes, reservarAvisoObservacion } from "../services/validaciones";
 import { validar } from "../validacion";
 
 const idExpediente = z.coerce.number().int().positive();
@@ -26,6 +27,9 @@ const cuerpoNotificacion = z.object({
 // Un intento reservado se cierra solo con su resultado; `pendiente` no es un resultado (D7: un 502, un 500 o un error
 // técnico la dejan así).
 const cuerpoCierre = z.object({ estado_envio: z.enum(["enviado", "fallido"]) }).strict();
+
+// El webhook de la observación trae el primer intento; el barrido no manda cuerpo (plan del bloque 5).
+const cuerpoAvisoObservacion = z.object({ id_notificacion: idRuta.optional() }).strict();
 
 const cuerpoRebote = z.object({ origen: z.enum(ORIGENES_REBOTE) }).strict();
 
@@ -120,6 +124,19 @@ export function rutasInternas(identidad: IdentidadAdmin): Router {
   // Barrido de recepcion-registro (ADR-16): GET /internal/completitud/pendientes → { expedientes: [{ id_expediente }] }
   rutas.get("/completitud/pendientes", async (_req, res) => {
     res.json(await verificacionesPendientes());
+  });
+
+  // HU0008-2.0, HU0011-2.0 y HU0024-2.0 (flujo verificacion-completitud, rama validación): POST
+  // /internal/expedientes/:id/aviso-observacion { id_notificacion? } → 201 { id_expediente, id_notificacion, tipo_evento:
+  // "subsanacion_solicitada", asunto, cuerpo } · 409 AVISO_NO_CORRESPONDE, AVISO_YA_REGISTRADO o AVISO_AGOTADO · 404
+  rutas.post("/expedientes/:id/aviso-observacion", async (req, res) => {
+    const { id_notificacion } = validar(cuerpoAvisoObservacion, req.body ?? {});
+    res.status(201).json(await reservarAvisoObservacion(validar(idRuta, req.params.id), id_notificacion));
+  });
+
+  // Barrido de la rama validación (ADR-16): GET /internal/observaciones/pendientes → { expedientes: [{ id_expediente }] }
+  rutas.get("/observaciones/pendientes", async (_req, res) => {
+    res.json(await observacionesPendientes());
   });
 
   // C2 (workflow registro-errores): POST /internal/errores-flujo { flujo, nodo, id_ejecucion } → 204

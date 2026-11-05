@@ -326,6 +326,7 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 | Textos de los avisos de la visita | `borrador-1`, entre corchetes | `api/src/services/avisosVisita.ts` | El colegio entrega los textos (C39) y se sube la versión | `HU0003-1.0 …` y `HU0004-*` (correos) |
 | Bancos y cuenta del derecho de admisión (P07b) | `borrador-1`, entre corchetes | `api/src/services/derechoAdmision.ts` | El colegio entrega la lista de bancos y la cuenta (C48) y se sube la versión | `HU0007-*` |
 | Textos del aviso de documentos faltantes (HU0017) | `borrador-1`, entre corchetes | `api/src/services/avisosCompletitud.ts` | El colegio entrega los textos y se sube la versión | `HU0017-2.0 …` |
+| Textos del aviso de observaciones (HU0008, HU0011 y HU0024) | `borrador-1`, entre corchetes | `api/src/services/avisosValidacion.ts` | El colegio entrega los textos y se sube la versión | `HU0008-2.0 [parte: correo] …`, `HU0011-2.0 …` y `HU0024-2.0 …` |
 | Tope de archivos por requisito (P06) | 20 (provisional) | `MAX_DOCUMENTOS_POR_REQUISITO` (`config.ts`, de 1 a 100; opcional en `.env`) | Editar `.env` y recrear `api` | `HU0006-1.0 (tope técnico) …` |
 
 ## ADR-20 Ficha de inscripción y cuestionario de expectativas (HU0005)
@@ -402,6 +403,42 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
   - El correo y P06 usan el **parentesco** del apoderado, nunca su nombre: el cuerpo del correo queda en las ejecuciones de error de n8n (C11).
   - Los textos del correo viven en `api/src/services/avisosCompletitud.ts` (`borrador-1`, ADR-19). El enlace es `${FRONTEND_PUBLIC_URL}/portal/documentos`.
 - **Matriz:** HU0017-1.0 se verifica por partes: «estado y ramas» (HU0017) y «bandeja» (HU0008, C51).
+
+## ADR-23 Validaciones en paralelo (HU0008, HU0011 y HU0024)
+- **[EQUIPO, bloque 5, 04/11/2026] Las tres ramas (R9):**
+  - **Documental** (Secretaría, G03): los documentos no financieros y `estado_documental`.
+  - **Financiera** (Tesorería, G05): los documentos de categoría `financiero` y `estado_financiero`.
+  - **Derecho de admisión** (Tesorería, G05): `Pago.estado_validacion`.
+  - Cada documento vigente se marca conforme u observado. «Dar conformidad» (G03) y «Marcar conforme» (G05) pasan la rama de `pendiente` a `conforme` solo con todos sus documentos conformes (409 `DOCUMENTOS_SIN_REVISAR`). La primera observación pasa la rama a `observado`.
+  - Transiciones: `pendiente → observado`, `pendiente → conforme` y `observado → pendiente` (subsanación). `en_revision` queda sin uso.
+  - Si el grado no exige documentos financieros, «Marcar conforme» registra la conformidad sin documentos (supuesto 3, John, 04/11/2026). Lo prueba `HU0011-1.0 sin requisitos financieros …`.
+- **[EQUIPO, B1] «Habilita el agendamiento»:**
+  - Es una condición derivada: expediente en `en_validacion` con las tres ramas en `conforme`. No tiene estado ni transición propios, ni evento a n8n. HU0009-1.0 parte de ella y hace `en_validacion → en_evaluacion`.
+  - La decisión que completa la unión lleva `habilita_agendamiento: true` en su `atencion_fin`.
+  - Cada decisión bloquea el expediente (el mismo bloqueo de la carga de la familia) y evalúa la unión en la misma transacción, así que se registra una sola vez. Lo prueba `HU0008-1.0 (concurrencia) …`.
+  - Cómo se entera la familia lo decide HU0009 (C52).
+- **[EQUIPO, A1] Subsanación de la familia:**
+  - **Documentos:** en `en_validacion` solo se reemplaza un documento vigente observado (409 `DOCUMENTO_NO_OBSERVADO`; una carga nueva sigue en `DOCUMENTOS_NO_EDITABLES`). La rama vuelve a `pendiente` cuando ya no tiene observados vigentes.
+  - **Derecho:** el comprobante observado se regulariza con `PUT /familia/expedientes/:id/derecho-admision` en la misma fila del Pago (respeta `uq_pago_expediente_tipo_fraccion` y R19 sin contar el propio pago). Vuelve a `pendiente` y sin validador; el motivo se conserva hasta la nueva decisión. El archivo anterior **no se borra**.
+  - **Evento `subsanacion_registrada`** (§4.7, ajuste 1 de John): documento `{ item, id_documento_nuevo, id_documento_anterior }`; pago `{ item, id_pago, anterior: { banco, numero_operacion, clave, motivo } }` (el motivo, porque la conformidad posterior lo borra del Pago; John, 04/11/2026). Con el `atencion_fin` de la observación, mide el tiempo de subsanación (HU0019).
+  - Un ítem que volvió a pendiente muestra su motivo como «Motivo anterior» (G02, G03, G05, P06 y P07b), nunca como observación vigente.
+- **[EQUIPO] Dos personas del mismo rol:** la decisión sobre un ítem ya decidido responde 409 (`DOCUMENTO_YA_REVISADO`, `VALIDACION_YA_REGISTRADA` o `PAGO_YA_VALIDADO`) y no pisa la anterior. Su `atencion_inicio` queda sin fin (§4.7 lo descarta a las 8 h).
+- **[EQUIPO] Tiempo de atención (ADR-05):**
+  - Ítems: `validacion_documental` y `documentacion_financiera` con el id del expediente, y `pago` con el id del pago.
+  - `atencion_inicio` al abrir el detalle, si espera una decisión del personal: la rama en `pendiente` o con algún documento por revisar, y el comprobante en `pendiente`. Una rama observada sin documentos por revisar o un comprobante observado esperan a la familia. `atencion_fin` al decidir (observación, conformidad de la rama o decisión del pago); las marcas por documento no la cierran.
+  - `registrarAtencionFin` siempre guarda `id_evento_inicio`: el último `atencion_inicio` abierto de la misma persona y el mismo ítem, o nulo (John, 04/11/2026).
+- **[MODELO R2, C17] Acceso restringido por documento:**
+  - G03 no recibe los documentos financieros. Abrir o validar uno desde `/bandeja` responde 403 y se audita `acceso_denegado` con `detalle.recurso`.
+  - Las rutas financieras de `/tesoreria` montan `requireAccesoRestringido("documentacion_financiera")`.
+  - Las descargas del personal van solo por la API, con las cabeceras de ADR-21. `/bandeja` y `/tesoreria` llevan `requirePersonalActivo` (C22).
+- **[EQUIPO] Aviso de observaciones (C9, ADR-07):**
+  - Tipo `subsanacion_solicitada`. La observación reserva el primer intento en su transacción (`atencion_fin.detalle.id_notificacion`) y la API dispara el webhook `verificacion-completitud` con `{ id_expediente, id_notificacion }` (ADR-16).
+  - Solo se envía el aviso de la **última** observación, con todas las observaciones vigentes del expediente (motivo y enlace a P06 o P07b). Sus intentos son las filas del tipo con `id_notificacion ≥` el primero, como en ADR-22.
+  - La retoma (10 min) la hace el barrido `GET /internal/observaciones/pendientes`, con tope de 6 intentos y fila de cierre `fallido`.
+  - **Riesgo aceptado (John, 04/11/2026):** el motivo lo escribe el personal y queda en las ejecuciones de error de n8n (C11). G03 y G05 muestran en el campo «Describe el problema del documento; no copies su contenido».
+  - WhatsApp (HU0008-2.0) queda pendiente (C30). No se avisa la conformidad (C50 (3)).
+- **[EQUIPO] n8n:** `verificacion-completitud` gana la entrada de la rama validación (webhook y barrido cada minuto). La entrada de HU0017 no cambia.
+- **[EQUIPO] Pestañas sin HU en el bloque:** se ven deshabilitadas (`aria-disabled`, title «Disponible con HU0009», «… HU0012», «… HU0015» o, en G03, «Disponible en una HU posterior», C53) y no hacen nada.
 
 ## Orden recomendado de implementación
 0. **Sprint 0, base técnica** (no es una HU; se documenta como habilitador):

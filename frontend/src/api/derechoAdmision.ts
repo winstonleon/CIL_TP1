@@ -16,13 +16,20 @@ export interface Constancia {
   estado: "pendiente" | "en_revision" | "conforme" | "observado";
 }
 
+// GET y PUT de P07b: la constancia y, desde el bloque 5, la subsanación del comprobante observado (A1, HU0024-2.0).
+export interface PagoRegistrado extends Constancia {
+  subsanable?: boolean;
+  motivo_observacion?: string | null;
+  motivo_anterior?: string | null;
+}
+
 export interface DerechoAdmision {
   version: string;
   monto: number;
   bancos: string[];
   cuenta_colegio: string;
   registrable: boolean;
-  pago: Constancia | null;
+  pago: PagoRegistrado | null;
 }
 
 export interface DatosComprobante {
@@ -37,11 +44,20 @@ export async function leerDerechoAdmision(id: number): Promise<DerechoAdmision> 
   return respuesta(await llamarApi("portal", ruta(id)));
 }
 
-export async function registrarDerechoAdmision(id: number, datos: DatosComprobante, archivo: File): Promise<Constancia> {
+function formularioDe(datos: DatosComprobante, archivo: File): FormData {
   const formulario = new FormData();
   formulario.append("banco", datos.banco);
   formulario.append("numero_operacion", datos.numero_operacion);
   formulario.append("fecha_pago", datos.fecha_pago);
   formulario.append("archivo", archivo);
-  return respuesta(await llamarApi("portal", ruta(id), { method: "POST", body: formulario }));
+  return formulario;
+}
+
+export async function registrarDerechoAdmision(id: number, datos: DatosComprobante, archivo: File): Promise<Constancia> {
+  return respuesta(await llamarApi("portal", ruta(id), { method: "POST", body: formularioDe(datos, archivo) }));
+}
+
+// Subsanación (A1): el comprobante nuevo del pago observado reemplaza al anterior en la misma fila; vuelve a pendiente.
+export async function regularizarDerechoAdmision(id: number, datos: DatosComprobante, archivo: File): Promise<DerechoAdmision> {
+  return respuesta(await llamarApi("portal", ruta(id), { method: "PUT", body: formularioDe(datos, archivo) }));
 }

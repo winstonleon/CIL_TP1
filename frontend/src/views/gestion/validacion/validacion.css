@@ -1,0 +1,258 @@
+/* Estilos compartidos de G02, G03 y G05 (validaciones en paralelo), tomados de los mockups docs/ui/G02, G03 y G05. */
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 16px;
+  box-sizing: border-box;
+}
+
+.tarjeta h2 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--cil-azul);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chip.revision {
+  background: var(--chip-fondo);
+  color: var(--cil-azul);
+}
+
+.chip.conforme {
+  background: var(--conforme-fondo);
+  color: var(--conforme);
+}
+
+.chip.observado {
+  background: var(--aviso-fondo);
+  color: var(--observado);
+}
+
+.chip.subsanado {
+  background: var(--chip-acento);
+  color: var(--cil-azul);
+}
+
+.chip.inactivo {
+  background: var(--inactivo-fondo);
+  color: var(--inactivo);
+}
+
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 9px;
+  border: 1px solid var(--cil-azul);
+  background: var(--superficie);
+  color: var(--cil-azul);
+  font-family: var(--fuente-texto);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.boton.primario {
+  background: var(--cil-azul);
+  color: #ffffff;
+}
+
+.boton.conforme {
+  border-color: var(--conforme);
+  background: var(--conforme);
+  color: #ffffff;
+}
+
+.boton.observar {
+  border-color: var(--observado);
+  color: var(--observado);
+}
+
+.boton.grande {
+  min-height: 46px;
+  padding: 0 22px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+.boton:disabled {
+  border-color: #d9d6cd;
+  background: #d9d6cd;
+  color: #5e6470;
+  cursor: not-allowed;
+}
+
+.boton:focus-visible,
+.pestana:focus-visible {
+  outline: 3px solid var(--cil-dorado);
+  outline-offset: 2px;
+}
+
+.suave {
+  margin: 0;
+  font-size: 13px;
+  color: var(--texto-suave);
+  line-height: 1.5;
+}
+
+.mensaje {
+  margin: 0;
+  font-size: 14px;
+  color: var(--observado);
+}
+
+.motivo-anterior {
+  margin: 0;
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.motivo-vigente {
+  margin: 0;
+  font-size: 13px;
+  color: var(--observado);
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.tabla th {
+  text-align: left;
+  padding: 12px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+  border-bottom: 1px solid var(--borde);
+  background: var(--superficie-tenue);
+}
+
+.tabla td {
+  padding: 12px 14px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--borde);
+  vertical-align: middle;
+}
+
+.tabla tr.seleccionada {
+  background: var(--fila-aviso);
+}
+
+.celda-doble {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.celda-doble .nombre {
+  font-weight: 700;
+}
+
+.celda-doble .detalle {
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.tabla-envoltura {
+  overflow-x: auto;
+}
+
+.pestanas {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--borde);
+}
+
+.pestana {
+  min-height: 48px;
+  padding: 0 16px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  font-family: var(--fuente-texto);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--texto-suave);
+  cursor: pointer;
+}
+
+.pestana[aria-selected="true"] {
+  font-weight: 700;
+  color: var(--cil-azul);
+  border-bottom-color: var(--cil-dorado);
+}
+
+.pestana.deshabilitada {
+  color: var(--reservado-texto);
+  background: var(--inactivo-fondo);
+  cursor: not-allowed;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.campo label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.campo textarea,
+.campo input,
+.campo select {
+  padding: 12px 14px;
+  border: 1px solid var(--borde-campo);
+  border-radius: 10px;
+  background: var(--superficie);
+  font-family: var(--fuente-texto);
+  font-size: 15px;
+  color: var(--texto);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.campo textarea {
+  min-height: 110px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.campo [aria-invalid="true"] {
+  border-color: var(--observado);
+}
+
+.requerido {
+  color: var(--observado);
+}

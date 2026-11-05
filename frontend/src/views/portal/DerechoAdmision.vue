@@ -3,10 +3,19 @@
      - El monto (S/ 300, R16), la lista de bancos y la cuenta del colegio los entrega la API (C26, C48): no se fijan aquí.
      - El archivo se revisa antes de enviarlo (formato por su firma y 10 MB); la API vuelve a validarlo.
      - El mockup cierra la constancia con «Volver a Pagos»: P07 (Pagos) llega con HU0013 y HU0014, así que ese botón no se
-       muestra todavía. «Registrado el» solo se conoce al registrar (C49). -->
+       muestra todavía. «Registrado el» solo se conoce al registrar (C49).
+     - Subsanación (A1, HU0024-2.0): si Tesorería observó el comprobante, la constancia muestra el motivo y «Regularizar el
+       pago» abre el mismo formulario, que reemplaza el comprobante (el anterior queda en el historial). Después, el motivo
+       se muestra como «Motivo anterior». -->
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
-import { leerDerechoAdmision, registrarDerechoAdmision, type Constancia, type DerechoAdmision } from "../../api/derechoAdmision";
+import {
+  leerDerechoAdmision,
+  regularizarDerechoAdmision,
+  registrarDerechoAdmision,
+  type DerechoAdmision,
+  type PagoRegistrado,
+} from "../../api/derechoAdmision";
 import { ErrorApi, mensajeDe } from "../../api/respuesta";
 import { fechaDeDia, fechaHora, hoyEnLima } from "../../portal/formato";
 import { MENSAJE_ARCHIVO, validarArchivo } from "../../portal/validarArchivo";
@@ -24,7 +33,8 @@ const expedientes = useExpedienteStore();
 const idExpediente = expedientes.expediente!.id_expediente;
 
 const derecho = ref<DerechoAdmision | null>(null);
-const constancia = ref<Constancia | null>(null);
+const constancia = ref<PagoRegistrado | null>(null);
+const regularizando = ref(false);
 const carga = ref<"cargando" | "listo" | "error">("cargando");
 const errorCarga = ref("");
 const enviando = ref(false);
@@ -69,6 +79,13 @@ async function enviar() {
 
   enviando.value = true;
   try {
+    if (regularizando.value) {
+      const datos = { banco: form.banco, numero_operacion: form.numero_operacion.trim(), fecha_pago: form.fecha_pago };
+      derecho.value = await regularizarDerechoAdmision(idExpediente, datos, archivo.value!);
+      constancia.value = derecho.value.pago;
+      regularizando.value = false;
+      return;
+    }
     constancia.value = await registrarDerechoAdmision(
       idExpediente,
       { banco: form.banco, numero_operacion: form.numero_operacion.trim(), fecha_pago: form.fecha_pago },
@@ -107,9 +124,14 @@ onMounted(cargar);
     </div>
 
     <!-- Estado: constancia tras el envío (HU0007-1.0) -->
-    <article v-else-if="constancia" class="tarjeta constancia" data-testid="constancia" aria-labelledby="constancia-titulo">
+    <article v-else-if="constancia && !regularizando" class="tarjeta constancia" data-testid="constancia" aria-labelledby="constancia-titulo">
       <h2 id="constancia-titulo">Constancia de registro del comprobante</h2>
-      <p class="recibido">Recibimos tu comprobante. Tesorería lo validará y te avisaremos por correo.</p>
+      <div v-if="constancia.motivo_observacion" class="alerta" role="alert" data-testid="observacion">
+        <strong>Tesorería observó tu comprobante.</strong>
+        <span>Motivo: {{ constancia.motivo_observacion }}</span>
+      </div>
+      <p v-else class="recibido">Recibimos tu comprobante. Tesorería lo validará y te avisaremos por correo.</p>
+      <p v-if="constancia.motivo_anterior" class="suave" data-testid="motivo-anterior">Motivo anterior: {{ constancia.motivo_anterior }}</p>
       <dl>
         <div><dt>Expediente</dt><dd>{{ constancia.expediente }}</dd></div>
         <div><dt>Postulante</dt><dd>{{ constancia.postulante ?? "—" }}</dd></div>
@@ -122,15 +144,21 @@ onMounted(cargar);
         <div><dt>Código de constancia</dt><dd data-testid="codigo-constancia">{{ constancia.codigo }}</dd></div>
         <div><dt>Estado</dt><dd>{{ ESTADOS[constancia.estado] }}</dd></div>
       </dl>
+      <div v-if="constancia.subsanable" class="acciones">
+        <button type="button" class="boton primario" data-testid="regularizar" @click="regularizando = true">Regularizar el pago</button>
+      </div>
     </article>
 
-    <p v-else-if="derecho && !derecho.registrable" class="aviso" role="status" data-testid="no-registrable">
+    <p v-else-if="derecho && !derecho.registrable && !regularizando" class="aviso" role="status" data-testid="no-registrable">
       El derecho de admisión no se puede registrar en el estado actual de tu expediente.
     </p>
 
     <!-- Estados: formulario y error de comprobante duplicado (HU0007-2.0) -->
     <form v-else class="tarjeta" novalidate @submit.prevent="enviar">
-      <h2>Derecho de admisión</h2>
+      <h2>{{ regularizando ? "Regularizar el pago" : "Derecho de admisión" }}</h2>
+      <p v-if="regularizando && constancia?.motivo_observacion" class="mensaje" data-testid="motivo-regularizar">
+        Motivo de la observación: {{ constancia.motivo_observacion }}
+      </p>
       <p>
         Deposita o transfiere <strong>{{ monto }}</strong> a <strong>{{ derecho?.cuenta_colegio }}</strong> y registra aquí tu comprobante.
       </p>
@@ -167,6 +195,7 @@ onMounted(cargar);
       </div>
 
       <div class="acciones">
+        <button v-if="regularizando" type="button" class="boton secundario" :disabled="enviando" @click="regularizando = false">Cancelar</button>
         <button type="submit" class="boton primario" :disabled="enviando">Enviar comprobante</button>
       </div>
     </form>

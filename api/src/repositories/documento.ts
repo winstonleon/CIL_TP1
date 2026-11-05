@@ -13,11 +13,12 @@ export interface FilaDocumento {
   tamano_kb: number;
   fecha_carga: Date;
   estado_verificacion: string;
+  motivo_observacion: string | null;
   vigente: boolean;
 }
 
 const COLUMNAS = `id_documento, id_expediente, id_requisito, id_apoderado, url_archivo, formato, tamano_kb, fecha_carga,
-  estado_verificacion::text AS estado_verificacion, vigente`;
+  estado_verificacion::text AS estado_verificacion, motivo_observacion, vigente`;
 
 export async function insertarDocumento(
   db: Consultable,
