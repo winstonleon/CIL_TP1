@@ -1,20 +1,20 @@
 # Matriz de trazabilidad (HU → escenario → prueba → resultado)
 
-> Generada con `npm run evidencias:matriz` el 3/11/26, 11:49 p. m. (America/Lima) sobre el commit `d5353d2` **con cambios sin commit**. No se edita a mano.
+> Generada con `npm run evidencias:matriz` el 4/11/26, 11:48 p. m. (America/Lima) sobre el commit `4e289d9` **con cambios sin commit**. No se edita a mano.
 
 ## Resumen
 
 | Suite | Pruebas | Pasan | Fallan | Omitidas o no ejecutadas |
 |---|---|---|---|---|
-| API | 373 | 373 | 0 | 0 |
-| Frontend | 108 | 108 | 0 | 0 |
-| E2E | 66 | 66 | 0 | 0 |
+| API | 414 | 414 | 0 | 0 |
+| Frontend | 131 | 131 | 0 | 0 |
+| E2E | 70 | 70 | 0 | 0 |
 
-- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **24**.
-- Estados: cubierto: 17 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · sin prueba: 31 · verificado: estado y ramas; pendiente: bandeja (C51): 1 · mecanismo probado; verificación en ruta real pendiente (C17): 1 · verificado: almacenamiento, completitud; pendiente: agendamiento, adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
+- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **30**.
+- Estados: cubierto: 24 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · verificado: correo; pendiente: WhatsApp (C30): 1 · sin prueba: 25 · verificado: almacenamiento, completitud; pendiente: agendamiento, adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
 - Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.
 - «mecanismo probado; verificación en ruta real pendiente (C17)»: todas las pruebas del escenario llevan la marca `[política, ruta de prueba]` (compromiso C17).
-- «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34; HU0005-2.0, C43; HU0017-1.0, C51). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
+- «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34; HU0005-2.0, C43; HU0017-1.0, C51; HU0008-2.0, C30). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
 
 ## HU con pruebas
 
@@ -231,15 +231,75 @@
 |  |  | Frontend | `frontend/src/views/portal/DerechoAdmision.test.ts` | HU0007-2.0 ante un número de operación ya registrado muestra la alerta, marca el campo y deja el formulario para corregir | pasó |
 |  |  | E2E | `e2e/cargas.spec.ts` | HU0007-2.0 un comprobante ya registrado para el mismo banco se bloquea con la alerta y el campo marcado | pasó |
 
+### HU0008 — Validar la legibilidad y conformidad de los documentos del expediente en la bandeja de revisión
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0008-1.0 — Conformidad documental del expediente | cubierto | API | `api/test/validaciones.test.ts` | HU0008-1.0 Secretaría marca cada documento conforme y da la conformidad: la rama documental queda conforme con auditoría y las ramas de Tesorería siguen pendientes | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0008-1.0 «Dar conformidad» con un documento sin revisar responde 409 DOCUMENTOS_SIN_REVISAR y la rama sigue pendiente | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0008-1.0 con las tres ramas conformes, la última decisión habilita el agendamiento una sola vez y el expediente sigue en en_validacion | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0008-1.0 (concurrencia) Secretaría y Tesorería dan a la vez la conformidad de las dos últimas ramas: el agendamiento se habilita exactamente una vez | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0008-1.0 (concurrencia) el comprobante y la documentación financiera conformes a la vez, con la rama documental ya conforme, también registran la unión una sola vez | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0008-1.0 (atención) abrir G03 registra atencion_inicio y la decisión registra atencion_fin emparejado con el ítem, la decisión e id_evento_inicio | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0008-1.0 (dos personas) la segunda decisión sobre un documento ya revisado responde 409 DOCUMENTO_YA_REVISADO y no pisa la primera; su atencion_inicio queda sin fin | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0008-1.0 fuera de en_validacion no se valida: 409 VALIDACION_NO_CORRESPONDE | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0008-1.0 Secretaría descarga un documento no financiero y Tesorería el comprobante, descifrados y con nosniff, sandbox y no-store | pasó |
+|  |  | Frontend | `frontend/src/gestion/validacion.test.ts` | HU0008-1.0 los chips del encabezado usan los textos del mockup para cada rama | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/DetalleExpediente.test.ts` | HU0008-1.0 G03 muestra el expediente, las tres ramas y los documentos por sección, con la nota de acceso restringido | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/DetalleExpediente.test.ts` | HU0008-1.0 «Dar conformidad al expediente» se habilita solo con todos los documentos conformes y registra la validación | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/DetalleExpediente.test.ts` | HU0008-1.0 (dos personas) si otra persona ya revisó el documento, muestra el aviso de la API y recarga el detalle | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/DetalleExpediente.test.ts` | HU0008-1.0 G03 las pestañas sin HU en este bloque se ven deshabilitadas, con aria-disabled y su title, y no navegan ni piden nada | pasó |
+|  |  | E2E | `e2e/validaciones.spec.ts` | HU0008-1.0 Secretaría abre el expediente desde la bandeja, marca cada documento conforme y da conformidad al expediente | pasó |
+| HU0008-2.0 — Observación de un documento ilegible o incorrecto | verificado: correo; pendiente: WhatsApp (C30) | API | `api/test/n8nValidaciones.test.ts` | HU0008-2.0 [parte: correo] «Validar evento de observación» acepta solo { id_expediente, id_notificacion } con enteros de 1 a 2147483647 (ADR-16) | pasó |
+|  |  | API | `api/test/n8nValidaciones.test.ts` | HU0008-2.0 [parte: correo] «Un ítem por expediente observado» saca un ítem por expediente pendiente, sin id_notificacion y solo con ids | pasó |
+|  |  | API | `api/test/n8nValidaciones.test.ts` | HU0008-2.0 [parte: correo] «Reservar aviso de observación» manda id_notificacion solo en el camino del webhook y el 409 va a «Sin acción (observación)» | pasó |
+|  |  | API | `api/test/n8nValidaciones.test.ts` | HU0008-2.0 [parte: correo] «Clasificar resultado de observación» elige la rama de ADR-07 ante cada resultado de notificacion-multicanal | pasó |
+|  |  | API | `api/test/n8nValidaciones.test.ts` | HU0008-2.0 [parte: correo] sin el campo pairedItem «Clasificar resultado de observación» empareja el resultado con su reserva por la posición | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0008-2.0 [parte: correo] (atención) abrir G03 con la rama observada y sin documentos por revisar no abre un ítem: espera a la familia | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0008-2.0 [parte: correo] «Solicitar subsanación» marca el documento y la validación documental como observados, sin detener las validaciones de Tesorería, y despacha el aviso con el motivo y el enlace | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0008-2.0 [parte: correo] el motivo es obligatorio: sin motivo o vacío, 400 y nada cambia | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0008-2.0 [parte: correo] (subsanación) la familia reemplaza solo el documento observado: la rama vuelve a pendiente, queda subsanacion_registrada y el motivo se muestra como anterior | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0008-2.0 [parte: correo] (subsanación) con dos documentos observados, la rama sigue observada hasta reemplazar el último | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0008-2.0 [parte: correo] (aviso) el barrido retoma el aviso pendiente a los 10 min con un intento nuevo, hasta 6, y lo cierra con una fila fallido | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0008-2.0 [parte: correo] (aviso) una observación nueva reemplaza el aviso pendiente de la anterior y lista todas las observaciones vigentes | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0008-2.0 [parte: correo] (aviso) si la familia ya subsanó todo antes del envío, el aviso no corresponde y el barrido no lo retoma | pasó |
+|  |  | Frontend | `frontend/src/gestion/validacion.test.ts` | HU0008-2.0 [parte: correo] la rama observada se muestra «Observado» y la que volvió a revisión tras una subsanación, «Subsanado» | pasó |
+|  |  | Frontend | `frontend/src/gestion/validacion.test.ts` | HU0008-2.0 [parte: correo] el motivo es obligatorio y de hasta 500 caracteres | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/BandejaExpedientes.test.ts` | HU0008-2.0 [parte: correo] (subsanación) el expediente que volvió a revisión muestra «Subsanado» con el motivo anterior | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/DetalleExpediente.test.ts` | HU0008-2.0 [parte: correo] «Observar» abre el panel con el texto de ayuda; sin motivo no envía y con motivo «Solicitar subsanación» lo envía | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/DetalleExpediente.test.ts` | HU0008-2.0 [parte: correo] (subsanación) un documento que volvió a revisión muestra su motivo como «Motivo anterior», no como observación vigente | pasó |
+|  |  | Frontend | `frontend/src/views/portal/Subsanacion.test.ts` | HU0008-2.0 [parte: correo] (subsanación) P06 muestra el motivo y ofrece «Reemplazar» solo en el documento observado; envía el reemplazo de ese documento | pasó |
+|  |  | Frontend | `frontend/src/views/portal/Subsanacion.test.ts` | HU0008-2.0 [parte: correo] (subsanación) un documento ya reemplazado que espera revisión muestra su motivo como «Motivo anterior» | pasó |
+|  |  | E2E | `e2e/validaciones.spec.ts` | HU0008-2.0 [parte: correo] Secretaría observa un documento con su motivo, la familia recibe el correo con el enlace, reemplaza solo ese documento y G02 lo muestra como Subsanado | pasó |
+
+### HU0011 — Revisar la documentación financiera presentada por los padres de familia postulantes, sin consultar centrales de riesgo
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0011-1.0 — Documentación financiera conforme | cubierto | API | `api/test/validaciones.test.ts` | HU0011-1.0 Tesorería verifica cada documento financiero, lo marca conforme y confirma: registra la validación con la fecha y el usuario responsable | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0011-1.0 sin requisitos financieros en el grado, «Marcar conforme» registra la conformidad sin documentos (supuesto 3) | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0011-1.0 con las demás validaciones conformes, la conformidad financiera habilita el agendamiento | pasó |
+|  |  | Frontend | `frontend/src/gestion/validacion.test.ts` | HU0011-1.0 la documentación financiera pendiente se muestra «Por revisar»; la observada, «Observado» | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ValidacionesTesoreria.test.ts` | HU0011-1.0 el panel muestra la condición laboral y «Marcar conforme» se habilita solo con todos los documentos conformes | pasó |
+|  |  | E2E | `e2e/validaciones.spec.ts` | HU0011-1.0 Tesorería marca cada documento financiero conforme y confirma: con las tres ramas conformes queda habilitado el agendamiento | pasó |
+| HU0011-2.0 — Documentación financiera observada | cubierto | API | `api/test/n8nValidaciones.test.ts` | HU0011-2.0 un expediente que falla no corta los demás del barrido: sus errores salen por continueErrorOutput y se registran solo con ids | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0011-2.0 Tesorería selecciona el documento, redacta el motivo y solicita la subsanación: la validación financiera queda observada sin detener las demás y se notifica el motivo con el enlace | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0011-2.0 (subsanación) la familia reemplaza el documento financiero observado: la rama financiera vuelve a pendiente y G05 la muestra como subsanada con el motivo anterior | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ValidacionesTesoreria.test.ts` | HU0011-2.0 «Observar» de un documento financiero pide el motivo con el texto de ayuda y solicita la subsanación | pasó |
+
 ### HU0017 — Que el sistema verifique automáticamente la completitud del expediente según el grado y lo declarado en la ficha de inscripción
 
 | Escenario | Estado | Suite | Archivo | Prueba | Resultado |
 |---|---|---|---|---|---|
-| HU0017-1.0 — Verificación de expediente completo | verificado: estado y ramas; pendiente: bandeja (C51) | API | `api/test/completitud.test.ts` | HU0017-1.0 [parte: estado y ramas] con cada requisito obligatorio cargado (también el de colegio de procedencia) y el derecho registrado, pasa a en_validacion con las tres ramas en pendiente | pasó |
+| HU0017-1.0 — Verificación de expediente completo | cubierto | API | `api/test/completitud.test.ts` | HU0017-1.0 [parte: estado y ramas] con cada requisito obligatorio cargado (también el de colegio de procedencia) y el derecho registrado, pasa a en_validacion con las tres ramas en pendiente | pasó |
 |  |  | API | `api/test/completitud.test.ts` | HU0017-1.0 [parte: estado y ramas] con condición especial declarada se exige el informe de terapia | pasó |
 |  |  | API | `api/test/completitud.test.ts` | HU0017-1.0 [parte: estado y ramas] (idempotencia) dos verificaciones a la vez de la misma confirmación dejan una sola transición | pasó |
 |  |  | API | `api/test/completitud.test.ts` | HU0017-1.0 [parte: estado y ramas] (bloqueo) la verificación espera a que termine una carga del mismo expediente y ve el documento | pasó |
 |  |  | API | `api/test/n8nCompletitud.test.ts` | HU0017-1.0 [parte: estado y ramas] «Según la verificación» envía el 200 (completo) a «Expediente completo», que no notifica | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0017-1.0 [parte: bandeja] el expediente que la verificación encontró completo aparece en «Por revisar» de G02; uno incompleto no | pasó |
+|  |  | Frontend | `frontend/src/gestion/validacion.test.ts` | HU0017-1.0 [parte: bandeja] un expediente recién verificado como completo se muestra «Completo · en revisión», con la actividad y los días del mockup | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/BandejaExpedientes.test.ts` | HU0017-1.0 [parte: bandeja] G02 abre en «Por revisar» con los conteos y lista el expediente completo con las columnas del mockup y «Revisar» | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/BandejaExpedientes.test.ts` | HU0017-1.0 [parte: bandeja] las pestañas, el grado, el orden y la búsqueda viajan a la API | pasó |
 |  |  | E2E | `e2e/completitud.spec.ts` | HU0017-1.0 [parte: estado y ramas] la familia completa lo que faltaba y vuelve a confirmar: el expediente pasa a En validación con las tres validaciones abiertas en pendiente | pasó |
 | HU0017-2.0 — Detección de expediente incompleto | cubierto | API | `api/test/completitud.test.ts` | HU0017-2.0 falta un documento obligatorio: el expediente se mantiene en en_postulacion y el aviso trae los faltantes por tipo y parentesco, el derecho y los enlaces | pasó |
 |  |  | API | `api/test/completitud.test.ts` | HU0017-2.0 (idempotencia) dos verificaciones a la vez de la misma confirmación dejan un solo aviso, y el barrido no la vuelve a tomar | pasó |
@@ -297,7 +357,7 @@
 |  |  | E2E | `e2e/personal-api.spec.ts` | HU0021-1.0 la API crea la cuenta con su rol y Keycloak envía a Mailpit el enlace para definir la contraseña | pasó |
 |  |  | E2E | `e2e/personal-api.spec.ts` | HU0021-1.0 con el enlace la persona define su contraseña, inicia sesión y su token trae solo su rol | pasó |
 |  |  | E2E | `e2e/usuarios-roles.spec.ts` | HU0021-1.0 la directora crea la cuenta en G10; la persona define su contraseña con el enlace y al iniciar sesión ve solo las opciones de su rol | pasó |
-| HU0021-2.0 — Acceso denegado a información restringida | mecanismo probado; verificación en ruta real pendiente (C17) | API | `api/test/accesoRestringido.test.ts` | HU0021-2.0 [política, ruta de prueba] secretaria no abre documentacion_financiera de un expediente: 403, sin contenido y acceso_denegado auditado | pasó |
+| HU0021-2.0 — Acceso denegado a información restringida | cubierto | API | `api/test/accesoRestringido.test.ts` | HU0021-2.0 [política, ruta de prueba] secretaria no abre documentacion_financiera de un expediente: 403, sin contenido y acceso_denegado auditado | pasó |
 |  |  | API | `api/test/accesoRestringido.test.ts` | HU0021-2.0 [política, ruta de prueba] secretaria no abre informe_psicologico de un expediente: 403, sin contenido y acceso_denegado auditado | pasó |
 |  |  | API | `api/test/accesoRestringido.test.ts` | HU0021-2.0 [política, ruta de prueba] evaluador_academico no abre documentacion_financiera de un expediente: 403, sin contenido y acceso_denegado auditado | pasó |
 |  |  | API | `api/test/accesoRestringido.test.ts` | HU0021-2.0 [política, ruta de prueba] evaluador_academico no abre informe_psicologico de un expediente: 403, sin contenido y acceso_denegado auditado | pasó |
@@ -305,6 +365,8 @@
 |  |  | API | `api/test/accesoRestringido.test.ts` | HU0021-2.0 [política, ruta de prueba] control: psicologa sí abre informe_psicologico y no se registra acceso_denegado | pasó |
 |  |  | API | `api/test/accesoRestringido.test.ts` | HU0021-2.0 [política, ruta de prueba] control: directora sí abre informe_psicologico y no se registra acceso_denegado | pasó |
 |  |  | API | `api/test/accesoRestringido.test.ts` | HU0021-2.0 [política, ruta de prueba] un id de expediente inexistente se bloquea igual y se audita sin id_expediente | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0021-2.0 [ruta real] G03 no devuelve los documentos financieros a Secretaría; abrirlos o validarlos responde 403 sin contenido y queda acceso_denegado | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0021-2.0 [ruta real] solo Tesorería ve y descarga la documentación financiera, con las cabeceras de ADR-21 | pasó |
 | HU0021-3.0 — Modificación de una cuenta del personal | cubierto | API | `api/test/keycloakAdmin.test.ts` | HU0021-3.0 establecerRolUnico quita primero los otros roles de la app y después agrega el nuevo (falla cerrado) | pasó |
 |  |  | API | `api/test/personal.test.ts` | HU0021-3.0 cambia nombres, apellidos y rol: personal y Keycloak actualizados y gestion_usuario sin los valores de los nombres | pasó |
 |  |  | API | `api/test/personal.test.ts` | HU0021-3.0 solo el rol: Keycloak no toca los nombres y el evento lista solo el rol | pasó |
@@ -397,19 +459,35 @@
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-2.0 [parte: regla] en un guardado de varios grados, uno por debajo del mínimo rechaza todo el lote y el mensaje nombra el primero | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-2.0 [parte: regla] no valida la regla en el cliente: envía el cambio y, con el 422 de la API, marca el grado con «Ya hay 27 adjudicadas» y muestra el aviso con el mínimo | pasó |
 
+### HU0024 — Validar el comprobante de pago del derecho de admisión (S/ 300) contra los movimientos de la cuenta bancaria del colegio
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0024-1.0 — Validación conforme del derecho de admisión | cubierto | API | `api/test/validaciones.test.ts` | HU0024-1.0 (atención) en G05 el comprobante y la documentación financiera son ítems distintos, cada uno con su par inicio/fin | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0024-1.0 Tesorería verifica el abono y marca el comprobante conforme: la validación del derecho queda conforme con su validador | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0024-1.0 con las demás validaciones conformes, el comprobante conforme habilita el agendamiento | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0024-1.0 (dos personas) la segunda decisión sobre el comprobante responde 409 PAGO_YA_VALIDADO y no pisa la primera | pasó |
+|  |  | Frontend | `frontend/src/gestion/validacion.test.ts` | HU0024-1.0 el comprobante pendiente se muestra «Por validar» con su monto | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ValidacionesTesoreria.test.ts` | HU0024-1.0 G05 lista lo pendiente con los textos del mockup y el comprobante muestra los datos para contrastar con el estado de cuenta | pasó |
+|  |  | E2E | `e2e/validaciones.spec.ts` | HU0024-1.0 Tesorería abre el comprobante del derecho de admisión en G05 y lo marca conforme | pasó |
+| HU0024-2.0 — Observación del comprobante del derecho de admisión | cubierto | API | `api/test/n8nValidaciones.test.ts` | HU0024-2.0 ningún Stop and Error ni Code de la rama validación interpola el ítem, el asunto ni el cuerpo del aviso | pasó |
+|  |  | API | `api/test/n8nValidaciones.test.ts` | HU0024-2.0 la rama validación respeta los settings del flujo, autentica por nombre de credencial y no toca la entrada de HU0017 | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0024-2.0 «Observar comprobante» con el motivo marca el derecho observado sin detener las demás validaciones y notifica el motivo con el enlace para regularizar el pago | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0024-2.0 abrir un comprobante observado no abre un ítem de atención: espera a la familia | pasó |
+|  |  | API | `api/test/validaciones.test.ts` | HU0024-2.0 (subsanación) la familia registra el comprobante nuevo en la misma fila: vuelve a pendiente, el anterior queda en subsanacion_registrada y su archivo no se borra | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ValidacionesTesoreria.test.ts` | HU0024-2.0 «Observar comprobante» exige el motivo, muestra el texto de ayuda y lo envía | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ValidacionesTesoreria.test.ts` | HU0024-2.0 (subsanación) el comprobante regularizado muestra «Subsanado» y su motivo como «Motivo anterior» | pasó |
+|  |  | Frontend | `frontend/src/views/portal/Subsanacion.test.ts` | HU0024-2.0 (subsanación) P07b muestra el motivo de la observación y «Regularizar el pago» envía el comprobante nuevo con PUT; después el motivo queda como anterior | pasó |
+
 ## HU sin pruebas
 
 | HU | Escenario | Estado |
 |---|---|---|
-| HU0008 | HU0008-1.0 — Conformidad documental del expediente | sin prueba |
-| HU0008 | HU0008-2.0 — Observación de un documento ilegible o incorrecto | sin prueba |
 | HU0009 | HU0009-1.0 — Agendamiento exitoso de las evaluaciones del grado | sin prueba |
 | HU0009 | HU0009-2.0 — Reprogramación de una cita de evaluación por la familia | sin prueba |
 | HU0010 | HU0010-1.0 — Registro de dictamen Apto | sin prueba |
 | HU0010 | HU0010-2.0 — Registro de dictamen En observación con requisitos complementarios | sin prueba |
 | HU0010 | HU0010-3.0 — Registro de dictamen No apto | sin prueba |
-| HU0011 | HU0011-1.0 — Documentación financiera conforme | sin prueba |
-| HU0011 | HU0011-2.0 — Documentación financiera observada | sin prueba |
 | HU0012 | HU0012-1.0 — Asignación exitosa de vacante escolar | sin prueba |
 | HU0012 | HU0012-2.0 — Intento de asignación en un grado sin vacantes disponibles | sin prueba |
 | HU0013 | HU0013-1.0 — Elección de la modalidad de pago de la cuota de ingreso | sin prueba |
@@ -428,7 +506,5 @@
 | HU0020 | HU0020-2.0 — Atención de una acción pendiente desde el panel | sin prueba |
 | HU0023 | HU0023-1.0 — Primer ingreso con credenciales temporales | sin prueba |
 | HU0023 | HU0023-2.0 — Bloqueo por intentos fallidos de ingreso | sin prueba |
-| HU0024 | HU0024-1.0 — Validación conforme del derecho de admisión | sin prueba |
-| HU0024 | HU0024-2.0 — Observación del comprobante del derecho de admisión | sin prueba |
 | HU0025 | HU0025-1.0 — Registro del resultado de la evaluación académica | sin prueba |
 | HU0025 | HU0025-2.0 — Registro de inasistencia a la evaluación académica | sin prueba |
