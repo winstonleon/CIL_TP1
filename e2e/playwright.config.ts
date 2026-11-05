@@ -24,6 +24,8 @@ for (const nombre of ["FRONTEND_PUBLIC_URL", "KEYCLOAK_PUBLIC_URL"]) {
 export default defineConfig({
   testDir: ".",
   testMatch: "*.spec.ts",
+  // Reinicia la api y espera a que esté healthy: el contador en memoria del límite por IP (ADR-17) empieza vacío (C16).
+  globalSetup: "./globalSetup.ts",
   fullyParallel: false,
   workers: 1,
   reporter: [["list"]],

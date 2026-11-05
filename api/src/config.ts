@@ -48,6 +48,9 @@ const esquema = z.object({
   // Tope técnico provisional de archivos vigentes por requisito (y por apoderado) en P06 (HU0006, ADR-19, decisión de John
   // del 03/11/2026). No es una regla de negocio: evita que una cuenta llene el almacenamiento. Reemplazar no cuenta.
   MAX_DOCUMENTOS_POR_REQUISITO: z.coerce.number().int().min(1).max(100).default(20),
+  // Evaluaciones (HU0009-2.0, ADR-19): horas mínimas de anticipación, respecto de la cita actual, para reprogramarla
+  // («con al menos 24 horas de anticipación»). Opcional en .env.
+  REPROGRAMACION_MIN_HORAS: z.coerce.number().int().min(1).max(168).default(24),
   // Cifrado de los archivos en reposo (ADR-03). La anterior solo se define durante una rotación (C47).
   ARCHIVOS_ENCRYPTION_KEY: clave32,
   ARCHIVOS_ENCRYPTION_KEY_ANTERIOR: z.preprocess((v) => (v === "" ? undefined : v), clave32.optional()),

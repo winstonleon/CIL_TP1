@@ -1,7 +1,7 @@
 <!-- Estructura común de las pantallas P* con sesión (mockups P05 y P05b): encabezado con la persona, el expediente y
      «Cerrar sesión», y menú lateral con el postulante. Solo muestra lo que HU0005 necesita: «Ficha y cuestionario» y
-     «Documentos» (se habilita al completar la ficha; P06, HU0006) y «Pagos» (P07b, HU0007). «Mi postulación» y
-     «Evaluaciones» llegan con sus HU. Sin logo hasta que el colegio entregue el archivo (como G10). -->
+     «Documentos» (se habilita al completar la ficha; P06, HU0006), «Pagos» (P07b, HU0007) y «Evaluaciones» (P08, HU0009;
+     se habilita en la validación y la evaluación, C52). «Mi postulación» llega con su HU. Sin logo hasta que el colegio entregue el archivo (como G10). -->
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
 import { cerrarSesion } from "../../auth/oidc";
@@ -13,6 +13,10 @@ const CONTACTO = "[Teléfono y correo de admisión]";
 
 const sesion = useSesionStore();
 const expedientes = useExpedienteStore();
+
+// P08 (C52): desde la validación de las tres ramas; P08 dice si ya puede agendar.
+const ESTADOS_EVALUACIONES = ["en_validacion", "en_evaluacion"];
+const evaluacionesHabilitadas = computed(() => ESTADOS_EVALUACIONES.includes(expedientes.expediente?.estado ?? ""));
 
 const detalle = computed(() => {
   const e = expedientes.expediente;
@@ -69,6 +73,10 @@ function salir() {
           <button v-else type="button" class="opcion" data-testid="menu-documentos" disabled aria-disabled="true">Documentos</button>
           <!-- «Pagos» lleva por ahora al derecho de admisión (P07b, HU0007); P07 llega con HU0013 y HU0014. -->
           <RouterLink to="/portal/pagos/derecho-admision" class="opcion" exact-active-class="activa" data-testid="menu-pagos">Pagos</RouterLink>
+          <RouterLink v-if="evaluacionesHabilitadas" to="/portal/evaluaciones" class="opcion" exact-active-class="activa" data-testid="menu-evaluaciones">
+            Evaluaciones
+          </RouterLink>
+          <button v-else type="button" class="opcion" data-testid="menu-evaluaciones" disabled aria-disabled="true">Evaluaciones</button>
         </div>
 
         <div class="ayuda">

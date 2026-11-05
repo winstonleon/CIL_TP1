@@ -157,7 +157,7 @@
       ],
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.API_INTERNAL_URL }}/internal/expedientes/{{ $json.id_expediente }}/contacto",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/expedientes/{{ $json.id_expediente }}/contacto{{ $json.id_notificacion ? \"?id_notificacion=\" + $json.id_notificacion : \"\" }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {}

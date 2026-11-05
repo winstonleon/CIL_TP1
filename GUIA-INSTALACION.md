@@ -211,7 +211,7 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
   - Se compara sin distinguir mayúsculas: `?origen=Facebook` o `?origen=INSTAGRAM` también cuentan como `facebook` e `instagram`.
 - **Límite por IP** (ADR-17): 5 envíos cada 10 minutos.
   - En dev todo el tráfico del navegador pasa por el proxy de Vite y comparte un solo contador: si repites el E2E o las pruebas manuales, puede aparecer «Recibimos varias solicitudes desde tu conexión…».
-  - Las llamadas directas al puerto de la API (desde el host) cuentan aparte. `e2e/captacion.spec.ts` registra 3 prospectos por el navegador y el proxy de Vite y 4 por llamadas directas: correr ese archivo solo dos veces en menos de 10 minutos da 429. La corrida completa no tiene el problema, porque S0-C8 reinicia la `api`.
+  - Las llamadas directas al puerto de la API (desde el host) cuentan aparte. `e2e/captacion.spec.ts` registra 3 prospectos por el navegador y el proxy de Vite y 4 por llamadas directas: correr ese archivo solo, más de una vez en menos de 10 minutos, ya no da 429: **antes de cada corrida E2E, `e2e/globalSetup.ts` reinicia la `api` y espera a que esté `healthy`** (hasta 120 s), así el contador en memoria empieza vacío (C16). Si la `api` no queda `healthy` a tiempo, el E2E se aborta con un error que indica cómo ver su log.
   - `docker compose -f docker-compose.yml -f docker-compose.dev.yml restart api` lo limpia.
 - **Cada envío dispara el flujo `captacion`** (HU0002), que manda la carpeta informativa en menos de un minuto. Si n8n no está levantado, el log de la API dice `Evento captacion no entregado a n8n (id_expediente=…, 3 intentos, …)` y el barrido de `captacion` la manda cuando n8n vuelve (C27).
 - **La política de privacidad es provisional** (versión `borrador-1`, texto entre corchetes) hasta que el colegio entregue la real (C29).
@@ -228,6 +228,7 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
 - **Barrido:** `captacion` revisa cada minuto los prospectos sin carpeta registrados hace más de 1 minuto y las carpetas `pendiente` intentadas hace más de 10 minutos (C27). Al importarlo por primera vez en una base de dev con prospectos, les manda la carpeta a todos.
 - **Antes de correr el E2E, desactiva la suspensión automática del equipo** (en Windows 11, Configuración → Sistema → Energía y batería: que no se suspenda mientras corre), o mantenlo activo.
   - Si el equipo se suspende a mitad de una prueba, n8n y la prueba se detienen y la prueba falla por *timeout* al reanudarse (pasó el 25/10/2026, C16).
+  - Cada corrida E2E (`npm run test:e2e` o la de `npm run evidencias:matriz`) empieza reiniciando la `api` y esperando a que esté `healthy` (`e2e/globalSetup.ts`, C16): el límite por IP de P01 y P02 (ADR-17) arranca en cero. Mientras se reinicia, la API no responde durante unos segundos.
   - El E2E completo tarda unos 7 minutos: `e2e/captacion.spec.ts` detiene y arranca `n8n` y `mailpit`, y espera al barrido.
 
 ### Visita guiada: P02, G04 y los flujos `agendamiento` y `seguimiento-recordatorios` (HU0003 y HU0004)

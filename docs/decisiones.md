@@ -244,6 +244,11 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
   - **Recuperación:** como C27, un Schedule cada minuto pide `GET /internal/agendamiento/pendientes`. Solo considera el aviso del estado actual de la cita, así que una `pendiente` de un estado anterior no vuelve.
   - **Tope:** ADR-07.
   - **Ejecuciones:** el flujo no guarda ninguna (ADR-02, D3).
+- **[EQUIPO, HU0009, 05/11/2026] `agendamiento` recibe también las evaluaciones (ADR-24):**
+  - **Evento:** después de «Confirmar citas» y de cada aviso de una reprogramación en P08, con `{ "id_expediente": 7, "id_notificacion": 42 }` (el primer intento que reservó la acción, como la observación de ADR-23). El webhook es el mismo: un nodo previo separa `{ id_cita }` (visita, sin cambios) de `{ id_expediente, id_notificacion }`.
+  - **Reserva:** `POST /internal/expedientes/:id/aviso-evaluacion` con `{ id_notificacion }` (webhook) o `{ tipo_evento }` (barrido).
+  - **Recuperación:** un Schedule cada minuto pide `GET /internal/evaluaciones/avisos-pendientes`; también entrega el aviso de habilitación (C52), que no tiene webhook.
+  - **Contacto:** `notificacion-multicanal` pide `GET /internal/expedientes/:id/contacto?id_notificacion=N`; para un aviso al responsable de una cita la API devuelve el correo del personal, sin WhatsApp.
 - **[EQUIPO, HU0003, D4, 29/10/2026] `seguimiento-recordatorios`:**
   - Un Schedule cada minuto pide `GET /internal/recordatorios/pendientes` y reserva cada recordatorio con `POST /internal/citas/:id/recordatorio`.
   - **Ventana:** `[fecha_hora − RECORDATORIO_VISITA_HORAS, fecha_hora)`. Una reserva hecha con menos anticipación recibe el recordatorio enseguida (C37).
@@ -328,6 +333,8 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 | Textos del aviso de documentos faltantes (HU0017) | `borrador-1`, entre corchetes | `api/src/services/avisosCompletitud.ts` | El colegio entrega los textos y se sube la versión | `HU0017-2.0 …` |
 | Textos del aviso de observaciones (HU0008, HU0011 y HU0024) | `borrador-1`, entre corchetes | `api/src/services/avisosValidacion.ts` | El colegio entrega los textos y se sube la versión | `HU0008-2.0 [parte: correo] …`, `HU0011-2.0 …` y `HU0024-2.0 …` |
 | Tope de archivos por requisito (P06) | 20 (provisional) | `MAX_DOCUMENTOS_POR_REQUISITO` (`config.ts`, de 1 a 100; opcional en `.env`) | Editar `.env` y recrear `api` | `HU0006-1.0 (tope técnico) …` |
+| Anticipación mínima para reprogramar una evaluación (P08) | 24 h | `REPROGRAMACION_MIN_HORAS` (`config.ts`, de 1 a 168; opcional en `.env`) | Editar `.env` y recrear `api` | `HU0009-2.0 (24 h) …` |
+| Textos de los avisos de las evaluaciones y pautas previas (HU0009 y C52) | `borrador-1`, entre corchetes | `api/src/services/avisosEvaluacion.ts` | El colegio entrega los textos y las pautas, y se sube la versión | `HU0009-1.0 …`, `HU0009-2.0 …` y `C52 …` |
 
 ## ADR-20 Ficha de inscripción y cuestionario de expectativas (HU0005)
 - **[EQUIPO, HU0005, 02/11/2026] Borrador de la ficha:** vive en las tablas del modelo v1.1, sin tablas nuevas (se descartó una tabla de borrador).
@@ -439,6 +446,22 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
   - WhatsApp (HU0008-2.0) queda pendiente (C30). No se avisa la conformidad (C50 (3)).
 - **[EQUIPO] n8n:** `verificacion-completitud` gana la entrada de la rama validación (webhook y barrido cada minuto). La entrada de HU0017 no cambia.
 - **[EQUIPO] Pestañas sin HU en el bloque:** se ven deshabilitadas (`aria-disabled`, title «Disponible con HU0009», «… HU0012», «… HU0015» o, en G03, «Disponible en una HU posterior», C53) y no hacen nada.
+
+## ADR-24 Agendamiento de las evaluaciones (HU0009)
+- **[EQUIPO, bloque 6, 05/11/2026] Qué se agenda:** las evaluaciones del grado (`Grado.requiere_*`, configurado en G09) más la entrevista a los padres, que aplica siempre (R11; C25 4). Solo se ofrecen y reservan horarios del tipo, de la campaña activa, futuros y de un responsable activo con el rol de ADR-15 (C25 7). Las citas ya reservadas siguen válidas aunque después cambie la configuración o se desactive su responsable, como en HU0003.
+- **[EQUIPO, T] Transición:** «Confirmar citas» hace `en_validacion → en_evaluacion` solo con las tres ramas de R9 en `conforme` (la condición de B1, ADR-23, se calcula); si no, 409 `AGENDAMIENTO_NO_HABILITADO`.
+- **[EQUIPO] «Confirmar citas» es todo o nada:** una transacción bloquea el expediente y después los horarios **siempre en orden por id**, y lee el cupo con una sentencia posterior al bloqueo. Un turno sin cupo (409 `HORARIO_SIN_CUPO`) o no disponible (409 `HORARIO_NO_DISPONIBLE`) revierte todo, con el id del turno en `detalle`. Lo prueban `HU0009-1.0 (todo o nada)`, `(concurrencia)` y `(turnos cruzados)`.
+- **[EQUIPO, O] Orden:** la entrevista a los padres empieza después del fin de cada una de las demás citas del expediente (R11: «al final»), al reservar y al reprogramar (422 `ORDEN_DE_CITAS`). La psicológica y la académica no tienen orden entre sí.
+- **[EQUIPO, C40] Sesiones grupales:** `uq_cita_personal_fecha` es un índice parcial que no cuenta las citas `reprogramada` ni `cancelada` ni la jornada de observación, que es grupal según sus cupos. Las demás citas siguen siendo individuales (la visita no cambia).
+- **[EQUIPO, R1, R2] Reprogramación (HU0009-2.0):** desde P08, con la sesión del portal (el «enlace de reprogramación» es el del correo, `/portal/evaluaciones`), sin ruta pública ni clave nueva. Sin límite de veces; solo con al menos `REPROGRAMACION_MIN_HORAS` (24) de anticipación respecto de la cita actual (422 `PLAZO_REPROGRAMACION_VENCIDO`). El horario nuevo solo tiene que ser futuro. En una transacción: la cita anterior pasa a `reprogramada` y devuelve su cupo, se descuenta el del nuevo horario y se inserta la cita nueva.
+- **[EQUIPO, R4] Evento `cita_reprogramada`** (§4.7, actor familia), solo con ids: las dos citas, los dos horarios y el primer intento de cada aviso.
+- **[EQUIPO, R3] Avisos** (ADR-07: una fila por intento, retoma a los 10 min, tope de 6 y fila de cierre `fallido`):
+  - `evaluaciones_confirmadas`: la confirmación con la agenda vigente y las «[Pautas previas …]» de cada evaluación (HU0009-1.0);
+  - `evaluacion_reprogramada` (familia), `evaluacion_reprogramada_responsable` (responsable de la cita nueva) y, si el responsable cambia, `evaluacion_liberada_responsable` (el anterior). El aviso al personal lleva solo el código del expediente, la evaluación y las fechas (C11). La fila `notificacion` lleva el `id_expediente` de la familia.
+  - Sus intentos son las filas del tipo con `id_notificacion` ≥ el primero, como en ADR-23, y solo se retoma el de la fuente más reciente de cada tipo.
+  - **Riesgo aceptado (John, 05/11/2026):** si la familia hace dos reprogramaciones en menos de 10 min y el primer aviso al responsable queda `pendiente` por un error técnico, ese aviso no se retoma: lo reemplaza el de la reprogramación siguiente, que puede ir a otra persona.
+- **[EQUIPO, C52] Habilitación:** correo `evaluaciones_habilitadas` con el enlace a P08 y, en el portal, el menú «Evaluaciones» habilitado y la franja de P08. El aviso no se reserva en la transacción de la unión (B1 sigue sin evento a n8n): lo toma el barrido de `agendamiento` un minuto después del `atencion_fin` con `habilita_agendamiento`, una vez por expediente, mientras siga en `en_validacion`.
+- **Tiempo de atención:** P08 es de la familia y no registra `atencion_*` (ADR-05).
 
 ## Orden recomendado de implementación
 0. **Sprint 0, base técnica** (no es una HU; se documenta como habilitador):

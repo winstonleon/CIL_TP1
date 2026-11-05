@@ -13,6 +13,7 @@ import ValidacionesTesoreria from "./views/gestion/ValidacionesTesoreria.vue";
 import PantallaVisitas from "./views/gestion/PantallaVisitas.vue";
 import DerechoAdmision from "./views/portal/DerechoAdmision.vue";
 import DocumentosExpediente from "./views/portal/DocumentosExpediente.vue";
+import EvaluacionesAgenda from "./views/portal/EvaluacionesAgenda.vue";
 import FichaInscripcion from "./views/portal/FichaInscripcion.vue";
 import LayoutPortal from "./views/portal/LayoutPortal.vue";
 import SolicitudInformacion from "./views/portal/SolicitudInformacion.vue";
@@ -58,6 +59,13 @@ export function crearEnrutador(historial: RouterHistory) {
         component: LayoutPortal,
         meta: { cliente: "portal", roles: ["familia"] },
         children: [{ path: "", component: DerechoAdmision }],
+      },
+      // P08 (HU0009): agendamiento y reprogramación de las evaluaciones, solo para el rol familia (la API vuelve a exigirlo).
+      {
+        path: "/portal/evaluaciones",
+        component: LayoutPortal,
+        meta: { cliente: "portal", roles: ["familia"] },
+        children: [{ path: "", component: EvaluacionesAgenda }],
       },
       {
         path: "/gestion",

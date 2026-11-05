@@ -20,6 +20,7 @@ export const TRANSICIONES_PERMITIDAS: TransicionesPermitidas = {
     ["visita_agendada", "prospecto"], // HU0004-2.0: «No asistió» (P1: la visita no concretada vuelve a prospecto)
     ["portal_habilitado", "en_postulacion"], // HU0005-2.0: primer guardado de la ficha (borrador o completa)
     ["en_postulacion", "en_validacion"], // HU0017-1.0: la verificación de completitud encontró el expediente completo
+    ["en_validacion", "en_evaluacion"], // HU0009-1.0: «Confirmar citas» con las tres ramas de R9 conformes (B1)
   ],
   // R9: cada rama tiene su propio ciclo de observación y subsanación (HU0008 y HU0011, plan del bloque 5).
   estado_documental: [

@@ -322,8 +322,9 @@ Table Cita {
   estado estado_cita [not null, default: 'reservada']
   asistentes varchar(300) [note: 'solo para tipo_cita = visita: nombres de los asistentes (HU0003-1.0, P02 y G04)']
   indexes {
-    (id_personal, fecha_hora) [unique, name: 'uq_cita_personal_fecha', note: 'evita la doble reserva del mismo responsable']
+    (id_personal, fecha_hora) [unique, name: 'uq_cita_personal_fecha', note: 'evita la doble reserva del mismo responsable. Índice parcial (HU0009, C40): solo cuenta las citas activas (estado distinto de reprogramada y cancelada) y no la jornada de observación, que es grupal']
   }
+  Note: 'Una reprogramación (HU0009-2.0) deja la cita anterior en reprogramada, devuelve su cupo e inserta la cita nueva en la misma transacción; el cambio queda en cita_reprogramada (§4.7).'
 }
 
 Table Resultado_Evaluacion {
@@ -491,7 +492,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 | # | Regla | Dónde |
 |---|---|---|
 | R11 | Evaluaciones exigidas según el grado (`Grado.requiere_*`): **Inicial** = jornada de observación; **1.° de primaria** = evaluación psicológica; **2.° de primaria en adelante y Secundaria** = evaluación psicológica + evaluación académica, en paralelo. **Todos** = entrevista a los padres al final. Son los valores semilla: Secretaría configura en G09 las evaluaciones de cada grado (HU0022, ADR-14); la entrevista no se configura. | Datos semilla + API (configurable en G09) |
-| R12 | No puede haber dos citas del mismo responsable a la misma fecha y hora (índice único `uq_cita_personal_fecha`). Al reservar se descuenta `Horario_Disponible.cupos` dentro de la misma transacción. | BD + API |
+| R12 | No puede haber dos citas **activas** del mismo responsable a la misma fecha y hora (índice único parcial `uq_cita_personal_fecha`), salvo la **jornada de observación**, que es grupal: su horario admite tantas citas como cupos tenga (C40). Al reservar se descuenta `Horario_Disponible.cupos` dentro de la misma transacción; al reprogramar se devuelve el cupo del turno anterior y se descuenta el del nuevo en la misma transacción (HU0009-2.0). | BD + API |
 | R13 | El dictamen lo emite la `psicologa` después de la entrevista a los padres. Si es `en_observacion`, secretaría coordina requisitos complementarios y luego se emite un nuevo dictamen. Si es `no_apto`, se notifica y el proceso termina. | API / n8n |
 
 ### 4.4 Vacantes, pagos y carta
@@ -530,7 +531,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 |---|---|---|
 | `transicion_estado` | Cambio de `Expediente.estado`, `estado_documental` o `estado_financiero` (R6); lleva `estado_anterior` y `estado_nuevo` | Personal, familia o sistema |
 | `atencion_inicio` | El personal **abre** un ítem para atenderlo: detalle del expediente (G03), pago o documentación financiera (G05), cita o dictamen (G06), evaluación académica (G11), postulante apto (G07). `detalle` indica el ítem | Personal |
-| `atencion_fin` | El personal **registra su decisión** sobre ese ítem: conforme, observado, resultado, inasistencia, dictamen o asignación de vacante. `detalle` lleva `item`, `decision` e `id_evento_inicio` (el último `atencion_inicio` abierto de la misma persona y el mismo ítem, o nulo). En las validaciones (HU0008, HU0011 y HU0024), una observación agrega el documento o el pago observado (`id_documento` o `id_pago`) y el `id_notificacion` del primer intento del aviso; la decisión que deja conformes las tres ramas de R9 agrega `habilita_agendamiento: true` (una sola vez por expediente) | Personal |
+| `atencion_fin` | El personal **registra su decisión** sobre ese ítem: conforme, observado, resultado, inasistencia, dictamen o asignación de vacante. `detalle` lleva `item`, `decision` e `id_evento_inicio` (el último `atencion_inicio` abierto de la misma persona y el mismo ítem, o nulo). En las validaciones (HU0008, HU0011 y HU0024), una observación agrega el documento o el pago observado (`id_documento` o `id_pago`) y el `id_notificacion` del primer intento del aviso; la decisión que deja conformes las tres ramas de R9 agrega `habilita_agendamiento: true` (una sola vez por expediente; es el ancla del aviso `evaluaciones_habilitadas`, C52) | Personal |
 | `subsanacion_registrada` | La familia subsana una observación en `en_validacion`: reemplaza un documento observado (HU0008-2.0, HU0011-2.0) o registra un comprobante nuevo del derecho de admisión observado (HU0024-2.0). `detalle`: documento `{ item, id_documento_nuevo, id_documento_anterior }`; pago `{ item, id_pago, anterior: { banco, numero_operacion, clave } }`. `item` es el de la rama (`validacion_documental` o `documentacion_financiera` con el id del expediente, o `pago` con el id del pago). Con el `atencion_fin` de la observación, mide el tiempo de subsanación (HU0019) | Familia |
 | `acceso_denegado` | Intento de ver datos restringidos por rol (HU0021-2.0) | Personal |
 | `cambio_configuracion` | Cambios en Grado, Requisito_Documental u Horario_Disponible | Secretaría |
@@ -538,6 +539,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 | `notificacion_rebotada` | Rebote del correo de un prospecto | Sistema |
 | `documentos_confirmados` | La familia presiona «Confirmar documentos» en P06 (HU0006-1.0): solicita la verificación de completitud (HU0017). El expediente no cambia de estado; `detalle` lleva `documentos_vigentes` | Familia |
 | `completitud_verificada` | La API verifica la completitud de una confirmación (R8, HU0017), a pedido de n8n. Una sola vez por confirmación. `detalle` lleva `resultado` (`completo` o `incompleto`), `faltantes` (`[{ id_requisito, id_apoderado }]`), `derecho_registrado` y, si es incompleto, `id_notificacion` (primer intento del aviso de faltantes), solo con ids. Si el resultado es `completo`, la `transicion_estado` a `en_validacion` va en la misma transacción | Sistema |
+| `cita_reprogramada` | La familia reprograma una cita de evaluación en P08 (HU0009-2.0). El expediente no cambia de estado. `detalle`, solo con ids: `id_cita_anterior`, `id_cita_nueva`, `id_horario_anterior`, `id_horario_nuevo`, `id_notificacion` (primer intento del aviso a la familia), `id_notificacion_responsable` (al responsable de la cita nueva) y, si el responsable cambia, `id_notificacion_responsable_anterior` | Familia |
 
 **Medición (OE3, HU0019).** *Lead time* = de la creación del expediente a `carta_emitida`. *Cycle time* de una etapa = suma de los intervalos entre cada `atencion_inicio` y su `atencion_fin` correspondiente en esa etapa. Supuesto aceptado: si alguien abre un ítem y lo deja abierto, el cycle time se sobreestima; un `atencion_inicio` sin `atencion_fin` en 8 horas no se cuenta.
 
@@ -565,7 +567,7 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 | F1 Captación | Webhook: evento de la API tras el registro de P01 (ADR-16), más un barrido cada minuto de los prospectos sin carpeta (C27) | Apoderado, Consentimiento, Expediente, Notificacion, Registro_Auditoria |
 | F2 Recepción y registro | Webhook: evento de la API con `{ id_expediente }` tras «Confirmar documentos» en P06 (HU0017), más un barrido cada minuto de las confirmaciones sin verificar y de los avisos de faltantes por retomar (ADR-16). Entrega cada expediente a F3. La ficha y los archivos los registra la API: no pasan por n8n (ADR-21) | Expediente, Registro_Auditoria (lectura, a través de la API) |
 | F3 Verificación de completitud | Invocado por F2 (sub-workflow). Pide la verificación a la API (R8) y, si falta algo, notifica por F6 | Documento, Requisito_Documental, Pago, Expediente, Notificacion, Registro_Auditoria |
-| F4 Agendamiento | Webhook: evento de la API con `{ id_cita }` tras la reserva en P02 (HU0003) y el registro de la asistencia en G04 (HU0004), más un barrido cada minuto de los avisos pendientes (ADR-16) | Horario_Disponible, Cita, Cuenta_Acceso, Notificacion |
+| F4 Agendamiento | Webhook: evento de la API con `{ id_cita }` tras la reserva en P02 (HU0003) y el registro de la asistencia en G04 (HU0004), o con `{ id_expediente, id_notificacion }` tras «Confirmar citas» y la reprogramación en P08 (HU0009), más un barrido cada minuto de los avisos pendientes, también el de la habilitación del agendamiento (C52) (ADR-16) | Horario_Disponible, Cita, Cuenta_Acceso, Notificacion, Registro_Auditoria (lectura, a través de la API) |
 | F5 Generación de carta | Webhook: pago conciliado (R18) | Pago, Carta_Vacante, Expediente |
 | F6 Notificación multicanal | Invocado por los demás flujos | Notificacion |
 | F7 Seguimiento y recordatorios | Programado diario (R20 y R21, HU0018), más un Schedule cada minuto para el recordatorio de la visita (HU0003, D4) | Expediente, Cita, Notificacion, Registro_Auditoria |
@@ -596,7 +598,8 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
   - Un intento con resultado desconocido (error técnico, 502, 500 o n8n caído) queda `pendiente`: nunca se marca `fallido`.
   - El tope de 6 intentos cuenta las filas desde el ancla. Al agotarse, el aviso se cierra con una fila de cierre `fallido`, que no es un envío.
   - Cada aviso tiene como máximo una fila `enviado` o una `fallido`. Los indicadores (HU0019, C8) cuentan avisos por esas filas y no cuentan las `pendiente` como envíos.
-- **Cupos frente a `uq_cita_personal_fecha` (C40):** el índice admite una sola cita por responsable, fecha y hora. Un horario con `cupos > 1` no admite una segunda cita, y las sesiones grupales (p. ej., la jornada de observación) no caben. Lo resuelven HU0009 y HU0022.
+- **Cupos frente a `uq_cita_personal_fecha` (C40, resuelto en HU0009 para las evaluaciones):** el índice es parcial: no cuenta las citas `reprogramada` ni `cancelada` (el turno liberado se vuelve a reservar) ni la jornada de observación, que es grupal. Las demás citas siguen siendo individuales: un horario individual con `cupos > 1` admite una sola cita. Los cupos de la visita (P-e) siguen en HU0022.
+- **Avisos de las evaluaciones (HU0009, ADR-07):** la confirmación (`evaluaciones_confirmadas`) y los de la reprogramación (`evaluacion_reprogramada`, `evaluacion_reprogramada_responsable` y `evaluacion_liberada_responsable`) son las filas del tipo con `id_notificacion` ≥ el primer intento, que guardan la `transicion_estado` a `en_evaluacion` o el evento `cita_reprogramada`; solo se retoma el de la fuente más reciente de cada tipo. La habilitación (`evaluaciones_habilitadas`, C52) es una por expediente y se ancla en la fecha del `atencion_fin` con `habilita_agendamiento`. Un aviso al responsable se registra con el `id_expediente` de la familia y va al correo del `Personal` de la cita.
 
 ---
 
@@ -679,3 +682,12 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 | «Habilita el agendamiento» = expediente en `en_validacion` con las tres ramas de R9 en `conforme`, sin estado ni transición propios. La decisión que completa la unión lo marca en su `atencion_fin` (`habilita_agendamiento`) | HU0008-1.0, HU0011-1.0, HU0024-1.0 (decisión B1). HU0009-1.0 parte de esa condición y hace `en_validacion → en_evaluacion` |
 | Notas de `Documento` y `Pago`: subsanación en `en_validacion` (solo lo observado; el pago se actualiza en la misma fila y conserva el comprobante anterior) | Decisión A1: los tres escenarios 2.0 piden que la familia reemplace lo observado o regularice el pago |
 | §4.7: evento `subsanacion_registrada` (migración del CHECK) y detalle de `atencion_fin` (`id_evento_inicio`, observación y unión) | Evidencia de la subsanación y del comprobante anterior (el pago no tiene historial), y el par inicio/fin y el tiempo de subsanación para HU0019 |
+
+### Ajustes por HU0009 (05/11/2026), sin tablas ni columnas nuevas
+| Cambio | Motivo |
+|---|---|
+| Transición `en_validacion → en_evaluacion`, solo con las tres ramas de R9 en `conforme` | HU0009-1.0 («cambia el estado del expediente a En evaluación»), decisión T de John |
+| `uq_cita_personal_fecha` pasa a índice único **parcial**: sin las citas `reprogramada` o `cancelada` y sin la jornada de observación (migración `20261105120000_cita_indice_parcial.sql`, con el mismo nombre). R12 y §7 lo reflejan. La Figura 12 no cambia: la caja de Cita no marca UK y el índice no se dibuja | C40 (decisión de John): la jornada de observación es grupal y una reprogramación debe liberar su turno (HU0009-2.0) |
+| §4.7: evento `cita_reprogramada` (migración `20261105120100_evento_cita_reprogramada.sql`) | HU0009-2.0 no cambia el estado del expediente: el evento es la evidencia del cambio y el ancla de sus avisos (decisión R4) |
+| La entrevista a los padres empieza después del fin de las demás citas del expediente, al reservar y al reprogramar | R11 («entrevista a los padres al final»), decisión O de John |
+| §4.7 (`atencion_fin`), §6 F4 y §7: avisos de las evaluaciones, también al responsable de la cita | HU0009-1.0 y 2.0, C52 (decisiones C52 y R3) |

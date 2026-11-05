@@ -8,7 +8,9 @@ import type { IdentidadAdmin } from "../identidad/keycloakAdmin";
 import { avisosPendientes, cerrarAviso, reservarAviso } from "../services/agendamiento";
 import { ORIGENES_REBOTE, carpetasPendientes, registrarRebote, reservarCarpeta } from "../services/captacion";
 import { verificacionesPendientes, verificarCompletitud } from "../services/completitud";
+import { TIPOS_AVISO_EVALUACION } from "../repositories/evaluaciones";
 import { registrarErrorFlujo } from "../services/erroresFlujo";
+import { avisosEvaluacionPendientes, contactoDelResponsable, reservarAvisoEvaluacion } from "../services/evaluaciones";
 import { obtenerContactoExpediente, registrarNotificacion } from "../services/notificaciones";
 import { recordatoriosPendientes, reservarRecordatorio } from "../services/recordatorios";
 import { observacionesPendientes, reservarAvisoObservacion } from "../services/validaciones";
@@ -33,6 +35,13 @@ const cuerpoAvisoObservacion = z.object({ id_notificacion: idRuta.optional() }).
 
 const cuerpoRebote = z.object({ origen: z.enum(ORIGENES_REBOTE) }).strict();
 
+// HU0009: el webhook trae el primer intento que reservó la acción; el barrido, el tipo del aviso (plan del bloque 6).
+const cuerpoAvisoEvaluacion = z.union([
+  z.object({ id_notificacion: idRuta }).strict(),
+  z.object({ tipo_evento: z.enum(TIPOS_AVISO_EVALUACION) }).strict(),
+]);
+const consultaContacto = z.object({ id_notificacion: z.coerce.number().int().positive().max(2147483647).optional() }).strict();
+
 // Solo identificadores, sin mensaje (C2): nombres de flujo y de nodo de una línea, para que el log no se pueda partir.
 const textoDeUnaLinea = (max: number) => z.string().min(1).max(max).regex(/^[^\p{Cc}]+$/u);
 const cuerpoErrorFlujo = z
@@ -47,9 +56,13 @@ export function rutasInternas(identidad: IdentidadAdmin): Router {
   const rutas = Router();
   rutas.use(requireTokenServicio);
 
-  // GET /internal/expedientes/:id/contacto → { id_expediente, correo, autoriza_whatsapp }
+  // GET /internal/expedientes/:id/contacto[?id_notificacion=N] → { id_expediente, correo, autoriza_whatsapp }
+  // Con el intento de un aviso al responsable de una cita (HU0009-2.0, decisión R3), el correo es el del personal y sin
+  // WhatsApp; en los demás casos, el de la familia, como siempre.
   rutas.get("/expedientes/:id/contacto", async (req, res) => {
-    res.json(await obtenerContactoExpediente(validar(idExpediente, req.params.id)));
+    const id = validar(idExpediente, req.params.id);
+    const { id_notificacion } = validar(consultaContacto, req.query);
+    res.json((id_notificacion !== undefined ? await contactoDelResponsable(id, id_notificacion) : null) ?? (await obtenerContactoExpediente(id)));
   });
 
   // POST /internal/notificaciones { id_expediente, canal, tipo_evento, estado_envio } → 201 { id_notificacion }
@@ -99,6 +112,19 @@ export function rutasInternas(identidad: IdentidadAdmin): Router {
   // Barrido de agendamiento (ADR-16): GET /internal/agendamiento/pendientes → { citas: [{ id_cita }] }
   rutas.get("/agendamiento/pendientes", async (_req, res) => {
     res.json(await avisosPendientes());
+  });
+
+  // HU0009 y C52 (flujo agendamiento, rama evaluaciones): POST /internal/expedientes/:id/aviso-evaluacion
+  // { id_notificacion } (webhook) | { tipo_evento } (barrido) → 201 { id_expediente, id_notificacion, tipo_evento, asunto,
+  // cuerpo } · 409 AVISO_NO_CORRESPONDE, AVISO_YA_REGISTRADO o AVISO_AGOTADO · 404
+  rutas.post("/expedientes/:id/aviso-evaluacion", async (req, res) => {
+    res.status(201).json(await reservarAvisoEvaluacion(validar(idRuta, req.params.id), validar(cuerpoAvisoEvaluacion, req.body ?? {})));
+  });
+
+  // Barrido de la rama evaluaciones (ADR-16): GET /internal/evaluaciones/avisos-pendientes
+  // → { avisos: [{ id_expediente, tipo_evento }] }
+  rutas.get("/evaluaciones/avisos-pendientes", async (_req, res) => {
+    res.json(await avisosEvaluacionPendientes());
   });
 
   // HU0003-1.0 (flujo seguimiento-recordatorios, D4): POST /internal/citas/:id/recordatorio → 201 { …, tipo_evento:

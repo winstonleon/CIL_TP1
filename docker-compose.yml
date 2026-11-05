@@ -166,6 +166,8 @@ services:
       ARCHIVOS_ENCRYPTION_KEY_ANTERIOR: ${ARCHIVOS_ENCRYPTION_KEY_ANTERIOR:-}
       # Tope técnico provisional de archivos vigentes por requisito en P06 (ADR-19); sin definir en .env, 20.
       MAX_DOCUMENTOS_POR_REQUISITO: ${MAX_DOCUMENTOS_POR_REQUISITO:-20}
+      # Horas mínimas para reprogramar una cita de evaluación (HU0009-2.0, ADR-19); sin definir en .env, 24.
+      REPROGRAMACION_MIN_HORAS: ${REPROGRAMACION_MIN_HORAS:-24}
       TZ: America/Lima
     volumes:
       - archivos:/var/lib/cil/archivos

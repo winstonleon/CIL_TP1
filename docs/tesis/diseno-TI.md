@@ -256,7 +256,7 @@ El modelo de datos se diseñó como un diagrama entidad-relación de 19 entidade
 Siete reglas de diseño se reflejan en el modelo:
 
 * Restricciones de unicidad sobre el DNI, el usuario de acceso, el correo del personal y el número de operación de cada pago, que impiden registrar dos veces un mismo comprobante.  
-* Unicidad de la cita por persona responsable, fecha y hora, que evita la doble reserva de un mismo horario.  
+* Unicidad de la cita por persona responsable, fecha y hora, que evita la doble reserva de un mismo horario, salvo la jornada de observación, que es grupal.  
 * El atributo categoría de Requisito\_Documental distingue la documentación financiera, visible solo para Tesorería, y el atributo condición de aplicación indica si un documento se exige a todos, solo a quienes estudiaron en otro colegio del Perú o solo a quienes declararon una condición especial.  
 * Grado almacena la configuración de cada campaña: vacantes autorizadas y disponibles, evaluaciones requeridas, monto de la cuota de ingreso y número máximo de fracciones.  
 * Resultado\_Evaluacion registra el resultado de cada cita (jornada de observación, evaluación psicológica, evaluación académica o entrevista), mientras que Dictamen\_Admision registra una sola decisión por expediente.  

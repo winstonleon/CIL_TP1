@@ -27,6 +27,8 @@ const entornoPrueba = {
   // Visita guiada (HU0003, ADR-19): el valor de D4 y sin dirección del colegio, para no depender del .env.
   RECORDATORIO_VISITA_HORAS: "24",
   DIRECCION_COLEGIO: "",
+  // Evaluaciones (HU0009-2.0, ADR-19): el valor del escenario («al menos 24 horas»), para no depender del .env.
+  REPROGRAMACION_MIN_HORAS: "24",
   // Archivos (HU0006 y HU0007, ADR-21): directorio temporal y clave propios de la corrida, para no tocar los de dev.
   STORAGE_DRIVER: "local",
   STORAGE_LOCAL_DIR: mkdtempSync(join(tmpdir(), "cil-archivos-")),

@@ -12,7 +12,8 @@ export type TipoEventoAuditoria =
   | "notificacion_rebotada"
   | "documentos_confirmados"
   | "completitud_verificada"
-  | "subsanacion_registrada";
+  | "subsanacion_registrada"
+  | "cita_reprogramada";
 
 export interface EventoAuditoria {
   tipoEvento: TipoEventoAuditoria;

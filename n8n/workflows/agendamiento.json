@@ -694,6 +694,721 @@
         "errorType": "errorMessage",
         "errorMessage": "=agendamiento: no se pudo cerrar como fallido el aviso rechazado (cita {{ $('Clasificar resultado').item.json.id_cita }}, notificación {{ $('Clasificar resultado').item.json.id_notificacion }}, PATCH fallido: HTTP {{ $json.statusCode }}); sigue pendiente y el barrido lo retoma con un intento nuevo"
       }
+    },
+    {
+      "id": "7584ddec-6ddb-40cf-b5e4-c8e205984bd1",
+      "name": "¿Evento de evaluación?",
+      "notes": "Enruta el único webhook: un cuerpo con id_expediente va a la rama de evaluaciones; cualquier otro (con id_cita o inválido) va a «Validar evento», que responde 202 o 400.",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        120,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "83b95cba-156c-4a35-90fe-397ef814e1a5",
+              "leftValue": "={{ $json.body?.id_expediente !== undefined }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": false,
+        "options": {}
+      }
+    },
+    {
+      "id": "93923a55-d481-48db-bacc-81d309af4949",
+      "name": "Validar evento de evaluación",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        800
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Valida el evento que envía la API después de «Confirmar citas» y de cada aviso de reprogramación (HU0009-1.0 y HU0009-2.0),\n// según ADR-16: el cuerpo es exactamente { id_expediente, id_notificacion } con enteros de 1 a 2147483647. Cualquier otro\n// campo lo invalida: el contrato lleva solo identificadores (C10, C11). La salida lleva solo\n// { valido, id_expediente, id_notificacion, tipo_evento } (tipo_evento es null: el webhook trae la fila ya reservada).\nconst esObjeto = (valor) => valor !== null && typeof valor === 'object' && !Array.isArray(valor);\nconst entero = (n) => Number.isSafeInteger(n) && n > 0 && n <= 2147483647;\n\nreturn $input.all().map((item, indice) => {\n  const cuerpo = esObjeto(item.json?.body) ? item.json.body : null;\n  const claves = cuerpo ? Object.keys(cuerpo).sort() : [];\n  const valido = claves.length === 2 && claves[0] === 'id_expediente' && claves[1] === 'id_notificacion' && entero(cuerpo.id_expediente) && entero(cuerpo.id_notificacion);\n  return {\n    json: { valido, id_expediente: valido ? cuerpo.id_expediente : null, id_notificacion: valido ? cuerpo.id_notificacion : null, tipo_evento: null },\n    pairedItem: { item: indice },\n  };\n});"
+      }
+    },
+    {
+      "id": "d88cc7f0-46cb-4ff6-9b84-549799f127cc",
+      "name": "¿Evento de evaluación válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        480,
+        800
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "9a15e86a-e213-463a-9b02-86068906b06d",
+              "leftValue": "={{ $json.valido }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": false,
+        "options": {}
+      }
+    },
+    {
+      "id": "cabe7288-bf8d-401f-9781-69fe182ddbbd",
+      "name": "Responder 202 (evaluación)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        720,
+        720
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ estado: 'recibido' }) }}",
+        "options": {
+          "responseCode": 202
+        }
+      }
+    },
+    {
+      "id": "f3867f72-a277-41f7-9d8d-253e8d7d6523",
+      "name": "Responder 400 (evaluación inválida)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        720,
+        920
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: { codigo: 'VALIDACION', mensaje: 'El evento debe ser { id_expediente, id_notificacion } con enteros mayores que 0.' } }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "5a9525f6-86cf-4bb3-b600-538c52be1d31",
+      "name": "Detener: evento de evaluación inválido",
+      "notes": "Debe quedar más abajo en el lienzo que sus ramas hermanas que registran un resultado: con executionOrder v1 las ramas corren de arriba abajo y un Stop and Error detiene toda la ejecución.",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        960,
+        1700
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "agendamiento: evento de evaluación inválido; el cuerpo debe ser solo { id_expediente, id_notificacion } o { id_cita }"
+      }
+    },
+    {
+      "id": "8294867f-2b00-4532-81d2-9374ae51c475",
+      "name": "Cada minuto (evaluaciones)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        1040
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "8c91921f-c234-4c0b-ae2f-5419fb4579d1",
+      "name": "Pedir avisos de evaluación pendientes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        240,
+        1040
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/evaluaciones/avisos-pendientes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "dd891ce2-9799-469b-86a9-65e4f581c4a6",
+      "name": "Un ítem por aviso de evaluación",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        1040
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Barrido de la rama evaluaciones de agendamiento (ADR-16, C27; HU0009-1.0 y HU0009-2.0): un ítem por cada aviso de\n// GET /internal/evaluaciones/avisos-pendientes ({ id_expediente, tipo_evento }: avisos sin fila de notificación o con el último\n// intento pendiente hace más de 10 min). Sin id_notificacion: la API retoma con una fila nueva o cierra por tope (ADR-07).\n// Si no hay pendientes no sale ningún ítem y la ejecución termina aquí. Solo lleva identificadores y el tipo de aviso.\nconst TIPOS = ['evaluaciones_habilitadas', 'evaluaciones_confirmadas', 'evaluacion_reprogramada', 'evaluacion_reprogramada_responsable', 'evaluacion_liberada_responsable'];\nconst salida = [];\n$input.all().forEach((item, indice) => {\n  const avisos = Array.isArray(item.json?.avisos) ? item.json.avisos : [];\n  for (const a of avisos) {\n    if (Number.isSafeInteger(a?.id_expediente) && a.id_expediente > 0 && a.id_expediente <= 2147483647 && TIPOS.includes(a?.tipo_evento)) {\n      salida.push({ json: { id_expediente: a.id_expediente, id_notificacion: null, tipo_evento: a.tipo_evento }, pairedItem: { item: indice } });\n    }\n  }\n});\nreturn salida;"
+      }
+    },
+    {
+      "id": "8c635e1e-8285-49be-baf1-23a7d284f4a9",
+      "name": "Evaluación recibida",
+      "notes": "Punto de convergencia del webhook y del barrido: el webhook pasa { id_expediente, id_notificacion } (tipo_evento null) y el barrido { id_expediente, tipo_evento } (id_notificacion null) a «Reservar aviso de evaluación».",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        960,
+        920
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "cdaf2141-7daa-41dd-9aa7-3685b9121eed",
+      "name": "Reservar aviso de evaluación",
+      "notes": "Con id_notificacion (webhook) la API envía el primer intento ya reservado; con tipo_evento (barrido) aplica ADR-07: retoma con una fila nueva o cierra por tope. onError continueErrorOutput: un aviso que falla no frena a los demás del barrido (C41-4).",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        1200,
+        920
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/expedientes/{{ $json.id_expediente }}/aviso-evaluacion",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.id_notificacion ? { id_notificacion: $json.id_notificacion } : { tipo_evento: $json.tipo_evento }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "d69175b7-0fd3-4bc6-8791-82da76adb8f7",
+      "name": "Según la reserva de evaluación",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1440,
+        920
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "reservado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "ad2080bb-dc71-4d95-93d8-c7b5b1478952",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 201,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "sin acción",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "5926f10d-2617-4b25-9b8a-a74047709094",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 409,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "otro error"
+        }
+      }
+    },
+    {
+      "id": "48d9cb27-f17c-4431-bfc6-20033300dff9",
+      "name": "Sin acción (evaluación)",
+      "notes": "409: AVISO_NO_CORRESPONDE, AVISO_YA_REGISTRADO o AVISO_AGOTADO. La API ya decidió que no hay nada que hacer.",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        1300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "0b36c11a-f384-45be-9add-a8fe7146bc7d",
+      "name": "Enviar aviso de evaluación",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "onError": "continueRegularOutput",
+      "position": [
+        1680,
+        720
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "notificacion-multicanal",
+          "cachedResultName": "notificacion-multicanal"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id_expediente": "={{ $json.body.id_expediente }}",
+            "tipo_evento": "={{ $json.body.tipo_evento }}",
+            "asunto": "={{ $json.body.asunto }}",
+            "cuerpo": "={{ $json.body.cuerpo }}",
+            "id_notificacion": "={{ $json.body.id_notificacion }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "id_expediente",
+              "displayName": "id_expediente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "tipo_evento",
+              "displayName": "tipo_evento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "asunto",
+              "displayName": "asunto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "cuerpo",
+              "displayName": "cuerpo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "id_notificacion",
+              "displayName": "id_notificacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "a74efdd3-12b9-4f55-a9ce-1e017e4aa5e7",
+      "name": "Clasificar resultado de evaluación",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        720
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Decide qué hace la rama evaluaciones de agendamiento con lo que devolvió notificacion-multicanal para los avisos de\n// evaluación (HU0009-1.0 y HU0009-2.0). Sigue ADR-07 «Fallos de los avisos» (clasificación de D7, sin\n// rebote ni transición).\n// Entrada: un ítem por aviso, emparejado con su reserva (salida «reservado» de «Según la reserva de evaluación») por el pairedItem que pone\n// Execute Workflow; si falta, por la posición. Es el resultado del subflujo, { id_expediente, correo: { estado_envio,\n// id_notificacion }, whatsapp }, o, si falló, { error: \"<mensaje>\" } (Execute Workflow con onError continueRegularOutput, C9).\n//   enviado   <- correo.estado_envio = enviado: el subflujo ya cerró la fila                    -> termina\n//   fallido   <- correo.estado_envio = fallido: rechazo permanente del destinatario (motivo rechazo_destinatario)\n//                                                                                              -> PATCH fallido, sin error\n//             <- error «notificacion-multicanal: entrada inválida…» (400): un defecto (motivo entrada_invalida)\n//                                                                                              -> PATCH fallido y registro del fallo\n//   pendiente <- correo.estado_envio = pendiente, un 502, un 500 o cualquier otro error: resultado desconocido (R22), nunca\n//                se marca fallido -> sin PATCH y registro del fallo; el barrido lo retoma a los 10 min con un intento nuevo\n// Lo que no se reconoce cae en pendiente.\n// La salida lleva solo la acción, el motivo y los ids del expediente y la notificación. Nunca el asunto ni el cuerpo del\n// aviso, ni el mensaje del error del subflujo (C11).\nconst ENTRADA_INVALIDA = 'notificacion-multicanal: entrada inválida';\nconst reservas = $('Según la reserva de evaluación').all(0);\n\nconst clasificar = (resultado) => {\n  if (resultado.error !== undefined) {\n    const mensaje = typeof resultado.error === 'string' ? resultado.error : String(resultado.error?.message ?? '');\n    return mensaje.startsWith(ENTRADA_INVALIDA)\n      ? { accion: 'fallido', motivo: 'entrada_invalida' }\n      : { accion: 'pendiente', motivo: 'notificacion_no_disponible' };\n  }\n  switch (resultado.correo?.estado_envio) {\n    case 'enviado':\n      return { accion: 'enviado', motivo: 'enviado' };\n    case 'fallido':\n      return { accion: 'fallido', motivo: 'rechazo_destinatario' };\n    case 'pendiente':\n      return { accion: 'pendiente', motivo: 'smtp_pendiente' };\n    default:\n      return { accion: 'pendiente', motivo: 'resultado_desconocido' };\n  }\n};\n\nreturn $input.all().map((item, indice) => {\n  const reserva = reservas[item.pairedItem?.item ?? indice]?.json?.body ?? {};\n  return {\n    json: {\n      ...clasificar(item.json ?? {}),\n      id_expediente: reserva.id_expediente ?? null,\n      id_notificacion: reserva.id_notificacion ?? null,\n    },\n    pairedItem: { item: indice },\n  };\n});"
+      }
+    },
+    {
+      "id": "9e1ac853-ea25-4e96-9ed7-23e0cd940674",
+      "name": "Según el resultado de la evaluación",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2160,
+        720
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "enviado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "32382a67-1997-4668-b437-a5f776837f00",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "enviado",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "fallido",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "67a0f131-f086-4aac-a8b9-5c0aceb46160",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "fallido",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "pendiente",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "549059e4-e09e-4e62-b1ce-7937504e581b",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "pendiente",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": 2
+        }
+      }
+    },
+    {
+      "id": "4611e194-61ee-4713-82d5-075e894d4ceb",
+      "name": "Aviso de evaluación enviado",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        540
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "9a14cef7-0a1e-467d-8cbf-a761659902fd",
+      "name": "Marcar aviso de evaluación fallido",
+      "notes": "onError continueErrorOutput: si el PATCH no llega, el fallo se registra y el barrido retoma el aviso.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        2400,
+        720
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/notificaciones/{{ $json.id_notificacion }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ estado_envio: 'fallido' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "ebcda900-e4b1-4f29-945f-74c22ee30493",
+      "name": "Según el cierre del aviso de evaluación",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2640,
+        720
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "entrada rechazada",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "890f2339-ab22-4c00-814f-08fb8a7d40f1",
+                    "leftValue": "={{ $('Clasificar resultado de evaluación').item.json.motivo }}",
+                    "rightValue": "entrada_invalida",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "cerrado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "or",
+                "conditions": [
+                  {
+                    "id": "3374a6d3-23b1-420b-ac55-4bd4e5ec15ce",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 200,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "f0ad2ff5-7fe8-4342-9ae2-cdad6af10f70",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 409,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "cierre fallido"
+        }
+      }
+    },
+    {
+      "id": "5ded603c-fea0-465c-96c8-1bc680d6d997",
+      "name": "Aviso de evaluación no entregado",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2880,
+        620
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "2f97d475-10de-429f-b106-11f28e85caf2",
+      "name": "Fallo al reservar aviso de evaluación",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        1300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Rama de error de «Reservar aviso de evaluación» en la rama evaluaciones de agendamiento (HU0009-1.0 y HU0009-2.0, C2 y\n// C41-4): un aviso que falla no frena a los demás del barrido, y este nodo prepara el registro del fallo. Emite solo los\n// identificadores que admite POST /internal/errores-flujo: el flujo, el nodo y el id de esta ejecución. NO lee el ítem de\n// entrada: trae el mensaje del error o el asunto y el cuerpo del aviso (C11).\n// Un ítem de salida por cada aviso que falló.\nconst id = String($execution?.id ?? '');\nconst id_ejecucion = /^[0-9A-Za-z-]{1,40}$/.test(id) ? id : 'sin-id';\n\nreturn $input.all().map((_item, indice) => ({\n  json: { flujo: 'agendamiento', nodo: 'Reservar aviso de evaluación', id_ejecucion },\n  pairedItem: { item: indice },\n}));"
+      }
+    },
+    {
+      "id": "a8c496a2-9cd0-4eb3-b6bb-3a1198d75b75",
+      "name": "Fallo al enviar aviso de evaluación",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        1300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Rama de error de «Enviar aviso de evaluación» en la rama evaluaciones de agendamiento (HU0009-1.0 y HU0009-2.0, C2 y\n// C41-4): un aviso que falla no frena a los demás del barrido, y este nodo prepara el registro del fallo. Emite solo los\n// identificadores que admite POST /internal/errores-flujo: el flujo, el nodo y el id de esta ejecución. NO lee el ítem de\n// entrada: trae el mensaje del error o el asunto y el cuerpo del aviso (C11).\n// Un ítem de salida por cada aviso que falló.\nconst id = String($execution?.id ?? '');\nconst id_ejecucion = /^[0-9A-Za-z-]{1,40}$/.test(id) ? id : 'sin-id';\n\nreturn $input.all().map((_item, indice) => ({\n  json: { flujo: 'agendamiento', nodo: 'Enviar aviso de evaluación', id_ejecucion },\n  pairedItem: { item: indice },\n}));"
+      }
+    },
+    {
+      "id": "2d0774cf-1716-4a4b-814c-970ad36cd497",
+      "name": "Registrar fallo de evaluación en la API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        3120,
+        1300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/errores-flujo",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ flujo: $json.flujo, nodo: $json.nodo, id_ejecucion: $json.id_ejecucion }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
     }
   ],
   "connections": {
@@ -701,7 +1416,7 @@
       "main": [
         [
           {
-            "node": "Validar evento",
+            "node": "¿Evento de evaluación?",
             "type": "main",
             "index": 0
           }
@@ -916,6 +1631,274 @@
         [
           {
             "node": "Detener: cierre fallido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Evento de evaluación?": {
+      "main": [
+        [
+          {
+            "node": "Validar evento de evaluación",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validar evento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar evento de evaluación": {
+      "main": [
+        [
+          {
+            "node": "¿Evento de evaluación válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Evento de evaluación válido?": {
+      "main": [
+        [
+          {
+            "node": "Responder 202 (evaluación)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 400 (evaluación inválida)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder 202 (evaluación)": {
+      "main": [
+        [
+          {
+            "node": "Evaluación recibida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder 400 (evaluación inválida)": {
+      "main": [
+        [
+          {
+            "node": "Detener: evento de evaluación inválido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cada minuto (evaluaciones)": {
+      "main": [
+        [
+          {
+            "node": "Pedir avisos de evaluación pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir avisos de evaluación pendientes": {
+      "main": [
+        [
+          {
+            "node": "Un ítem por aviso de evaluación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Un ítem por aviso de evaluación": {
+      "main": [
+        [
+          {
+            "node": "Evaluación recibida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluación recibida": {
+      "main": [
+        [
+          {
+            "node": "Reservar aviso de evaluación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservar aviso de evaluación": {
+      "main": [
+        [
+          {
+            "node": "Según la reserva de evaluación",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al reservar aviso de evaluación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según la reserva de evaluación": {
+      "main": [
+        [
+          {
+            "node": "Enviar aviso de evaluación",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sin acción (evaluación)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al reservar aviso de evaluación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar aviso de evaluación": {
+      "main": [
+        [
+          {
+            "node": "Clasificar resultado de evaluación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clasificar resultado de evaluación": {
+      "main": [
+        [
+          {
+            "node": "Según el resultado de la evaluación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según el resultado de la evaluación": {
+      "main": [
+        [
+          {
+            "node": "Aviso de evaluación enviado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar aviso de evaluación fallido",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al enviar aviso de evaluación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar aviso de evaluación fallido": {
+      "main": [
+        [
+          {
+            "node": "Según el cierre del aviso de evaluación",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al enviar aviso de evaluación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según el cierre del aviso de evaluación": {
+      "main": [
+        [
+          {
+            "node": "Fallo al enviar aviso de evaluación",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Aviso de evaluación no entregado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al enviar aviso de evaluación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallo al reservar aviso de evaluación": {
+      "main": [
+        [
+          {
+            "node": "Registrar fallo de evaluación en la API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallo al enviar aviso de evaluación": {
+      "main": [
+        [
+          {
+            "node": "Registrar fallo de evaluación en la API",
             "type": "main",
             "index": 0
           }

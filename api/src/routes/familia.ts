@@ -18,6 +18,8 @@ import {
   resolverDocumento,
   TIPO_CONTENIDO,
 } from "../services/documentos";
+import { TIPOS_EVALUACION, type TipoEvaluacion } from "../repositories/evaluaciones";
+import { confirmarCitas, leerEvaluaciones, reprogramarCita, resolverCita } from "../services/evaluaciones";
 import { guardarFicha, leerFicha, listaRequisitos, listarExpedientes } from "../services/fichaInscripcion";
 import { LARGO_MAXIMO } from "../services/reglasSolicitud";
 import { validar } from "../validacion";
@@ -63,7 +65,19 @@ const esquemaFicha = z
 
 const esquemaConfirmacion = z.object({}).strict();
 
-export function rutasFamilia(almacenamiento: Almacenamiento, eventos: DisparadorN8n): Router {
+// P08 (HU0009): un turno por evaluación; los tipos y los horarios los valida el servicio contra el grado.
+const idHorario = z.number().int().positive().max(2147483647);
+const esquemaCitas = z
+  .object({
+    horarios: z
+      .array(z.object({ tipo_cita: z.enum(TIPOS_EVALUACION as [TipoEvaluacion, ...TipoEvaluacion[]]), id_horario: idHorario }).strict())
+      .min(1)
+      .max(TIPOS_EVALUACION.length),
+  })
+  .strict();
+const esquemaReprogramacion = z.object({ id_horario: idHorario }).strict();
+
+export function rutasFamilia(almacenamiento: Almacenamiento, eventos: DisparadorN8n, campana: string): Router {
   const rutas = Router();
 
   // GET /familia/expedientes → 200 [{ id_expediente, codigo, estado, grado, postulante, ficha_completa }]: solo los del
@@ -168,6 +182,47 @@ export function rutasFamilia(almacenamiento: Almacenamiento, eventos: Disparador
   rutas.put("/expedientes/:id/derecho-admision", async (req, res) => {
     const e = req.expedienteFamilia!;
     res.json(await recibirCarga(req, (campos, archivo) => subsanarDerecho(almacenamiento, e, campos, archivo)));
+  });
+
+  // ---- P08 · evaluaciones (HU0009)
+
+  // GET /familia/expedientes/:id/evaluaciones → 200 { modo: "bloqueado" | "agendar" | "agendadas", grado,
+  // min_horas_reprogramacion, evaluaciones: [{ tipo_cita, cita, horarios: [{ id_horario, fecha, hora_inicio, hora_fin,
+  // disponible }] }] } · 404
+  rutas.get("/expedientes/:id/evaluaciones", async (req, res) => {
+    res.json(await leerEvaluaciones(req.expedienteFamilia!, campana));
+  });
+
+  // POST /familia/expedientes/:id/evaluaciones { horarios: [{ tipo_cita, id_horario }] } («Confirmar citas»)
+  // → 201 { estado: "en_evaluacion", citas } (HU0009-1.0) · 400 · 404 · 409 AGENDAMIENTO_NO_HABILITADO,
+  // EVALUACIONES_YA_AGENDADAS, HORARIO_SIN_CUPO o HORARIO_NO_DISPONIBLE (con detalle [{ id_horario }])
+  // · 422 EVALUACIONES_NO_CORRESPONDEN u ORDEN_DE_CITAS
+  rutas.post("/expedientes/:id/evaluaciones", async (req, res) => {
+    const { horarios } = validar(esquemaCitas, req.body);
+    const e = req.expedienteFamilia!;
+    const { id_notificacion, ...cuerpo } = await confirmarCitas(e, horarios, campana);
+    res.status(201).json(cuerpo);
+    // ADR-16: después del COMMIT y de responder; disparar() nunca rechaza y la familia no espera a n8n.
+    void eventos.disparar("agendamiento", { id_expediente: e.id_expediente, id_notificacion });
+  });
+
+  // POST /familia/expedientes/:id/citas/:idCita/reprogramacion { id_horario } → 200 { cita } (HU0009-2.0) · 400
+  // · 404 CITA_NO_ENCONTRADA (inexistente o de otra familia; la ajena se audita) · 409 CITA_NO_REPROGRAMABLE,
+  // HORARIO_SIN_CUPO o HORARIO_NO_DISPONIBLE · 422 PLAZO_REPROGRAMACION_VENCIDO u ORDEN_DE_CITAS
+  rutas.post("/expedientes/:id/citas/:idCita/reprogramacion", async (req, res) => {
+    const e = req.expedienteFamilia!;
+    const texto = String(req.params.idCita);
+    const idCita = /^\d{1,10}$/.test(texto) ? Number(texto) : NaN;
+    const valido = Number.isSafeInteger(idCita) && idCita > 0 && idCita <= 2147483647;
+    const tipo = valido ? await resolverCita(e, idCita) : "inexistente";
+    if (tipo === "ajena") {
+      await registrarAccesoDenegado(req, ["familia"], { idExpediente: e.id_expediente, detalle: { motivo: "cita_ajena" } });
+    }
+    if (tipo !== "propia") throw new ErrorApi(404, "CITA_NO_ENCONTRADA", "La cita no existe");
+    const { id_horario } = validar(esquemaReprogramacion, req.body);
+    const { avisos, ...cuerpo } = await reprogramarCita(e, idCita, id_horario, campana);
+    res.json(cuerpo);
+    for (const id_notificacion of avisos) void eventos.disparar("agendamiento", { id_expediente: e.id_expediente, id_notificacion });
   });
 
   return rutas;

@@ -39,6 +39,7 @@ describe("S0-B5 transicionarExpediente", () => {
         ["visita_agendada", "prospecto"], // HU0004-2.0
         ["portal_habilitado", "en_postulacion"], // HU0005-2.0
         ["en_postulacion", "en_validacion"], // HU0017-1.0
+        ["en_validacion", "en_evaluacion"], // HU0009-1.0
       ],
       estado_documental: [
         ["pendiente", "observado"], // HU0008-2.0
