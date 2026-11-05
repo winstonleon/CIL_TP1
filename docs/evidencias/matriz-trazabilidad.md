@@ -1,17 +1,17 @@
 # Matriz de trazabilidad (HU → escenario → prueba → resultado)
 
-> Generada con `npm run evidencias:matriz` el 4/11/26, 11:48 p. m. (America/Lima) sobre el commit `4e289d9` **con cambios sin commit**. No se edita a mano.
+> Generada con `npm run evidencias:matriz` el 5/11/26, 12:03 p. m. (America/Lima) sobre el commit `680110e` **con cambios sin commit**. No se edita a mano.
 
 ## Resumen
 
 | Suite | Pruebas | Pasan | Fallan | Omitidas o no ejecutadas |
 |---|---|---|---|---|
-| API | 414 | 414 | 0 | 0 |
-| Frontend | 131 | 131 | 0 | 0 |
-| E2E | 70 | 70 | 0 | 0 |
+| API | 441 | 441 | 0 | 0 |
+| Frontend | 138 | 138 | 0 | 0 |
+| E2E | 72 | 72 | 0 | 0 |
 
-- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **30**.
-- Estados: cubierto: 24 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · verificado: correo; pendiente: WhatsApp (C30): 1 · sin prueba: 25 · verificado: almacenamiento, completitud; pendiente: agendamiento, adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
+- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **32**.
+- Estados: cubierto: 26 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · verificado: correo; pendiente: WhatsApp (C30): 1 · sin prueba: 23 · verificado: almacenamiento, completitud, agendamiento; pendiente: adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
 - Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.
 - «mecanismo probado; verificación en ruta real pendiente (C17)»: todas las pruebas del escenario llevan la marca `[política, ruta de prueba]` (compromiso C17).
 - «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34; HU0005-2.0, C43; HU0017-1.0, C51; HU0008-2.0, C30). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
@@ -272,6 +272,41 @@
 |  |  | Frontend | `frontend/src/views/portal/Subsanacion.test.ts` | HU0008-2.0 [parte: correo] (subsanación) un documento ya reemplazado que espera revisión muestra su motivo como «Motivo anterior» | pasó |
 |  |  | E2E | `e2e/validaciones.spec.ts` | HU0008-2.0 [parte: correo] Secretaría observa un documento con su motivo, la familia recibe el correo con el enlace, reemplaza solo ese documento y G02 lo muestra como Subsanado | pasó |
 
+### HU0009 — Seleccionar los turnos de las evaluaciones que exige el grado del menor (jornada de observación, evaluación psicológica, evaluación académica y entrevista a los padres, según corresponda) dentro de los horarios disponibles
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0009-1.0 — Agendamiento exitoso de las evaluaciones del grado | cubierto | API | `api/test/evaluaciones.test.ts` | HU0009-1.0 con las tres validaciones conformes, la familia elige un turno por evaluación del grado y «Confirmar citas» reserva los turnos, registra las citas, envía la confirmación con las pautas previas y pasa el expediente a en_evaluacion | pasó |
+|  |  | API | `api/test/evaluaciones.test.ts` | HU0009-1.0 (no habilitado) sin las tres validaciones conformes P08 no ofrece turnos y «Confirmar citas» responde 409 AGENDAMIENTO_NO_HABILITADO sin reservar nada | pasó |
+|  |  | API | `api/test/evaluaciones.test.ts` | HU0009-1.0 (todo o nada) si uno de los turnos ya no tiene cupo responde 409 HORARIO_SIN_CUPO con ese turno y no reserva ninguno | pasó |
+|  |  | API | `api/test/evaluaciones.test.ts` | HU0009-1.0 (concurrencia) dos familias compiten por el último cupo de un turno: una recibe 201 y la otra 409, sin reservas parciales | pasó |
+|  |  | API | `api/test/evaluaciones.test.ts` | HU0009-1.0 (turnos cruzados) dos familias piden los mismos turnos en orden inverso: sin interbloqueo, una reserva todos y la otra recibe 409 sin reservas parciales | pasó |
+|  |  | API | `api/test/evaluaciones.test.ts` | HU0009-1.0 (C25) solo se ofrecen y reservan horarios del tipo, de la campaña activa, futuros y de un responsable activo con el rol de ADR-15 | pasó |
+|  |  | API | `api/test/evaluaciones.test.ts` | HU0009-1.0 (orden) la entrevista a los padres antes del fin de otra evaluación responde 422 ORDEN_DE_CITAS sin reservar nada | pasó |
+|  |  | API | `api/test/evaluaciones.test.ts` | HU0009-1.0 (evaluaciones del grado) sin un turno por cada evaluación exigida, o con una que el grado no exige, responde 422 EVALUACIONES_NO_CORRESPONDEN | pasó |
+|  |  | API | `api/test/evaluaciones.test.ts` | HU0009-1.0 (una sola vez) con las citas ya agendadas, otro «Confirmar citas» responde 409 EVALUACIONES_YA_AGENDADAS | pasó |
+|  |  | API | `api/test/evaluaciones.test.ts` | HU0009-1.0 (aviso) la confirmación sigue ADR-07: el barrido la retoma a los 10 min con una fila nueva y, tras 6 intentos, la cierra con una fila fallido y 409 AVISO_AGOTADO | pasó |
+|  |  | API | `api/test/n8nEvaluaciones.test.ts` | HU0009-1.0 el webhook agendamiento separa el evento de evaluación { id_expediente, id_notificacion } del de la visita, y «Validar evento de evaluación» acepta solo esa forma con enteros de 1 a 2147483647 (ADR-16) | pasó |
+|  |  | API | `api/test/n8nEvaluaciones.test.ts` | HU0009-1.0 el barrido de evaluaciones saca un ítem por aviso pendiente con un tipo admitido, solo con ids y sin id_notificacion (C52 incluido) | pasó |
+|  |  | Frontend | `frontend/src/views/portal/EvaluacionesAgenda.test.ts` | HU0009-1.0 muestra solo las evaluaciones que la API entrega para el grado, con su responsable y los turnos del primer día disponible | pasó |
+|  |  | Frontend | `frontend/src/views/portal/EvaluacionesAgenda.test.ts` | HU0009-1.0 «Confirmar citas» se habilita con un turno disponible por evaluación y envía un turno por evaluación; luego muestra la confirmación y las citas agendadas | pasó |
+|  |  | Frontend | `frontend/src/views/portal/EvaluacionesAgenda.test.ts` | HU0009-1.0 si un turno se agotó (409 HORARIO_SIN_CUPO) muestra el aviso de la API, recarga los turnos y suelta el agotado | pasó |
+|  |  | Frontend | `frontend/src/views/portal/EvaluacionesAgenda.test.ts` | HU0009-1.0 sin las tres validaciones conformes muestra el aviso y no ofrece turnos ni «Confirmar citas» | pasó |
+|  |  | E2E | `e2e/evaluaciones.spec.ts` | HU0009-1.0 con las tres validaciones conformes la familia recibe «Ya puedes agendar», elige un turno por evaluación en P08 y «Confirmar citas» reserva los turnos, pasa el expediente a En evaluación y envía la confirmación con las pautas previas | pasó |
+| HU0009-2.0 — Reprogramación de una cita de evaluación por la familia | cubierto | API | `api/test/evaluaciones.test.ts` | HU0009-2.0 con al menos 24 h de anticipación, la familia elige un nuevo horario con cupo: se libera el turno anterior, se reserva el nuevo y se remite la confirmación actualizada a la familia y al evaluador responsable | pasó |
+|  |  | API | `api/test/evaluaciones.test.ts` | HU0009-2.0 (24 h) con menos de REPROGRAMACION_MIN_HORAS de anticipación responde 422 PLAZO_REPROGRAMACION_VENCIDO y no cambia nada; con 24 h o más, reprograma | pasó |
+|  |  | API | `api/test/evaluaciones.test.ts` | HU0009-2.0 (24 h) REPROGRAMACION_MIN_HORAS es un entero de 1 a 168 y, sin definir, vale 24 (ADR-19) | pasó |
+|  |  | API | `api/test/evaluaciones.test.ts` | HU0009-2.0 (otro responsable) si el nuevo horario lo atiende otra persona, se avisa al responsable nuevo y también al anterior, cada uno a su correo | pasó |
+|  |  | API | `api/test/evaluaciones.test.ts` | HU0009-2.0 (orden) reprogramar una evaluación a después de la entrevista a los padres responde 422 ORDEN_DE_CITAS | pasó |
+|  |  | API | `api/test/evaluaciones.test.ts` | HU0009-2.0 (horario) un horario de otro tipo responde 409 HORARIO_NO_DISPONIBLE y uno sin cupo 409 HORARIO_SIN_CUPO | pasó |
+|  |  | API | `api/test/evaluaciones.test.ts` | HU0009-2.0 (ajena) la cita de otra familia responde 404 CITA_NO_ENCONTRADA y se audita acceso_denegado; su expediente, 404 EXPEDIENTE_NO_ENCONTRADO | pasó |
+|  |  | API | `api/test/n8nEvaluaciones.test.ts` | HU0009-2.0 «Reservar aviso de evaluación» manda { id_notificacion } en el camino del webhook y { tipo_evento } en el del barrido; un 409 va a «Sin acción (evaluación)» y un error, al registro del fallo | pasó |
+|  |  | API | `api/test/n8nEvaluaciones.test.ts` | HU0009-2.0 «Clasificar resultado de evaluación» elige la rama de ADR-07 ante cada resultado de notificacion-multicanal, sin arrastrar el asunto, el cuerpo ni el mensaje del error (C11) | pasó |
+|  |  | API | `api/test/n8nEvaluaciones.test.ts` | HU0009-2.0 los registros de fallo de la rama evaluaciones envían solo el flujo, el nodo y el id de la ejecución, y el flujo sigue sin guardar ejecuciones | pasó |
+|  |  | Frontend | `frontend/src/views/portal/EvaluacionesAgenda.test.ts` | HU0009-2.0 «Reprogramar» solo aparece en una cita con al menos 24 h de anticipación; elige el nuevo horario, envía el cambio y muestra la confirmación actualizada | pasó |
+|  |  | Frontend | `frontend/src/views/portal/EvaluacionesAgenda.test.ts` | HU0009-2.0 si la API rechaza el cambio (422 PLAZO_REPROGRAMACION_VENCIDO) muestra su aviso y no confirma nada | pasó |
+|  |  | E2E | `e2e/evaluaciones.spec.ts` | HU0009-2.0 con más de 24 h de anticipación la familia reprograma la evaluación académica desde el enlace del correo: se libera el turno anterior, se reserva el nuevo y llegan la confirmación actualizada a la familia y el aviso al evaluador responsable | pasó |
+
 ### HU0011 — Revisar la documentación financiera presentada por los padres de familia postulantes, sin consultar centrales de riesgo
 
 | Escenario | Estado | Suite | Archivo | Prueba | Resultado |
@@ -403,7 +438,7 @@
 
 | Escenario | Estado | Suite | Archivo | Prueba | Resultado |
 |---|---|---|---|---|---|
-| HU0022-1.0 — Configuración de un grado de la campaña | verificado: almacenamiento, completitud; pendiente: agendamiento, adjudicación (C25) | API | `api/test/completitud.test.ts` | HU0022-1.0 [parte: completitud] un requisito creado por la ruta de G09 con condición de colegio peruano se exige solo a quien lo declaró en la ficha | pasó |
+| HU0022-1.0 — Configuración de un grado de la campaña | verificado: almacenamiento, completitud, agendamiento; pendiente: adjudicación (C25) | API | `api/test/completitud.test.ts` | HU0022-1.0 [parte: completitud] un requisito creado por la ruta de G09 con condición de colegio peruano se exige solo a quien lo declaró en la ficha | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] GET /configuracion lista solo los grados de la campaña activa, con sus vacantes adjudicadas y el derecho de admisión de R16 | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] guarda vacantes, evaluaciones, cuota y máximo de fracciones de un grado: ajusta las disponibles sin cambiar las adjudicadas y registra cambio_configuracion con el valor anterior y el nuevo | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] acepta una cuota de ingreso de 0 (plan HU0022, P10: colegios sin cuota) | pasó |
@@ -441,6 +476,7 @@
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un horario con cupos negativos | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un horario con tipo de cita desconocido | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un horario con campaña en el cuerpo (la pone el servidor) | pasó |
+|  |  | API | `api/test/evaluaciones.test.ts` | HU0022-1.0 [parte: agendamiento] un grado configurado por la ruta de G09 ofrece y exige solo sus evaluaciones, más la entrevista, con los horarios creados en G09 | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-1.0 [parte: almacenamiento] muestra las pestañas y la tabla del mockup con lo que devuelve la API, sin valores fijos | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-1.0 [parte: almacenamiento] edita vacantes y evaluaciones (chips con aria-pressed) y los envía en un solo guardado | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-1.0 [parte: almacenamiento] 0 adjudicadas se muestra como «—» con aria-label «0 adjudicadas», y la entrevista aplica siempre sin poder quitarse | pasó |
@@ -483,8 +519,6 @@
 
 | HU | Escenario | Estado |
 |---|---|---|
-| HU0009 | HU0009-1.0 — Agendamiento exitoso de las evaluaciones del grado | sin prueba |
-| HU0009 | HU0009-2.0 — Reprogramación de una cita de evaluación por la familia | sin prueba |
 | HU0010 | HU0010-1.0 — Registro de dictamen Apto | sin prueba |
 | HU0010 | HU0010-2.0 — Registro de dictamen En observación con requisitos complementarios | sin prueba |
 | HU0010 | HU0010-3.0 — Registro de dictamen No apto | sin prueba |
