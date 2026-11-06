@@ -1,20 +1,20 @@
 # Matriz de trazabilidad (HU → escenario → prueba → resultado)
 
-> Generada con `npm run evidencias:matriz` el 5/11/26, 3:30 p. m. (America/Lima) sobre el commit `d58c668` **con cambios sin commit**. No se edita a mano.
+> Generada con `npm run evidencias:matriz` el 5/11/26, 9:37 p. m. (America/Lima) sobre el commit `c67fc14` **con cambios sin commit**. No se edita a mano.
 
 ## Resumen
 
 | Suite | Pruebas | Pasan | Fallan | Omitidas o no ejecutadas |
 |---|---|---|---|---|
-| API | 469 | 469 | 0 | 0 |
-| Frontend | 155 | 155 | 0 | 0 |
-| E2E | 74 | 74 | 0 | 0 |
+| API | 510 | 510 | 0 | 0 |
+| Frontend | 178 | 178 | 0 | 0 |
+| E2E | 80 | 80 | 0 | 0 |
 
-- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **37**.
-- Estados: cubierto: 30 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · verificado: correo; pendiente: WhatsApp (C30): 1 · verificado: dictamen, informe restringido y estado; pendiente: derivación (C58): 1 · sin prueba: 18 · verificado: almacenamiento, completitud, agendamiento, dictamen; pendiente: adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
+- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **45**.
+- Estados: cubierto: 39 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · verificado: correo; pendiente: WhatsApp (C30): 1 · verificado: formato; pendiente: calidad (C63): 1 · verificado: conciliación; pendiente: carta (C62): 1 · sin prueba: 10.
 - Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.
 - «mecanismo probado; verificación en ruta real pendiente (C17)»: todas las pruebas del escenario llevan la marca `[política, ruta de prueba]` (compromiso C17).
-- «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34; HU0005-2.0, C43; HU0017-1.0, C51; HU0008-2.0, C30; HU0010-1.0, C58). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
+- «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34; HU0005-2.0, C43; HU0017-1.0, C51; HU0008-2.0, C30; HU0010-1.0, C58; HU0014-2.0, C63; HU0015-1.0, C62). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
 
 ## HU con pruebas
 
@@ -265,11 +265,11 @@
 |  |  | API | `api/test/validaciones.test.ts` | HU0008-2.0 [parte: correo] (aviso) si la familia ya subsanó todo antes del envío, el aviso no corresponde y el barrido no lo retoma | pasó |
 |  |  | Frontend | `frontend/src/gestion/validacion.test.ts` | HU0008-2.0 [parte: correo] la rama observada se muestra «Observado» y la que volvió a revisión tras una subsanación, «Subsanado» | pasó |
 |  |  | Frontend | `frontend/src/gestion/validacion.test.ts` | HU0008-2.0 [parte: correo] el motivo es obligatorio y de hasta 500 caracteres | pasó |
+|  |  | Frontend | `frontend/src/views/portal/Subsanacion.test.ts` | HU0008-2.0 [parte: correo] (subsanación) P06 muestra el motivo y ofrece «Reemplazar» solo en el documento observado; envía el reemplazo de ese documento | pasó |
+|  |  | Frontend | `frontend/src/views/portal/Subsanacion.test.ts` | HU0008-2.0 [parte: correo] (subsanación) un documento ya reemplazado que espera revisión muestra su motivo como «Motivo anterior» | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/BandejaExpedientes.test.ts` | HU0008-2.0 [parte: correo] (subsanación) el expediente que volvió a revisión muestra «Subsanado» con el motivo anterior | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/DetalleExpediente.test.ts` | HU0008-2.0 [parte: correo] «Observar» abre el panel con el texto de ayuda; sin motivo no envía y con motivo «Solicitar subsanación» lo envía | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/DetalleExpediente.test.ts` | HU0008-2.0 [parte: correo] (subsanación) un documento que volvió a revisión muestra su motivo como «Motivo anterior», no como observación vigente | pasó |
-|  |  | Frontend | `frontend/src/views/portal/Subsanacion.test.ts` | HU0008-2.0 [parte: correo] (subsanación) P06 muestra el motivo y ofrece «Reemplazar» solo en el documento observado; envía el reemplazo de ese documento | pasó |
-|  |  | Frontend | `frontend/src/views/portal/Subsanacion.test.ts` | HU0008-2.0 [parte: correo] (subsanación) un documento ya reemplazado que espera revisión muestra su motivo como «Motivo anterior» | pasó |
 |  |  | E2E | `e2e/validaciones.spec.ts` | HU0008-2.0 [parte: correo] Secretaría observa un documento con su motivo, la familia recibe el correo con el enlace, reemplaza solo ese documento y G02 lo muestra como Subsanado | pasó |
 
 ### HU0009 — Seleccionar los turnos de las evaluaciones que exige el grado del menor (jornada de observación, evaluación psicológica, evaluación académica y entrevista a los padres, según corresponda) dentro de los horarios disponibles
@@ -311,7 +311,9 @@
 
 | Escenario | Estado | Suite | Archivo | Prueba | Resultado |
 |---|---|---|---|---|---|
-| HU0010-1.0 — Registro de dictamen Apto | verificado: dictamen, informe restringido y estado; pendiente: derivación (C58) | API | `api/test/dictamen.test.ts` | HU0010-1.0 [parte: dictamen, informe restringido y estado] con la entrevista a los padres concluida y los resultados de todas las evaluaciones del grado, la psicóloga ingresa las conclusiones, elige Apto y guarda: el informe queda archivado con acceso restringido y el expediente pasa a apto para la Dirección | pasó |
+| HU0010-1.0 — Registro de dictamen Apto | cubierto | API | `api/test/adjudicacion.test.ts` | HU0010-1.0 [parte: derivación] un dictamen Apto emitido en G06 aparece en G07, y la directora abre las conclusiones y el informe; otro rol recibe 403 auditado con el recurso | pasó |
+|  |  | API | `api/test/adjudicacion.test.ts` | HU0010-1.0 [parte: derivación] G07 no lista un expediente que ya se decidió ni uno de otra campaña | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0010-1.0 [parte: dictamen, informe restringido y estado] con la entrevista a los padres concluida y los resultados de todas las evaluaciones del grado, la psicóloga ingresa las conclusiones, elige Apto y guarda: el informe queda archivado con acceso restringido y el expediente pasa a apto para la Dirección | pasó |
 |  |  | API | `api/test/dictamen.test.ts` | HU0010-1.0 [parte: dictamen, informe restringido y estado] (resultados incompletos) sin el resultado de la entrevista a los padres el dictamen responde 409 RESULTADOS_INCOMPLETOS con lo que falta, y G06 no lo habilita | pasó |
 |  |  | API | `api/test/dictamen.test.ts` | HU0010-1.0 [parte: dictamen, informe restringido y estado] (validación) un dictamen inválido responde 400 y un informe que no es PDF, JPG ni PNG 415, sin dictamen ni transición | pasó |
 |  |  | API | `api/test/dictamen.test.ts` | HU0010-1.0 [parte: dictamen, informe restringido y estado] (G06) el dictamen muestra la edad del postulante calculada con su fecha de nacimiento; sin ficha, null | pasó |
@@ -349,6 +351,88 @@
 |  |  | API | `api/test/validaciones.test.ts` | HU0011-2.0 Tesorería selecciona el documento, redacta el motivo y solicita la subsanación: la validación financiera queda observada sin detener las demás y se notifica el motivo con el enlace | pasó |
 |  |  | API | `api/test/validaciones.test.ts` | HU0011-2.0 (subsanación) la familia reemplaza el documento financiero observado: la rama financiera vuelve a pendiente y G05 la muestra como subsanada con el motivo anterior | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/ValidacionesTesoreria.test.ts` | HU0011-2.0 «Observar» de un documento financiero pide el motivo con el texto de ayuda y solicita la subsanación | pasó |
+
+### HU0012 — Asignar formalmente la vacante escolar al estudiante evaluado
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0012-1.0 — Asignación exitosa de vacante escolar | cubierto | API | `api/test/adjudicacion.test.ts` | HU0012-1.0 la directora asigna la vacante a un postulante apto: descuenta una vacante, deja el expediente en vacante_asignada y avisa a la familia el monto de la cuota y las opciones de pago | pasó |
+|  |  | API | `api/test/adjudicacion.test.ts` | HU0012-1.0 (concurrencia) dos adjudicaciones al último cupo: una sola gana, la otra queda en lista de espera y las disponibles terminan en 0 | pasó |
+|  |  | API | `api/test/adjudicacion.test.ts` | HU0012-1.0 (C25) autorizadas − disponibles es igual a los expedientes del grado en vacante_asignada o carta_emitida | pasó |
+|  |  | API | `api/test/adjudicacion.test.ts` | HU0012-1.0 (atención) abrir «Ver dictamen» registra atencion_inicio y asignar, atencion_fin con su id_evento_inicio; sin abrirlo, el inicio queda nulo | pasó |
+|  |  | API | `api/test/adjudicacion.test.ts` | HU0012-1.0 (acceso) otro rol recibe 403 auditado, una cuenta desactivada también (C22), y un expediente que no está apto responde 409 sin descontar | pasó |
+|  |  | API | `api/test/adjudicacion.test.ts` | HU0012-1.0 (aviso) un aviso de vacante sin cerrar se retoma a los 10 min con una fila nueva, como ADR-07 | pasó |
+|  |  | API | `api/test/n8nVacante.test.ts` | HU0012-1.0 (n8n) el barrido deja pasar vacante_asignada, sin id_notificacion, para que la API retome | pasó |
+|  |  | API | `api/test/n8nVacante.test.ts` | HU0012-1.0 (n8n) el barrido deja pasar lista_espera, sin id_notificacion, para que la API retome | pasó |
+|  |  | API | `api/test/n8nVacante.test.ts` | HU0012-1.0 (n8n) el barrido deja pasar cuota_por_conciliar, sin id_notificacion, para que la API retome | pasó |
+|  |  | API | `api/test/n8nVacante.test.ts` | HU0012-1.0 (n8n) el nodo admite todos los tipos que la API puede devolver y descarta uno desconocido | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AdjudicacionVacantes.test.ts` | HU0012-1.0 G07 lista los aptos con los textos del mockup y la acción de cada fila depende del cupo del grado | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AdjudicacionVacantes.test.ts` | HU0012-1.0 G07 al asignar llama a la API, muestra el resultado y recarga el panel | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AdjudicacionVacantes.test.ts` | HU0012-1.0 G07 el inventario se ve por nivel, con adjudicadas y lista de espera | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AdjudicacionVacantes.test.ts` | HU0012-1.0 G07 «Ver dictamen» abre las conclusiones y el informe del expediente | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AdjudicacionVacantes.test.ts` | HU0012-1.0 G07 un error de la API se muestra y la fila sigue ahí | pasó |
+|  |  | E2E | `e2e/vacante-cuota.spec.ts` | HU0012-1.0 la vacante descontada coincide con los expedientes del grado en vacante_asignada o carta_emitida (C25) | pasó |
+| HU0012-2.0 — Intento de asignación en un grado sin vacantes disponibles | cubierto | API | `api/test/adjudicacion.test.ts` | HU0012-2.0 con las vacantes en cero el sistema bloquea la asignación, registra al postulante en la lista de espera del grado con su posición y le avisa | pasó |
+|  |  | API | `api/test/adjudicacion.test.ts` | HU0012-2.0 (aviso) un aviso de lista de espera sin cerrar se retoma a los 10 min con una fila nueva y la misma posición | pasó |
+|  |  | API | `api/test/adjudicacion.test.ts` | HU0012-2.0 (por grado) cada grado numera su propia lista de espera, y G07 marca el grado sin vacantes y cuenta la lista | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AdjudicacionVacantes.test.ts` | HU0012-2.0 G07 muestra el resultado de la API: si la asignación terminó en lista de espera, lo dice con la posición, aunque el botón ofreciera asignar | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AdjudicacionVacantes.test.ts` | HU0012-2.0 la lógica de G07 nombra cada grado sin vacantes una vez y distingue los dos resultados | pasó |
+
+### HU0013 — Elegir la modalidad de pago de la cuota de ingreso (pago único o fraccionado) según el monto establecido para el nivel del menor
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0013-1.0 — Elección de la modalidad de pago de la cuota de ingreso | cubierto | API | `api/test/cuotaIngreso.test.ts` | HU0013-1.0 con la vacante otorgada la familia revisa el monto de su nivel, elige pago único y confirma: se registra la modalidad, se muestra el monto y se habilita la carga | pasó |
+|  |  | API | `api/test/cuotaIngreso.test.ts` | HU0013-1.0 elige pago fraccionado dentro del máximo: muestra el monto de cada pago y la última fracción absorbe los céntimos | pasó |
+|  |  | API | `api/test/cuotaIngreso.test.ts` | HU0013-1.0 (cambio de modalidad) la familia la cambia mientras no registró un pago de cuota; con un pago registrado responde 409 MODALIDAD_YA_ELEGIDA y no la cambia | pasó |
+|  |  | API | `api/test/cuotaIngreso.test.ts` | HU0013-1.0 (estado) sin la vacante otorgada responde 409 MODALIDAD_NO_CORRESPONDE, y un expediente ajeno 404 | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0013-1.0 P07 muestra el monto del nivel y el derecho validado, y al confirmar el pago único habilita la carga del comprobante | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0013-1.0 P07 con pago fraccionado envía el número de fracciones y muestra el monto de cada pago | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0013-1.0 P07 (cambio de modalidad) sin pago registrado se puede cambiar; con pago registrado ya no se ofrece | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0013-1.0 P07 sin la vacante, la cuota no se ofrece; con cuota 0 dice que el grado no la tiene; sin fracciones, «Pago fraccionado» se ve deshabilitado | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0013-1.0 los montos y los estados se muestran con los textos de la HU | pasó |
+|  |  | E2E | `e2e/vacante-cuota.spec.ts` | HU0013-1.0 la familia revisa el monto de su nivel, elige pago fraccionado y confirma: ve el monto de cada pago y se habilita la carga | pasó |
+| HU0013-2.0 — Elección de un número de fracciones no permitido | cubierto | API | `api/test/cuotaIngreso.test.ts` | HU0013-2.0 con un número de fracciones mayor que el máximo del grado el sistema rechaza la elección e informa el máximo | pasó |
+|  |  | API | `api/test/cuotaIngreso.test.ts` | HU0013-2.0 (máximo 1) un grado con máximo 1 rechaza el fraccionado, y menos de 2 fracciones es una entrada inválida | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0013-2.0 P07 muestra el máximo que informa la API y no habilita la carga | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0013-2.0 P07 un número que no es una cantidad de fracciones no llega a la API | pasó |
+
+### HU0014 — Cargar el comprobante del pago único o de la primera fracción de la cuota de ingreso en el portal de admisión
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0014-1.0 — Carga conforme del comprobante de la cuota de ingreso | cubierto | API | `api/test/cuotaIngreso.test.ts` | HU0014-1.0 la familia completa los datos, adjunta el comprobante y confirma: se almacena, queda «en conciliación» y se avisa a Tesorería solo con el código y el enlace | pasó |
+|  |  | API | `api/test/cuotaIngreso.test.ts` | HU0014-1.0 (aviso) un aviso a Tesorería sin cerrar se retoma a los 10 min con una fila nueva, al mismo buzón | pasó |
+|  |  | API | `api/test/cuotaIngreso.test.ts` | HU0014-1.0 (duplicado) el mismo número de operación en el mismo banco responde 409 COMPROBANTE_DUPLICADO sin revelar el otro expediente y no deja archivo | pasó |
+|  |  | API | `api/test/cuotaIngreso.test.ts` | HU0014-1.0 (precondiciones) sin modalidad responde 409 CUOTA_NO_REGISTRABLE, un segundo comprobante 409 CUOTA_YA_REGISTRADA y un dato inválido 400 | pasó |
+|  |  | API | `api/test/cuotaIngreso.test.ts` | HU0014-1.0 (fracción) en pago fraccionado se registra la primera fracción con su número 1 | pasó |
+|  |  | API | `api/test/cuotaIngreso.test.ts` | HU0014-1.0 (P07) la familia ve el derecho validado con su fecha, tomada de la bitácora, y la cuota aún no disponible | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0014-1.0 P07 «Confirmar pago de cuota» envía los datos y el archivo, y deja la cuota «en conciliación» | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0014-1.0 P07 los campos son obligatorios, el monto abonado debe ser válido y un duplicado muestra la alerta | pasó |
+|  |  | E2E | `e2e/vacante-cuota.spec.ts` | HU0014-1.0 la familia registra el comprobante de la primera fracción: queda «en conciliación» y se avisa a Tesorería | pasó |
+| HU0014-2.0 — Carga de archivo ilegible o con extensión no válida | verificado: formato; pendiente: calidad (C63) | API | `api/test/cuotaIngreso.test.ts` | HU0014-2.0 [parte: formato] un archivo con extensión o formato no autorizado se rechaza con 415 por su firma de bytes, sin fila ni archivo | pasó |
+|  |  | API | `api/test/cuotaIngreso.test.ts` | HU0014-2.0 [parte: formato] un archivo de más de 10 MB se corta con 413, sin fila ni archivo | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0014-2.0 [parte: formato] P07 rechaza el archivo por su firma, advierte el formato y no llama a la API | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0014-2.0 [parte: formato] P07 si la API rechaza el archivo, pide cargar un PDF o JPG legible | pasó |
+
+### HU0015 — Conciliar el abono de la cuota de ingreso contra los movimientos de la cuenta bancaria del colegio
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0015-1.0 — Aprobación de la conciliación bancaria de la cuota | verificado: conciliación; pendiente: carta (C62) | API | `api/test/cuotaIngreso.test.ts` | HU0015-1.0 [parte: conciliación] Tesorería ve el abono junto al monto que corresponde y concilia: el pago queda conforme, «Cuota acreditada», con la marca de trazabilidad y sin webhook de la carta | pasó |
+|  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-1.0 [parte: conciliación] una fracción posterior conforme no lleva la marca, porque solo la primera acredita la cuota | pasó |
+|  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-1.0 [parte: conciliación] (dos personas) una segunda decisión responde 409 PAGO_YA_VALIDADO, y otro rol recibe 403 auditado | pasó |
+|  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-1.0 [parte: conciliación] (derecho) el comprobante del derecho sigue exigiendo en_validacion: en otro estado responde 409 y G05 no lo abre | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0015-1.0 [parte: conciliación] P07 muestra «Cuota acreditada» con la fecha de validación | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ConciliacionCuota.test.ts` | HU0015-1.0 [parte: conciliación] G05 la pestaña «Cuota de ingreso» se habilita con su conteo, pide su vista y lista con los textos del mockup | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ConciliacionCuota.test.ts` | HU0015-1.0 [parte: conciliación] G05 muestra el abono junto al monto que corresponde y «Conciliar y aprobar pago» envía la conformidad | pasó |
+|  |  | E2E | `e2e/vacante-cuota.spec.ts` | HU0015-1.0 [parte: conciliación] Tesorería contrasta el abono en la pestaña «Cuota de ingreso» de G05 y concilia: la familia ve «Cuota acreditada» | pasó |
+| HU0015-2.0 — Rechazo por inconsistencia en el monto o número de operación | cubierto | API | `api/test/cuotaIngreso.test.ts` | HU0015-2.0 Tesorería rechaza el comprobante con el motivo: queda «Cuota observada», la familia recibe el detalle y el enlace, y regulariza en la misma fila | pasó |
+|  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-2.0 (aviso) un aviso sin cerrar se retoma por el barrido de observaciones a los 10 min | pasó |
+|  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-2.0 (subsanación) solo se reemplaza un comprobante observado: en conciliación responde 409 CUOTA_NO_SUBSANABLE | pasó |
+|  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-2.0 (validación) el motivo es obligatorio | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0015-2.0 P07 muestra «Cuota observada» con el motivo y regulariza con PUT en la misma fila; después el motivo es el anterior | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ConciliacionCuota.test.ts` | HU0015-2.0 G05 «Rechazar comprobante» exige el motivo del desajuste y lo envía | pasó |
 
 ### HU0017 — Que el sistema verifique automáticamente la completitud del expediente según el grado y lo declarado en la ficha de inscripción
 
@@ -468,7 +552,8 @@
 
 | Escenario | Estado | Suite | Archivo | Prueba | Resultado |
 |---|---|---|---|---|---|
-| HU0022-1.0 — Configuración de un grado de la campaña | verificado: almacenamiento, completitud, agendamiento, dictamen; pendiente: adjudicación (C25) | API | `api/test/completitud.test.ts` | HU0022-1.0 [parte: completitud] un requisito creado por la ruta de G09 con condición de colegio peruano se exige solo a quien lo declaró en la ficha | pasó |
+| HU0022-1.0 — Configuración de un grado de la campaña | cubierto | API | `api/test/adjudicacion.test.ts` | HU0022-1.0 [parte: adjudicación] las vacantes, la cuota y el máximo de fracciones guardados en G09 son los que usa la adjudicación y ve la familia | pasó |
+|  |  | API | `api/test/completitud.test.ts` | HU0022-1.0 [parte: completitud] un requisito creado por la ruta de G09 con condición de colegio peruano se exige solo a quien lo declaró en la ficha | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] GET /configuracion lista solo los grados de la campaña activa, con sus vacantes adjudicadas y el derecho de admisión de R16 | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] guarda vacantes, evaluaciones, cuota y máximo de fracciones de un grado: ajusta las disponibles sin cambiar las adjudicadas y registra cambio_configuracion con el valor anterior y el nuevo | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] acepta una cuota de ingreso de 0 (plan HU0022, P10: colegios sin cuota) | pasó |
@@ -521,10 +606,13 @@
 |  |  | E2E | `e2e/configuracion.spec.ts` | HU0022-1.0 [parte: almacenamiento] la secretaría cambia en G09 vacantes, una evaluación, la cuota y el máximo de fracciones de un grado, y siguen al recargar | pasó |
 |  |  | E2E | `e2e/configuracion.spec.ts` | HU0022-1.0 [parte: almacenamiento] la secretaría registra, edita y quita un requisito con su condición; un nombre repetido (sin distinguir mayúsculas) se rechaza | pasó |
 |  |  | E2E | `e2e/configuracion.spec.ts` | HU0022-1.0 [parte: almacenamiento] la secretaría registra un horario de visita con la directora, se rechaza uno superpuesto y lo quita | pasó |
-| HU0022-2.0 — Intento de fijar menos vacantes que las ya adjudicadas | verificado: regla; pendiente: adjudicación real (C25) | API | `api/test/configuracion.test.ts` | HU0022-2.0 [parte: regla] rechaza fijar menos vacantes que las adjudicadas: 422 con el mínimo permitido, sin cambios ni auditoría | pasó |
+|  |  | E2E | `e2e/vacante-cuota.spec.ts` | HU0022-1.0 [parte: adjudicación] la secretaría sube el máximo de fracciones en G09 y la familia con vacante lo recibe en el aviso y en P07 | pasó |
+| HU0022-2.0 — Intento de fijar menos vacantes que las ya adjudicadas | cubierto | API | `api/test/adjudicacion.test.ts` | HU0022-2.0 [parte: adjudicación real] con vacantes adjudicadas por G07, G09 rechaza fijar menos autorizadas e informa el mínimo | pasó |
+|  |  | API | `api/test/configuracion.test.ts` | HU0022-2.0 [parte: regla] rechaza fijar menos vacantes que las adjudicadas: 422 con el mínimo permitido, sin cambios ni auditoría | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-2.0 [parte: regla] acepta exactamente el mínimo: las vacantes disponibles quedan en 0 | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-2.0 [parte: regla] en un guardado de varios grados, uno por debajo del mínimo rechaza todo el lote y el mensaje nombra el primero | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-2.0 [parte: regla] no valida la regla en el cliente: envía el cambio y, con el 422 de la API, marca el grado con «Ya hay 27 adjudicadas» y muestra el aviso con el mínimo | pasó |
+|  |  | E2E | `e2e/vacante-cuota.spec.ts` | HU0022-2.0 [parte: adjudicación real] con la vacante adjudicada, G09 rechaza fijar menos autorizadas e informa el mínimo | pasó |
 
 ### HU0024 — Validar el comprobante de pago del derecho de admisión (S/ 300) contra los movimientos de la cuenta bancaria del colegio
 
@@ -542,9 +630,9 @@
 |  |  | API | `api/test/validaciones.test.ts` | HU0024-2.0 «Observar comprobante» con el motivo marca el derecho observado sin detener las demás validaciones y notifica el motivo con el enlace para regularizar el pago | pasó |
 |  |  | API | `api/test/validaciones.test.ts` | HU0024-2.0 abrir un comprobante observado no abre un ítem de atención: espera a la familia | pasó |
 |  |  | API | `api/test/validaciones.test.ts` | HU0024-2.0 (subsanación) la familia registra el comprobante nuevo en la misma fila: vuelve a pendiente, el anterior queda en subsanacion_registrada y su archivo no se borra | pasó |
+|  |  | Frontend | `frontend/src/views/portal/Subsanacion.test.ts` | HU0024-2.0 (subsanación) P07b muestra el motivo de la observación y «Regularizar el pago» envía el comprobante nuevo con PUT; después el motivo queda como anterior | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/ValidacionesTesoreria.test.ts` | HU0024-2.0 «Observar comprobante» exige el motivo, muestra el texto de ayuda y lo envía | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/ValidacionesTesoreria.test.ts` | HU0024-2.0 (subsanación) el comprobante regularizado muestra «Subsanado» y su motivo como «Motivo anterior» | pasó |
-|  |  | Frontend | `frontend/src/views/portal/Subsanacion.test.ts` | HU0024-2.0 (subsanación) P07b muestra el motivo de la observación y «Regularizar el pago» envía el comprobante nuevo con PUT; después el motivo queda como anterior | pasó |
 
 ### HU0025 — Registrar el resultado de la evaluación académica del postulante o su inasistencia
 
@@ -568,21 +656,13 @@
 |  |  | API | `api/test/dictamen.test.ts` | HU0025-2.0 (orden) con la entrevista a menos de 24 h la excepción también aplica; con la entrevista movible, el orden se sigue exigiendo con 422 ORDEN_DE_CITAS | pasó |
 |  |  | API | `api/test/dictamen.test.ts` | HU0025-2.0 (aviso) el aviso de la inasistencia sigue ADR-07: si el intento queda pendiente más de 10 min, el barrido de agendamiento lo retoma con una fila nueva | pasó |
 |  |  | API | `api/test/n8nEvaluaciones.test.ts` | HU0025-2.0 el barrido de evaluaciones también saca los avisos de la inasistencia y del dictamen (En observación y No apto, HU0010-2.0 y 3.0), solo con ids (ADR-25, C11) | pasó |
-|  |  | Frontend | `frontend/src/views/gestion/EvaluacionAcademica.test.ts` | HU0025-2.0 G11 «Marcar “No asistió”» pide confirmación; cancelar no envía nada y confirmar registra la inasistencia | pasó |
 |  |  | Frontend | `frontend/src/views/portal/EvaluacionesAgenda.test.ts` | HU0025-2.0 una evaluación académica a la que no se asistió muestra «No asististe» y «Elegir nuevo horario», y reprograma esa cita (D2-A) | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/EvaluacionAcademica.test.ts` | HU0025-2.0 G11 «Marcar “No asistió”» pide confirmación; cancelar no envía nada y confirmar registra la inasistencia | pasó |
 
 ## HU sin pruebas
 
 | HU | Escenario | Estado |
 |---|---|---|
-| HU0012 | HU0012-1.0 — Asignación exitosa de vacante escolar | sin prueba |
-| HU0012 | HU0012-2.0 — Intento de asignación en un grado sin vacantes disponibles | sin prueba |
-| HU0013 | HU0013-1.0 — Elección de la modalidad de pago de la cuota de ingreso | sin prueba |
-| HU0013 | HU0013-2.0 — Elección de un número de fracciones no permitido | sin prueba |
-| HU0014 | HU0014-1.0 — Carga conforme del comprobante de la cuota de ingreso | sin prueba |
-| HU0014 | HU0014-2.0 — Carga de archivo ilegible o con extensión no válida | sin prueba |
-| HU0015 | HU0015-1.0 — Aprobación de la conciliación bancaria de la cuota | sin prueba |
-| HU0015 | HU0015-2.0 — Rechazo por inconsistencia en el monto o número de operación | sin prueba |
 | HU0016 | HU0016-1.0 — Generación y despacho automático de la Carta de Vacante | sin prueba |
 | HU0016 | HU0016-2.0 — Bloqueo de emisión de Carta de Vacante ante pagos pendientes | sin prueba |
 | HU0018 | HU0018-1.0 — Envío de recordatorio por inactividad de la familia | sin prueba |
