@@ -13,4 +13,5 @@ paths:
 - Unicidades clave: `dni_hash` (apoderado y postulante), `keycloak_user_id`, correo del personal, número de operación del pago y cita por responsable, fecha y hora (`uq_cita_personal_fecha`).
 - `registro_auditoria` es de solo inserción. Nadie hace UPDATE ni DELETE sobre ella; se refuerza con permisos o con un trigger.
 - Columnas cifradas: tipo `text`, sufijo `_cifrado` (`dni_cifrado`), con su `_hash` si debe ser única. Una columna nueva cifrada necesita aprobación (ADR-03).
+  - Excepción: `conclusiones`, `observaciones` y `requisitos_complementarios` están cifradas sin el sufijo `_cifrado` (HU0010/HU0025); la lista completa de columnas cifradas está en ADR-03.
 - Las seeds usan solo datos ficticios evidentes (DNI `00000001`, correos `@ejemplo.test`).

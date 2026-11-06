@@ -21,6 +21,7 @@ export interface CitaEvaluacion {
   estado: string;
   reprogramable: boolean;
   plazo_vencido: boolean; // reservada y futura, pero a menos de las horas mínimas para reprogramar
+  inasistencia: boolean; // evaluación académica a la que no se asistió: se elige un nuevo horario (HU0025-2.0)
 }
 
 export interface Evaluacion {

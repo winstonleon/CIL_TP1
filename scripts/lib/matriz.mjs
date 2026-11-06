@@ -11,7 +11,7 @@ export const ESTADO_C17 = "mecanismo probado; verificación en ruta real pendien
 // pruebas de API o E2E que pasan: las de frontend usan la API simulada y se listan, pero no verifican nada. El
 // escenario es «cubierto» cuando todas sus partes están verificadas.
 export const ESCENARIOS_POR_PARTES = {
-  "HU0022-1.0": { compromiso: "C25", partes: ["almacenamiento", "completitud", "agendamiento", "adjudicación"] },
+  "HU0022-1.0": { compromiso: "C25", partes: ["almacenamiento", "completitud", "agendamiento", "dictamen", "adjudicación"] },
   "HU0022-2.0": { compromiso: "C25", partes: ["regla", "adjudicación real"] },
   // WhatsApp Cloud API todavía no existe (C30): se verifica que no se envía sin autorización o con el canal apagado.
   "HU0002-1.0": { compromiso: "C30", partes: ["correo", "sin WhatsApp", "WhatsApp autorizado"] },
@@ -24,6 +24,8 @@ export const ESCENARIOS_POR_PARTES = {
   "HU0017-1.0": { compromiso: "C51", partes: ["estado y ramas", "bandeja"] },
   // WhatsApp Cloud API todavía no existe (C30): la observación se notifica por correo; la parte «WhatsApp» queda pendiente.
   "HU0008-2.0": { compromiso: "C30", partes: ["correo", "WhatsApp"] },
+  // «Deriva a la Dirección» (D3-A, ADR-25): el expediente queda en apto; que G07 lo liste es de HU0012 (C58).
+  "HU0010-1.0": { compromiso: "C58", partes: ["dictamen, informe restringido y estado", "derivación"] },
 };
 export const SUITES_QUE_VERIFICAN = ["API", "E2E"];
 

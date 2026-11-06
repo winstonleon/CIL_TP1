@@ -6,6 +6,7 @@
 //   para las pruebas cuyo foco es el agendamiento.
 // Cada juego de turnos usa días propios: el mismo responsable atiende a todas las pruebas del archivo y
 // uq_cita_personal_fecha no admite dos citas suyas a la misma hora.
+import { randomUUID } from "node:crypto";
 import request from "supertest";
 import type { Consultable } from "../src/db/pool";
 import { BANCOS } from "../src/services/derechoAdmision";
@@ -33,8 +34,13 @@ const diasNuevos = () => (dia += 3);
 
 export async function entornoEvaluacion(db: Consultable, firmante: Firmante) {
   const e = await entornoValidacion(db, firmante);
-  const psicologa = await crearPersonal(db, "psicologa");
-  const evaluador = await crearPersonal(db, "evaluador_academico");
+  // Responsables con su token (bloque 7: G06 y G11 los usan para registrar los resultados de sus citas).
+  const subPsicologa = randomUUID();
+  const subEvaluador = randomUUID();
+  const psicologa = await crearPersonal(db, "psicologa", subPsicologa);
+  const evaluador = await crearPersonal(db, "evaluador_academico", subEvaluador);
+  const tokenPsicologa = await firmante.token(subPsicologa, ["psicologa"]);
+  const tokenEvaluador = await firmante.token(subEvaluador, ["evaluador_academico"]);
 
   const configurar = (idGrado: number, r: Requiere) =>
     db.query(
@@ -138,7 +144,7 @@ export async function entornoEvaluacion(db: Consultable, firmante: Firmante) {
     return { f, t, citas, cita };
   }
 
-  return { ...e, psicologa, evaluador, configurar, habilitada, habilitadaReal, horario, turnosTercero, pedidos, familiaApi, interno, agendada, diasNuevos };
+  return { ...e, psicologa, evaluador, subPsicologa, subEvaluador, tokenPsicologa, tokenEvaluador, configurar, habilitada, habilitadaReal, horario, turnosTercero, pedidos, familiaApi, interno, agendada, diasNuevos };
 }
 
 export type EntornoEvaluacion = Awaited<ReturnType<typeof entornoEvaluacion>>;

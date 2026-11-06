@@ -7,6 +7,9 @@
 //   reprogramar.
 // - Reprogramar (HU0009-2.0) exige REPROGRAMACION_MIN_HORAS de anticipación respecto de la cita actual: libera el turno
 //   anterior (cupos + 1, cita `reprogramada`) y reserva el nuevo en la misma transacción, con el evento cita_reprogramada.
+// - Una evaluación académica a la que no se asistió (HU0025-2.0, D2-A de ADR-25) también se reprograma, sin la regla de
+//   24 h (solo vale para citas futuras): la cita vieja queda en no_asistio como evidencia y su cupo no se devuelve. Sus
+//   avisos son los de toda reprogramación (ADR-24).
 // P08 es de la familia: no registra atencion_* (ADR-05).
 import { obtenerConfig } from "../config";
 import { enTransaccion, obtenerPool, type Consultable } from "../db/pool";
@@ -33,7 +36,10 @@ import {
   marcarCitaReprogramada,
   tipoDeNotificacion,
   TIPO_CONFIRMACION_EVALUACIONES,
+  TIPO_DICTAMEN_NO_APTO,
+  TIPO_DICTAMEN_OBSERVACION,
   TIPO_HABILITACION,
+  TIPO_INASISTENCIA,
   TIPO_LIBERACION_RESPONSABLE,
   TIPO_REPROGRAMACION_FAMILIA,
   TIPO_REPROGRAMACION_RESPONSABLE,
@@ -54,6 +60,9 @@ import {
   componerAvisoResponsable,
   componerConfirmacionEvaluaciones,
   componerHabilitacion,
+  componerInasistencia,
+  componerNoApto,
+  componerObservacionAdmision,
   componerReprogramacionFamilia,
 } from "./avisosEvaluacion";
 import { transicionarExpediente } from "./expedientes/transicionarExpediente";
@@ -109,7 +118,12 @@ export interface CitaVista {
   estado: string;
   reprogramable: boolean;
   plazo_vencido: boolean; // reservada y futura, pero a menos de REPROGRAMACION_MIN_HORAS: P08 explica por qué no se reprograma
+  inasistencia: boolean; // evaluación académica a la que no se asistió: P08 ofrece un nuevo horario (HU0025-2.0)
 }
+
+// HU0025-2.0 (D2-A): la cita vigente de la evaluación académica quedó en no_asistio y el expediente sigue en evaluación.
+const esInasistenciaReprogramable = (c: { tipo_cita: string; estado: string }, estadoExpediente: string) =>
+  estadoExpediente === ESTADO_EVALUACION && c.tipo_cita === "evaluacion_academica" && c.estado === "no_asistio";
 
 function vistaCita(c: CitaEvaluacion, estadoExpediente: string): CitaVista {
   const minimo = obtenerConfig().REPROGRAMACION_MIN_HORAS;
@@ -120,8 +134,9 @@ function vistaCita(c: CitaEvaluacion, estadoExpediente: string): CitaVista {
     fecha: c.fecha,
     hora_inicio: c.hora_inicio,
     estado: c.estado,
-    reprogramable: reservada && c.horas_restantes >= minimo,
+    reprogramable: (reservada && c.horas_restantes >= minimo) || esInasistenciaReprogramable(c, estadoExpediente),
     plazo_vencido: reservada && c.horas_restantes > 0 && c.horas_restantes < minimo,
+    inasistencia: esInasistenciaReprogramable(c, estadoExpediente),
   };
 }
 
@@ -239,19 +254,33 @@ export async function reprogramarCita(e: ExpedienteDeFamilia, idCita: number, id
       const bloqueo = await bloquearFichaDeExpediente(c, idExpediente);
       const cita = await bloquearCitaEvaluacion(c, idCita);
       if (!bloqueo || !cita || cita.id_expediente !== idExpediente) throw citaNoEncontrada();
-      if (bloqueo.estado !== ESTADO_EVALUACION || cita.tipo_cita === ("visita" as string) || cita.estado !== "reservada") throw noReprogramable();
-      if (cita.horas_restantes < minimo) throw plazoVencido(minimo);
+      const inasistencia = esInasistenciaReprogramable(cita, bloqueo.estado);
+      if (bloqueo.estado !== ESTADO_EVALUACION || cita.tipo_cita === ("visita" as string) || (cita.estado !== "reservada" && !inasistencia)) {
+        throw noReprogramable();
+      }
+      // Solo la cita vigente de su tipo: una inasistencia ya reprogramada no se vuelve a reprogramar.
+      const vigentes = await citasActivas(c, idExpediente);
+      if (!vigentes.some((x) => x.id_cita === idCita)) throw noReprogramable();
+      if (!inasistencia && cita.horas_restantes < minimo) throw plazoVencido(minimo);
       if (idHorario === cita.id_horario) throw noDisponible([idHorario]);
 
       const horarios = await bloquearHorarios(c, [cita.id_horario, idHorario], campana);
       const nuevo = horarios.get(idHorario);
       if (!nuevo || nuevo.tipo_cita !== cita.tipo_cita || !nuevo.vigente) throw noDisponible([idHorario]);
       if (!nuevo.con_cupo) throw sinCupo([idHorario]);
-      const agenda = (await citasActivas(c, idExpediente)).map((x) => (x.id_cita === idCita ? { ...x, inicio: nuevo.inicio, fin: nuevo.fin } : x));
-      verificarOrden(agenda);
+      const agenda = vigentes.map((x) => (x.id_cita === idCita ? { ...x, inicio: nuevo.inicio, fin: nuevo.fin } : x));
+      // Excepción a la regla de orden (decisión A de John, ADR-24): si la entrevista ya no se puede mover (registrada, ya
+      // pasada o a menos del plazo de reprogramación), una inasistencia se reprograma aunque quede después de ella: si no,
+      // el expediente se detendría. El dictamen sigue esperando todos los resultados.
+      const entrevista = vigentes.find((x) => x.tipo_cita === "entrevista_padres");
+      const entrevistaFija = entrevista !== undefined && (entrevista.estado !== "reservada" || entrevista.horas_restantes < minimo);
+      if (!inasistencia || !entrevistaFija) verificarOrden(agenda);
 
-      await devolverCupoHorario(c, cita.id_horario);
-      await marcarCitaReprogramada(c, idCita);
+      // La inasistencia ya pasó: no hay turno que liberar ni cupo que devolver, y la cita queda en no_asistio.
+      if (!inasistencia) {
+        await devolverCupoHorario(c, cita.id_horario);
+        await marcarCitaReprogramada(c, idCita);
+      }
       if (!(await descontarCupoHorario(c, idHorario))) throw sinCupo([idHorario]);
       const idNueva = await insertarCitaEvaluacion(c, {
         idExpediente,
@@ -309,6 +338,14 @@ async function componerMensaje(db: Consultable, idExpediente: number, tipo: Tipo
   const familia = (await leerDatosFamilia(db, idExpediente))!;
   const base = { nombres: familia.nombres, campana: familia.campana_admision };
   if (tipo === TIPO_HABILITACION) return componerHabilitacion(base);
+  if (tipo === TIPO_DICTAMEN_NO_APTO) return componerNoApto(base);
+  if (tipo === TIPO_DICTAMEN_OBSERVACION) {
+    return componerObservacionAdmision({ codigo: codigoExpediente(familia.campana_admision, idExpediente), campana: familia.campana_admision, idExpediente });
+  }
+  if (tipo === TIPO_INASISTENCIA) {
+    const item = fuente!.detalle.item as { id: number };
+    return componerInasistencia({ ...base, cita: citaDelAviso((await leerCitaEvaluacion(db, Number(item.id)))!) });
+  }
   const citas = (await citasActivas(db, idExpediente)).map(citaDelAviso);
   if (tipo === TIPO_CONFIRMACION_EVALUACIONES) return componerConfirmacionEvaluaciones({ ...base, citas });
   const anterior = (await leerCitaEvaluacion(db, Number(fuente!.detalle.id_cita_anterior)))!;
@@ -390,11 +427,13 @@ export async function avisosEvaluacionPendientes(): Promise<{ avisos: { id_exped
 }
 
 // Contacto de un intento (notificacion-multicanal, «Obtener contacto»): los avisos al responsable (decisión R3) van al
-// correo del personal de la cita, sin WhatsApp. null si el intento no es un aviso al responsable: sigue el camino de
-// siempre (la familia). Un aviso al responsable sin contacto responde 404: nunca cae al correo de la familia.
+// correo del personal de la cita, y el del dictamen En observación al buzón de admisión (CORREO_ADMISION, D4c-A), sin
+// WhatsApp. null si el intento no es un aviso al personal: sigue el camino de siempre (la familia). Un aviso al
+// responsable sin contacto responde 404: nunca cae al correo de la familia.
 export async function contactoDelResponsable(idExpediente: number, idNotificacion: number): Promise<ContactoExpediente | null> {
   const db = obtenerPool();
   const tipo = await tipoDeNotificacion(db, idNotificacion, idExpediente);
+  if (tipo === TIPO_DICTAMEN_OBSERVACION) return { id_expediente: idExpediente, correo: obtenerConfig().CORREO_ADMISION, autoriza_whatsapp: false };
   if (tipo === null || !TIPOS_AL_RESPONSABLE.includes(tipo)) return null;
   const sinContacto = () => new ErrorApi(404, "CONTACTO_NO_ENCONTRADO", "El aviso no tiene un responsable con correo");
   const fuente = await fuenteDeIntento(db, idExpediente, tipo, idNotificacion);

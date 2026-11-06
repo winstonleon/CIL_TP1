@@ -73,7 +73,13 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
 - **[PROPUESTA]** Cifrado AES-256-GCM en la API (`node:crypto`). La clave va en la variable de entorno `DATA_ENCRYPTION_KEY` y nunca en la BD ni en el repo. Formato almacenado: `v1:iv:authTag:ciphertext` en base64, para poder rotar la clave.
 - **[PROPUESTA]** Unicidad sobre datos cifrados: el TI exige DNI único, pero un cifrado con IV aleatorio no admite `UNIQUE`. Por eso se agrega una columna `dni_hash` = HMAC-SHA256(DNI normalizado, `DATA_HMAC_KEY`) con `UNIQUE`. Las búsquedas por DNI usan el hash.
 - **[EQUIPO]** Columnas cifradas: el **DNI** de `Apoderado` y de `Postulante` (`dni_cifrado` + `dni_hash`), ya definidas en el modelo de datos v1.1.
-- **[PENDIENTE]** Si se cifran más columnas, por ejemplo las observaciones del informe psicológico o del dictamen. No se cifra nada más sin aprobación.
+- **[EQUIPO, HU0010 y HU0025, 05/11/2026] Resultados y dictamen (D1-A, antes PENDIENTE):** se cifran, con el mismo formato y la misma clave que el DNI (`crypto/columnas`, `DATA_ENCRYPTION_KEY`), y solo en `repositories/`:
+  - `Resultado_Evaluacion.observaciones`, en **todos** los tipos de evaluación (también la académica: una sola regla, sin depender del tipo);
+  - `Dictamen_Admision.conclusiones` y `Dictamen_Admision.requisitos_complementarios` (ADR-25).
+  - No se cifra `Resultado_Evaluacion.resultado` (`varchar(50)`): es la escala que define el colegio, no un informe, y el valor cifrado no entra en 50 caracteres.
+  - **Costo aceptado:** no hay búsqueda ni filtro por SQL sobre esas columnas, el texto ocupa ~35 % más y una rotación de `DATA_ENCRYPTION_KEY` debe re-cifrarlas también.
+  - La copia del dictamen anterior en la auditoría (ADR-25) guarda esos valores ya cifrados, nunca en claro.
+- **[PENDIENTE]** Si se cifran otras columnas. No se cifra nada más sin aprobación.
 - **[EQUIPO, HU0005, 02/11/2026] Condición especial del postulante:** `tiene_condicion_especial` **no se cifra**, porque es solo un sí/no (boolean). Si alguna HU agrega un detalle en texto (diagnóstico, informe), se reabre esta decisión antes de guardarlo.
 - **[EQUIPO, HU0006 y HU0007, 03/11/2026] Archivos cifrados en reposo** (decisión P2 a): los documentos y comprobantes contienen DNI, documentación financiera e informes de terapia de menores.
   - AES-256-GCM en la API, con la clave `ARCHIVOS_ENCRYPTION_KEY` (32 bytes en base64, en `.env`), distinta de `DATA_ENCRYPTION_KEY`. Lo hace un decorador sobre cualquier adaptador de almacenamiento (ADR-21).
@@ -335,6 +341,9 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 | Tope de archivos por requisito (P06) | 20 (provisional) | `MAX_DOCUMENTOS_POR_REQUISITO` (`config.ts`, de 1 a 100; opcional en `.env`) | Editar `.env` y recrear `api` | `HU0006-1.0 (tope técnico) …` |
 | Anticipación mínima para reprogramar una evaluación (P08) | 24 h | `REPROGRAMACION_MIN_HORAS` (`config.ts`, de 1 a 168; opcional en `.env`) | Editar `.env` y recrear `api` | `HU0009-2.0 (24 h) …` |
 | Textos de los avisos de las evaluaciones y pautas previas (HU0009 y C52) | `borrador-1`, entre corchetes | `api/src/services/avisosEvaluacion.ts` | El colegio entrega los textos y las pautas, y se sube la versión | `HU0009-1.0 …`, `HU0009-2.0 …` y `C52 …` |
+| Textos de los avisos de la inasistencia y del dictamen (HU0010 y HU0025) | `borrador-1`, entre corchetes | `api/src/services/avisosEvaluacion.ts` | El colegio entrega los textos y se sube la versión | `HU0025-2.0 …`, `HU0010-2.0 …` y `HU0010-3.0 …` |
+| Buzón del personal de admisión (HU0010-2.0) | `admision@ejemplo.test` en dev | `CORREO_ADMISION` (**obligatoria**, `config.ts`) | Editar `.env` y recrear `api` | `HU0010-2.0 …` |
+| Escala del resultado de las evaluaciones | Texto libre de hasta 50 caracteres, «[Escala por definir]» | `Resultado_Evaluacion.resultado` (§7 del modelo) | El colegio define la escala y una HU la cierra | `HU0025-1.0 …` |
 
 ## ADR-20 Ficha de inscripción y cuestionario de expectativas (HU0005)
 - **[EQUIPO, HU0005, 02/11/2026] Borrador de la ficha:** vive en las tablas del modelo v1.1, sin tablas nuevas (se descartó una tabla de borrador).
@@ -452,6 +461,7 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 - **[EQUIPO, T] Transición:** «Confirmar citas» hace `en_validacion → en_evaluacion` solo con las tres ramas de R9 en `conforme` (la condición de B1, ADR-23, se calcula); si no, 409 `AGENDAMIENTO_NO_HABILITADO`.
 - **[EQUIPO] «Confirmar citas» es todo o nada:** una transacción bloquea el expediente y después los horarios **siempre en orden por id**, y lee el cupo con una sentencia posterior al bloqueo. Un turno sin cupo (409 `HORARIO_SIN_CUPO`) o no disponible (409 `HORARIO_NO_DISPONIBLE`) revierte todo, con el id del turno en `detalle`. Lo prueban `HU0009-1.0 (todo o nada)`, `(concurrencia)` y `(turnos cruzados)`.
 - **[EQUIPO, O] Orden:** la entrevista a los padres empieza después del fin de cada una de las demás citas del expediente (R11: «al final»), al reservar y al reprogramar (422 `ORDEN_DE_CITAS`). La psicológica y la académica no tienen orden entre sí.
+  - **Excepción (John, 05/11/2026, HU0025-2.0):** al reprogramar una evaluación académica a la que no se asistió (ADR-25), el orden no se exige si la entrevista ya no se puede mover: registrada, ya pasada o a menos de `REPROGRAMACION_MIN_HORAS`. Si no, el expediente quedaría detenido en `en_evaluacion`. Con la entrevista movible, sigue el 422. El dictamen sigue esperando todos los resultados. Lo prueban las `HU0025-2.0 (orden) …`.
 - **[EQUIPO, C40] Sesiones grupales:** `uq_cita_personal_fecha` es un índice parcial que no cuenta las citas `reprogramada` ni `cancelada` ni la jornada de observación, que es grupal según sus cupos. Las demás citas siguen siendo individuales (la visita no cambia).
 - **[EQUIPO, R1, R2] Reprogramación (HU0009-2.0):** desde P08, con la sesión del portal (el «enlace de reprogramación» es el del correo, `/portal/evaluaciones`), sin ruta pública ni clave nueva. Sin límite de veces; solo con al menos `REPROGRAMACION_MIN_HORAS` (24) de anticipación respecto de la cita actual (422 `PLAZO_REPROGRAMACION_VENCIDO`). El horario nuevo solo tiene que ser futuro. En una transacción: la cita anterior pasa a `reprogramada` y devuelve su cupo, se descuenta el del nuevo horario y se inserta la cita nueva.
 - **[EQUIPO, R4] Evento `cita_reprogramada`** (§4.7, actor familia), solo con ids: las dos citas, los dos horarios y el primer intento de cada aviso.
@@ -462,6 +472,60 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
   - **Riesgo aceptado (John, 05/11/2026):** si la familia hace dos reprogramaciones en menos de 10 min y el primer aviso al responsable queda `pendiente` por un error técnico, ese aviso no se retoma: lo reemplaza el de la reprogramación siguiente, que puede ir a otra persona.
 - **[EQUIPO, C52] Habilitación:** correo `evaluaciones_habilitadas` con el enlace a P08 y, en el portal, el menú «Evaluaciones» habilitado y la franja de P08. El aviso no se reserva en la transacción de la unión (B1 sigue sin evento a n8n): lo toma el barrido de `agendamiento` un minuto después del `atencion_fin` con `habilita_agendamiento`, una vez por expediente, mientras siga en `en_validacion`.
 - **Tiempo de atención:** P08 es de la familia y no registra `atencion_*` (ADR-05).
+
+## ADR-25 Resultados de las evaluaciones y dictamen de admisión (HU0010 y HU0025)
+- **[EQUIPO, bloque 7, 05/11/2026] Resultados (S1 a S4):**
+  - Cada responsable registra el resultado de **sus** citas: la psicóloga en G06 (jornada, psicológica y entrevista; el formulario es el de G11, porque el mockup de G06 no lo dibuja) y el evaluador académico en G11. Una cita ajena responde 404.
+  - **Condiciones:** expediente en `en_evaluacion`, cita `reservada` y hora de la cita ya iniciada (409 `CITA_NO_INICIADA`).
+  - **Efecto:** la cita pasa a `asistio`, se inserta `Resultado_Evaluacion` (una por cita) y se registra `atencion_fin` (`decision: "resultado"`).
+  - `resultado` es texto libre de hasta 50 caracteres hasta que el colegio defina la escala (§7). `observaciones` va cifrada (ADR-03).
+  - La inasistencia solo existe para la evaluación académica (HU0025-2.0). La de las citas de la psicóloga no tiene HU.
+- **[EQUIPO, D2-A] Inasistencia a la evaluación académica (HU0025-2.0):**
+  - La cita pasa a `no_asistio` y se guarda `Resultado_Evaluacion.resultado = 'inasistencia'`. El cupo no se devuelve, porque el turno ya pasó.
+  - **Aviso** `evaluacion_inasistencia` a la familia, con el enlace a P08. Su primer intento se reserva en la transacción y va en `atencion_fin.detalle.id_notificacion`.
+  - **Reprogramación:** P08 (`reprogramarCita`, HU0009-2.0) acepta además la cita académica en `no_asistio`, sin la anticipación de `REPROGRAMACION_MIN_HORAS`, que solo vale para citas futuras.
+    - La cita vieja **queda en `no_asistio`** como evidencia (no pasa a `reprogramada`) y se inserta la cita nueva.
+    - Se registra `cita_reprogramada` con los avisos de toda reprogramación (ADR-24), también el de liberación si cambia el responsable.
+    - La regla de orden (O, ADR-24) se mantiene, con su excepción: si la entrevista ya no se puede mover, la evaluación queda después de ella.
+- **[EQUIPO, S2 y C25 (4)] Condición del dictamen:** cada evaluación que exige el grado (`grado.requiere_*`, configurado en G09) más la entrevista a los padres debe tener una cita activa en `asistio` con su resultado. Si no, responde 409 `RESULTADOS_INCOMPLETOS`, con los tipos que faltan en `detalle`. Vale para los tres dictámenes (R13: «después de la entrevista»).
+- **[EQUIPO] Dictamen** (`POST /psicologia/expedientes/:id/dictamen`, G06):
+  - **Apto** (HU0010-1.0): `en_evaluacion → apto`. «Deriva a la Dirección» = el expediente queda en `apto` y G07 lo lista (HU0012, C58). No hay aviso (D3-A). La matriz muestra HU0010-1.0 por partes: «dictamen, informe restringido y estado» (HU0010) y «derivación» (HU0012).
+  - **En observación** (HU0010-2.0): `en_evaluacion → en_observacion`.
+    - Los requisitos complementarios son obligatorios y van en la columna nueva `Dictamen_Admision.requisitos_complementarios`, cifrada (D4b-B).
+    - El campo de G06 lleva la ayuda «Indica qué debe presentar la familia; no copies las conclusiones».
+    - Secretaría los ve en una sección de solo lectura del detalle G03, sin las conclusiones ni el informe.
+  - **No apto** (HU0010-3.0): `en_evaluacion → no_apto`, estado final.
+    - Sin transiciones de salida; el dictamen ya no se cambia (409 `DICTAMEN_YA_EMITIDO`).
+    - Las rutas de la familia ya rechazan la edición fuera de sus estados.
+    - Si quedara una cita `reservada` (dato inconsistente con la condición del dictamen), responde 409 `CITAS_PENDIENTES` en vez de cancelarla (D4d).
+  - **Informe:** un PDF o una imagen opcional, guardado como los documentos (ADR-21: cifrado, clave UUID). Va en `Dictamen_Admision.informe_url` y se descarga solo por `GET /psicologia/expedientes/:id/dictamen/informe`, con `requireAccesoRestringido("informe_psicologico")` (R3).
+  - **Nuevo dictamen** (D4a-A): desde `en_observacion`, la psicóloga emite Apto o No apto (`en_observacion → apto` o `→ no_apto`) y se actualiza la misma fila de `Dictamen_Admision`.
+    - Antes del UPDATE, `atencion_fin.detalle.dictamen_anterior` guarda `{ dictamen, conclusiones, requisitos_complementarios, informe_url, fecha_emision }` del dictamen reemplazado.
+    - Las columnas de texto se copian **ya cifradas** (ADR-03), así que el anterior se recupera y descifra desde la auditoría.
+    - El archivo del informe anterior no se borra.
+- **[EQUIPO, D4c-A] Avisos** (ADR-07: una fila por intento, retoma a los 10 min, tope de 6 y fila de cierre `fallido`), por `agendamiento` como los de ADR-24. El webhook lleva `{ id_expediente, id_notificacion }` (C11).
+  - `evaluacion_inasistencia`: a la familia (HU0025-2.0).
+  - `dictamen_en_observacion`: al **buzón de admisión** `CORREO_ADMISION`, una variable obligatoria (la API no arranca sin ella; `admision@ejemplo.test` en dev). Su fuente es la `transicion_estado` a `en_observacion` (`detalle.id_notificacion`).
+  - `dictamen_no_apto`: a la familia (HU0010-3.0). Su fuente es la `transicion_estado` a `no_apto`.
+  - **Contenido (C11):** ningún aviso lleva conclusiones, observaciones, requisitos complementarios ni el informe, porque el cuerpo queda en las ejecuciones de error de n8n.
+    - El de admisión lleva solo el código del expediente y el enlace a G03.
+    - El de No apto dice que el proceso concluyó.
+    - Los textos viven en `avisosEvaluacion.ts` (`borrador-1`).
+  - No se avisa el Apto (D3-A).
+- **[EQUIPO] Acceso (R3, C17, C22):**
+  - `/psicologia` (rol `psicologa`) y `/evaluacion-academica` (rol `evaluador_academico`) llevan `requirePersonalActivo`.
+  - G11 no devuelve nada del informe psicológico ni la documentación financiera.
+  - El acceso de la directora al informe llega con su pantalla (G07, HU0012); la política `informe_psicologico` ya la admite.
+- **Tiempo de atención (ADR-05):**
+  - Ítems: `cita` con el id de la cita (G06 y G11) y `dictamen` con el id del expediente (G06).
+  - `atencion_inicio` al abrir la cita, si está `reservada`, o al abrir el panel del dictamen, si espera la decisión (en `en_evaluacion` con todos los resultados, o en `en_observacion`).
+  - **Apertura del dictamen (John, 05/11/2026):** abrir una cita de G06 no abre el dictamen. El panel se abre con «Abrir dictamen» (`GET …/dictamen?abrir=1`) y es la única apertura que registra el inicio; una lectura o una recarga sin `abrir` no lo hace. El `atencion_fin` se empareja con ese inicio, que es el dato del cycle time de HU0019. El botón abre el ítem, como elegir una fila: no es un botón de «Iniciar revisión» (ADR-05). Lo prueba `HU0010-1.0 [parte: dictamen, informe restringido y estado] (atención) abrir una cita no crea un inicio del dictamen …`.
+  - `atencion_fin` al registrar el resultado, la inasistencia o el dictamen, con `id_evento_inicio` (`registrarAtencionFin`).
+- **Fuera del bloque:**
+  - el adjunto «evaluación corregida» de G11 (C57);
+  - cómo entrega la familia los informes complementarios y la «sesión adicional» de HU0010-2.0, que se coordinan fuera del sistema (C59);
+  - la bandeja de Secretaría no lista los expedientes en `en_observacion`: se llega por el enlace del correo (C60);
+  - la inasistencia a las citas de la psicóloga.
 
 ## Orden recomendado de implementación
 0. **Sprint 0, base técnica** (no es una HU; se documenta como habilitador):

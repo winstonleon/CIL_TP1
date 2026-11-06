@@ -7,6 +7,8 @@
        antes»). Cada cita agendada muestra «Reprogramar», que abre el mismo selector de días y horas y termina en
        «Confirmar cambio» (plan del bloque 6).
      - Sin las tres validaciones conformes se muestra el aviso de P04 («Tus evaluaciones se podrán agendar…»).
+     - Inasistencia a la evaluación académica (HU0025-2.0, D2-A): la cita muestra «No asististe…» y «Elegir nuevo horario»,
+       sin la regla de las 24 horas (la API la reprograma igual que HU0009-2.0).
      - Es de la familia: no registra tiempo de atención (ADR-05). -->
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
@@ -171,13 +173,17 @@ async function confirmarCambio(e: Evaluacion) {
               <div class="cabeza">
                 <h2 :id="`p08-${e.tipo_cita}`">{{ NOMBRE_EVALUACION[e.tipo_cita] }}</h2>
                 <span v-if="agenda.modo === 'agendar' && seleccion[e.tipo_cita] !== undefined" class="chip">Seleccionada</span>
+                <span v-else-if="e.cita?.inasistencia" class="chip" data-testid="chip-inasistencia">No asististe</span>
                 <span v-else-if="e.cita" class="chip">Agendada</span>
               </div>
               <span class="a-cargo">{{ A_CARGO[e.tipo_cita] }}</span>
 
               <div v-if="e.cita && reprogramando !== e.tipo_cita" class="cita-agendada">
                 <span data-testid="cita">{{ cuandoEs(e.cita) }}</span>
-                <button v-if="e.cita.reprogramable" type="button" class="secundario" :data-testid="`reprogramar-${e.tipo_cita}`" @click="abrirReprogramacion(e)">Reprogramar</button>
+                <span v-if="e.cita.inasistencia" class="nota" data-testid="nota-inasistencia">No registramos tu asistencia a esta cita. Elige un nuevo horario.</span>
+                <button v-if="e.cita.reprogramable" type="button" class="secundario" :data-testid="`reprogramar-${e.tipo_cita}`" @click="abrirReprogramacion(e)">
+                  {{ e.cita.inasistencia ? "Elegir nuevo horario" : "Reprogramar" }}
+                </button>
                 <span v-else-if="e.cita.plazo_vencido" class="nota" data-testid="no-reprogramable">Ya no se puede reprogramar: faltan menos de {{ minHoras }} horas.</span>
               </div>
 

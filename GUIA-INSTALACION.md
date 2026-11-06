@@ -242,6 +242,7 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
 - **Variables nuevas en `.env`** (las dos están en `.env.example`; no son secretos):
   - `RECORDATORIO_VISITA_HORAS`: horas de anticipación del recordatorio (1 a 168). Es obligatoria: sin ella la API no arranca. El valor provisional es `24` (C37).
   - `DIRECCION_COLEGIO`: el «Lugar» de P02 y de los correos. Es opcional: vacía, se ve «[Dirección del colegio]» (C39).
+  - `CORREO_ADMISION`: el buzón del personal de admisión, que recibe el aviso del dictamen «En observación» (HU0010-2.0, ADR-25). Es **obligatoria**: sin ella la API no arranca. En dev, `admision@ejemplo.test`.
   - Si agregas o cambias alguna con los contenedores levantados, recrea `api`: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-deps api`.
 - **Horarios:** P02 ofrece los horarios de visita de la campaña activa que Secretaría crea en G09 (pestaña Horarios), cuyo responsable es una directora activa. Sin horarios, P02 dice que no hay horarios disponibles.
 - **Ejecuciones de n8n (ADR-02 D3, R1; C10):**

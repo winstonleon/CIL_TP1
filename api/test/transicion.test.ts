@@ -40,6 +40,11 @@ describe("S0-B5 transicionarExpediente", () => {
         ["portal_habilitado", "en_postulacion"], // HU0005-2.0
         ["en_postulacion", "en_validacion"], // HU0017-1.0
         ["en_validacion", "en_evaluacion"], // HU0009-1.0
+        ["en_evaluacion", "apto"], // HU0010-1.0
+        ["en_evaluacion", "en_observacion"], // HU0010-2.0
+        ["en_evaluacion", "no_apto"], // HU0010-3.0
+        ["en_observacion", "apto"], // HU0010-2.0 (nuevo dictamen, D4a-A)
+        ["en_observacion", "no_apto"], // HU0010-2.0 (nuevo dictamen, D4a-A)
       ],
       estado_documental: [
         ["pendiente", "observado"], // HU0008-2.0

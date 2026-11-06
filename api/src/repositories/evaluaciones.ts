@@ -144,12 +144,16 @@ const COLUMNAS_CITA = `c.id_cita, c.id_expediente, c.id_personal, c.id_horario, 
   to_char(c.fecha_hora AT TIME ZONE '${ZONA}', 'YYYY-MM-DD') AS fecha, to_char(c.fecha_hora AT TIME ZONE '${ZONA}', 'HH24:MI') AS hora_inicio,
   (extract(epoch FROM c.fecha_hora - now()) / 3600)::float8 AS horas_restantes`;
 
-// Citas de evaluación activas del expediente (la agenda vigente), en el orden de la fecha.
+// Citas de evaluación vigentes del expediente (la agenda vigente), en el orden de la fecha: la más reciente de cada tipo
+// que no se reprogramó ni canceló. Una inasistencia reprogramada (HU0025-2.0, D2-A) deja la cita vieja en no_asistio y
+// la nueva es la vigente; sin inasistencias hay una sola por tipo, como en HU0009.
 export async function citasActivas(db: Consultable, idExpediente: number): Promise<CitaEvaluacion[]> {
   const { rows } = await db.query<CitaEvaluacion>(
-    `SELECT ${COLUMNAS_CITA} FROM cita c JOIN horario_disponible h ON h.id_horario = c.id_horario
-      WHERE c.id_expediente = $1 AND c.tipo_cita <> 'visita' AND ${CITA_ACTIVA("c")}
-      ORDER BY c.fecha_hora, c.id_cita`,
+    `SELECT * FROM (
+       SELECT DISTINCT ON (c.tipo_cita) ${COLUMNAS_CITA} FROM cita c JOIN horario_disponible h ON h.id_horario = c.id_horario
+        WHERE c.id_expediente = $1 AND c.tipo_cita <> 'visita' AND ${CITA_ACTIVA("c")}
+        ORDER BY c.tipo_cita, c.id_cita DESC) vigentes
+      ORDER BY inicio, id_cita`,
     [idExpediente],
   );
   return rows;
@@ -179,6 +183,11 @@ export const TIPO_CONFIRMACION_EVALUACIONES = "evaluaciones_confirmadas";
 export const TIPO_REPROGRAMACION_FAMILIA = "evaluacion_reprogramada";
 export const TIPO_REPROGRAMACION_RESPONSABLE = "evaluacion_reprogramada_responsable";
 export const TIPO_LIBERACION_RESPONSABLE = "evaluacion_liberada_responsable";
+// HU0025-2.0 y HU0010 (ADR-25): inasistencia a la evaluación académica (familia), dictamen En observación (buzón de
+// admisión, CORREO_ADMISION) y dictamen No apto (familia).
+export const TIPO_INASISTENCIA = "evaluacion_inasistencia";
+export const TIPO_DICTAMEN_OBSERVACION = "dictamen_en_observacion";
+export const TIPO_DICTAMEN_NO_APTO = "dictamen_no_apto";
 
 export const TIPOS_AVISO_EVALUACION = [
   TIPO_HABILITACION,
@@ -186,6 +195,9 @@ export const TIPOS_AVISO_EVALUACION = [
   TIPO_REPROGRAMACION_FAMILIA,
   TIPO_REPROGRAMACION_RESPONSABLE,
   TIPO_LIBERACION_RESPONSABLE,
+  TIPO_INASISTENCIA,
+  TIPO_DICTAMEN_OBSERVACION,
+  TIPO_DICTAMEN_NO_APTO,
 ] as const;
 export type TipoAvisoEvaluacion = (typeof TIPOS_AVISO_EVALUACION)[number];
 // Avisos dirigidos al personal: su contacto es el correo del responsable, nunca el de la familia.
@@ -209,9 +221,12 @@ const FUENTES = `SELECT r.id_evento, r.id_expediente, x.tipo, x.desde::int AS de
      ('${TIPO_CONFIRMACION_EVALUACIONES}', CASE WHEN r.tipo_evento = 'transicion_estado' AND r.estado_nuevo = 'en_evaluacion' THEN r.detalle->>'id_notificacion' END),
      ('${TIPO_REPROGRAMACION_FAMILIA}', CASE WHEN r.tipo_evento = 'cita_reprogramada' THEN r.detalle->>'id_notificacion' END),
      ('${TIPO_REPROGRAMACION_RESPONSABLE}', CASE WHEN r.tipo_evento = 'cita_reprogramada' THEN r.detalle->>'id_notificacion_responsable' END),
-     ('${TIPO_LIBERACION_RESPONSABLE}', CASE WHEN r.tipo_evento = 'cita_reprogramada' THEN r.detalle->>'id_notificacion_responsable_anterior' END)
+     ('${TIPO_LIBERACION_RESPONSABLE}', CASE WHEN r.tipo_evento = 'cita_reprogramada' THEN r.detalle->>'id_notificacion_responsable_anterior' END),
+     ('${TIPO_INASISTENCIA}', CASE WHEN r.tipo_evento = 'atencion_fin' AND r.detalle->>'decision' = 'inasistencia' THEN r.detalle->>'id_notificacion' END),
+     ('${TIPO_DICTAMEN_OBSERVACION}', CASE WHEN r.tipo_evento = 'transicion_estado' AND r.estado_nuevo = 'en_observacion' THEN r.detalle->>'id_notificacion' END),
+     ('${TIPO_DICTAMEN_NO_APTO}', CASE WHEN r.tipo_evento = 'transicion_estado' AND r.estado_nuevo = 'no_apto' THEN r.detalle->>'id_notificacion' END)
    ) AS x(tipo, desde)
-   WHERE r.tipo_evento IN ('transicion_estado', 'cita_reprogramada') AND x.desde IS NOT NULL`;
+   WHERE r.tipo_evento IN ('transicion_estado', 'cita_reprogramada', 'atencion_fin') AND x.desde IS NOT NULL`;
 
 // Ancla de la habilitación: el atencion_fin que completó la unión (B1: una sola vez por expediente).
 const ANCLA_HABILITACION = (e: string) => `(SELECT r.fecha_hora FROM registro_auditoria r
@@ -250,14 +265,21 @@ export async function anclaHabilitacion(db: Consultable, idExpediente: number): 
   return rows[0]?.ancla ?? null;
 }
 
-// Estado del expediente en el que cada aviso sigue vigente: la habilitación mientras no agende; los demás en evaluación.
+// Estado del expediente en el que cada aviso sigue vigente: la habilitación mientras no agende; los de las citas en
+// evaluación; los del dictamen, en el estado al que pasó (un nuevo dictamen deja sin efecto el aviso de la observación).
 export const ESTADO_DEL_AVISO: Record<TipoAvisoEvaluacion, string> = {
   [TIPO_HABILITACION]: "en_validacion",
   [TIPO_CONFIRMACION_EVALUACIONES]: "en_evaluacion",
   [TIPO_REPROGRAMACION_FAMILIA]: "en_evaluacion",
   [TIPO_REPROGRAMACION_RESPONSABLE]: "en_evaluacion",
   [TIPO_LIBERACION_RESPONSABLE]: "en_evaluacion",
+  [TIPO_INASISTENCIA]: "en_evaluacion",
+  [TIPO_DICTAMEN_OBSERVACION]: "en_observacion",
+  [TIPO_DICTAMEN_NO_APTO]: "no_apto",
 };
+// El mismo mapa en SQL (lista cerrada de constantes: nunca entra texto del usuario).
+const ESTADO_DEL_AVISO_SQL = (tipo: string) =>
+  `CASE ${tipo} ${Object.entries(ESTADO_DEL_AVISO).map(([t, e]) => `WHEN '${t}' THEN '${e}'`).join(" ")} END`;
 
 // Barrido (ADR-16): avisos de evaluación por intentar, los más antiguos primero.
 // - Con primer intento reservado: sin cerrar y con el último intento `pendiente` hace más de `minutosReintento` (también
@@ -290,7 +312,7 @@ export async function listarAvisosEvaluacionPendientes(
                FROM notificacion n
               WHERE n.id_expediente = aviso.id_expediente AND n.canal = 'correo' AND n.tipo_evento = aviso.tipo
                 AND n.id_notificacion >= aviso.desde) f
-      WHERE e.estado::text = CASE WHEN aviso.tipo = '${TIPO_HABILITACION}' THEN 'en_validacion' ELSE 'en_evaluacion' END
+      WHERE e.estado::text = ${ESTADO_DEL_AVISO_SQL("aviso.tipo")}
         AND ((f.intentos = 0 AND aviso.ancla IS NOT NULL AND aviso.ancla < now() - make_interval(mins => $1))
           OR (NOT f.cerrado AND f.ultimo_estado = 'pendiente' AND f.ultimo_intento < now() - make_interval(mins => $2)))
       ORDER BY coalesce(f.ultimo_intento, aviso.ancla), aviso.id_expediente, aviso.tipo

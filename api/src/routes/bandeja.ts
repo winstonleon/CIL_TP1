@@ -7,6 +7,7 @@ import type { Almacenamiento } from "../almacenamiento";
 import { registrarAccesoDenegado } from "../auth/requireRol";
 import { ErrorApi } from "../errores";
 import type { DisparadorN8n } from "../orquestacion/n8n";
+import { requisitosComplementarios } from "../services/dictamen";
 import { abrirArchivo } from "../services/documentos";
 import { bandeja, confirmarRama, decidirDocumento, detalleRama, resolverDocumentoDeRama } from "../services/validaciones";
 import { validar } from "../validacion";
@@ -49,6 +50,13 @@ export function rutasBandeja(campana: string, almacenamiento: Almacenamiento, ev
   // · 404 EXPEDIENTE_NO_ENCONTRADO · 409 VALIDACION_NO_CORRESPONDE
   rutas.get("/expedientes/:id", async (req, res) => {
     res.json(await detalleRama("documental", validar(idRuta, req.params.id), await idPersonalDe(req)));
+  });
+
+  // GET /bandeja/expedientes/:id/requisitos-complementarios → 200 { id_expediente, codigo, postulante, grado,
+  // requisitos_complementarios, fecha_emision } (HU0010-2.0, R13, D4b-B: Secretaría coordina con la familia; nunca las
+  // conclusiones ni el informe, R3) · 404 REQUISITOS_NO_ENCONTRADOS
+  rutas.get("/expedientes/:id/requisitos-complementarios", async (req, res) => {
+    res.json(await requisitosComplementarios(validar(idRuta, req.params.id)));
   });
 
   // GET /bandeja/expedientes/:id/documentos/:idDoc/archivo → 200 archivo · 403 ACCESO_DENEGADO (financiero) · 404

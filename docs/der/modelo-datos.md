@@ -333,10 +333,10 @@ Table Resultado_Evaluacion {
   id_personal integer [not null]
   tipo_evaluacion tipo_cita [not null, note: 'cualquier valor de tipo_cita excepto visita']
   resultado varchar(50) [not null, note: 'escala por definir; puede ser inasistencia']
-  observaciones text
+  observaciones text [note: 'cifrada en la API (AES-256-GCM, ADR-03), en todos los tipos de evaluación']
   informe_url varchar(500) [note: 'informe psicopedagógico: CONFIDENCIAL, solo para psicologa y directora']
   fecha_registro timestamptz [not null, default: `now()`]
-  Note: 'Resultado de cada evaluación parcial (observación, psicológica, académica o entrevista).'
+  Note: 'Resultado de cada evaluación parcial (observación, psicológica, académica o entrevista). Lo registra el responsable de la cita (HU0010 y HU0025): la cita pasa a asistio, o a no_asistio con resultado = inasistencia (solo la evaluación académica, HU0025-2.0).'
 }
 
 Table Dictamen_Admision {
@@ -344,10 +344,11 @@ Table Dictamen_Admision {
   id_expediente integer [not null, unique, note: 'un solo dictamen vigente por expediente (1:0..1)']
   id_personal integer [not null, note: 'rol psicologa']
   dictamen tipo_dictamen [not null]
-  conclusiones text
+  conclusiones text [note: 'cifrada en la API (AES-256-GCM, ADR-03); confidencial: solo psicologa y directora (R3)']
+  requisitos_complementarios text [note: 'solo si dictamen = en_observacion (HU0010-2.0): qué debe presentar la familia. Cifrada en la API (ADR-03). La ven psicologa, directora y secretaria (que coordina con la familia, R13); no lleva las conclusiones']
   informe_url varchar(500)
   fecha_emision timestamptz [not null, default: `now()`]
-  Note: 'Decisión final de la evaluación. Si dictamen = en_observacion y luego cambia, se actualiza esta fila y el cambio queda en Registro_Auditoria.'
+  Note: 'Decisión final de la evaluación. Si dictamen = en_observacion y luego cambia, se actualiza esta fila y el cambio queda en Registro_Auditoria: el atencion_fin del nuevo dictamen guarda en detalle.dictamen_anterior el dictamen reemplazado, con sus columnas de texto ya cifradas (ADR-25).'
 }
 
 // =====================================================================
@@ -493,7 +494,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 |---|---|---|
 | R11 | Evaluaciones exigidas según el grado (`Grado.requiere_*`): **Inicial** = jornada de observación; **1.° de primaria** = evaluación psicológica; **2.° de primaria en adelante y Secundaria** = evaluación psicológica + evaluación académica, en paralelo. **Todos** = entrevista a los padres al final. Son los valores semilla: Secretaría configura en G09 las evaluaciones de cada grado (HU0022, ADR-14); la entrevista no se configura. | Datos semilla + API (configurable en G09) |
 | R12 | No puede haber dos citas **activas** del mismo responsable a la misma fecha y hora (índice único parcial `uq_cita_personal_fecha`), salvo la **jornada de observación**, que es grupal: su horario admite tantas citas como cupos tenga (C40). Al reservar se descuenta `Horario_Disponible.cupos` dentro de la misma transacción; al reprogramar se devuelve el cupo del turno anterior y se descuenta el del nuevo en la misma transacción (HU0009-2.0). | BD + API |
-| R13 | El dictamen lo emite la `psicologa` después de la entrevista a los padres. Si es `en_observacion`, secretaría coordina requisitos complementarios y luego se emite un nuevo dictamen. Si es `no_apto`, se notifica y el proceso termina. | API / n8n |
+| R13 | El dictamen lo emite la `psicologa` después de la entrevista a los padres, con los resultados de todas las evaluaciones que exige el grado (`Grado.requiere_*` y la entrevista). Si es `en_observacion`, secretaría coordina requisitos complementarios (`Dictamen_Admision.requisitos_complementarios`) y luego se emite un nuevo dictamen. Si es `no_apto`, se notifica a la familia sin el contenido del informe y el proceso termina (estado final). | API / n8n |
 
 ### 4.4 Vacantes, pagos y carta
 | # | Regla | Dónde |
@@ -515,7 +516,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 ### 4.6 Permisos por rol (resumen)
 | Rol | Puede |
 |---|---|
-| `secretaria` | Ver la bandeja de expedientes completos, validar u observar documentos no financieros, registrar asistencia a visitas (lo que crea la Cuenta_Acceso), configurar la campaña (Grado, Requisito_Documental, Horario_Disponible) |
+| `secretaria` | Ver la bandeja de expedientes completos, validar u observar documentos no financieros, registrar asistencia a visitas (lo que crea la Cuenta_Acceso), configurar la campaña (Grado, Requisito_Documental, Horario_Disponible), ver los requisitos complementarios de un dictamen en observación (sin las conclusiones ni el informe) |
 | `tesoreria` | Validar pagos y la documentación financiera |
 | `psicologa` | Registrar resultados de observación, evaluación psicológica y entrevista; emitir el dictamen |
 | `evaluador_academico` | Registrar el resultado o la inasistencia en la evaluación académica |
@@ -531,7 +532,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 |---|---|---|
 | `transicion_estado` | Cambio de `Expediente.estado`, `estado_documental` o `estado_financiero` (R6); lleva `estado_anterior` y `estado_nuevo` | Personal, familia o sistema |
 | `atencion_inicio` | El personal **abre** un ítem para atenderlo: detalle del expediente (G03), pago o documentación financiera (G05), cita o dictamen (G06), evaluación académica (G11), postulante apto (G07). `detalle` indica el ítem | Personal |
-| `atencion_fin` | El personal **registra su decisión** sobre ese ítem: conforme, observado, resultado, inasistencia, dictamen o asignación de vacante. `detalle` lleva `item`, `decision` e `id_evento_inicio` (el último `atencion_inicio` abierto de la misma persona y el mismo ítem, o nulo). En las validaciones (HU0008, HU0011 y HU0024), una observación agrega el documento o el pago observado (`id_documento` o `id_pago`) y el `id_notificacion` del primer intento del aviso; la decisión que deja conformes las tres ramas de R9 agrega `habilita_agendamiento: true` (una sola vez por expediente; es el ancla del aviso `evaluaciones_habilitadas`, C52) | Personal |
+| `atencion_fin` | El personal **registra su decisión** sobre ese ítem: conforme, observado, resultado, inasistencia, dictamen o asignación de vacante. `detalle` lleva `item`, `decision` e `id_evento_inicio` (el último `atencion_inicio` abierto de la misma persona y el mismo ítem, o nulo). En las validaciones (HU0008, HU0011 y HU0024), una observación agrega el documento o el pago observado (`id_documento` o `id_pago`) y el `id_notificacion` del primer intento del aviso; la decisión que deja conformes las tres ramas de R9 agrega `habilita_agendamiento: true` (una sola vez por expediente; es el ancla del aviso `evaluaciones_habilitadas`, C52). La inasistencia a la evaluación académica agrega el `id_notificacion` de su aviso (HU0025-2.0), y un nuevo dictamen agrega `dictamen_anterior` (`dictamen`, `conclusiones` y `requisitos_complementarios` ya cifrados, `informe_url` y `fecha_emision`; HU0010-2.0) | Personal |
 | `subsanacion_registrada` | La familia subsana una observación en `en_validacion`: reemplaza un documento observado (HU0008-2.0, HU0011-2.0) o registra un comprobante nuevo del derecho de admisión observado (HU0024-2.0). `detalle`: documento `{ item, id_documento_nuevo, id_documento_anterior }`; pago `{ item, id_pago, anterior: { banco, numero_operacion, clave } }`. `item` es el de la rama (`validacion_documental` o `documentacion_financiera` con el id del expediente, o `pago` con el id del pago). Con el `atencion_fin` de la observación, mide el tiempo de subsanación (HU0019) | Familia |
 | `acceso_denegado` | Intento de ver datos restringidos por rol (HU0021-2.0) | Personal |
 | `cambio_configuracion` | Cambios en Grado, Requisito_Documental u Horario_Disponible | Secretaría |
@@ -567,7 +568,7 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 | F1 Captación | Webhook: evento de la API tras el registro de P01 (ADR-16), más un barrido cada minuto de los prospectos sin carpeta (C27) | Apoderado, Consentimiento, Expediente, Notificacion, Registro_Auditoria |
 | F2 Recepción y registro | Webhook: evento de la API con `{ id_expediente }` tras «Confirmar documentos» en P06 (HU0017), más un barrido cada minuto de las confirmaciones sin verificar y de los avisos de faltantes por retomar (ADR-16). Entrega cada expediente a F3. La ficha y los archivos los registra la API: no pasan por n8n (ADR-21) | Expediente, Registro_Auditoria (lectura, a través de la API) |
 | F3 Verificación de completitud | Invocado por F2 (sub-workflow). Pide la verificación a la API (R8) y, si falta algo, notifica por F6 | Documento, Requisito_Documental, Pago, Expediente, Notificacion, Registro_Auditoria |
-| F4 Agendamiento | Webhook: evento de la API con `{ id_cita }` tras la reserva en P02 (HU0003) y el registro de la asistencia en G04 (HU0004), o con `{ id_expediente, id_notificacion }` tras «Confirmar citas» y la reprogramación en P08 (HU0009), más un barrido cada minuto de los avisos pendientes, también el de la habilitación del agendamiento (C52) (ADR-16) | Horario_Disponible, Cita, Cuenta_Acceso, Notificacion, Registro_Auditoria (lectura, a través de la API) |
+| F4 Agendamiento | Webhook: evento de la API con `{ id_cita }` tras la reserva en P02 (HU0003) y el registro de la asistencia en G04 (HU0004), o con `{ id_expediente, id_notificacion }` tras «Confirmar citas» y la reprogramación en P08 (HU0009), la inasistencia en G11 (HU0025) y el dictamen En observación o No apto en G06 (HU0010), más un barrido cada minuto de los avisos pendientes, también el de la habilitación del agendamiento (C52) (ADR-16) | Horario_Disponible, Cita, Cuenta_Acceso, Notificacion, Registro_Auditoria (lectura, a través de la API) |
 | F5 Generación de carta | Webhook: pago conciliado (R18) | Pago, Carta_Vacante, Expediente |
 | F6 Notificación multicanal | Invocado por los demás flujos | Notificacion |
 | F7 Seguimiento y recordatorios | Programado diario (R20 y R21, HU0018), más un Schedule cada minuto para el recordatorio de la visita (HU0003, D4) | Expediente, Cita, Notificacion, Registro_Auditoria |
@@ -600,6 +601,7 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
   - Cada aviso tiene como máximo una fila `enviado` o una `fallido`. Los indicadores (HU0019, C8) cuentan avisos por esas filas y no cuentan las `pendiente` como envíos.
 - **Cupos frente a `uq_cita_personal_fecha` (C40, resuelto en HU0009 para las evaluaciones):** el índice es parcial: no cuenta las citas `reprogramada` ni `cancelada` (el turno liberado se vuelve a reservar) ni la jornada de observación, que es grupal. Las demás citas siguen siendo individuales: un horario individual con `cupos > 1` admite una sola cita. Los cupos de la visita (P-e) siguen en HU0022.
 - **Avisos de las evaluaciones (HU0009, ADR-07):** la confirmación (`evaluaciones_confirmadas`) y los de la reprogramación (`evaluacion_reprogramada`, `evaluacion_reprogramada_responsable` y `evaluacion_liberada_responsable`) son las filas del tipo con `id_notificacion` ≥ el primer intento, que guardan la `transicion_estado` a `en_evaluacion` o el evento `cita_reprogramada`; solo se retoma el de la fuente más reciente de cada tipo. La habilitación (`evaluaciones_habilitadas`, C52) es una por expediente y se ancla en la fecha del `atencion_fin` con `habilita_agendamiento`. Un aviso al responsable se registra con el `id_expediente` de la familia y va al correo del `Personal` de la cita.
+- **Avisos de la inasistencia y del dictamen (HU0010 y HU0025, ADR-25):** `evaluacion_inasistencia` (familia; primer intento en el `atencion_fin` de la inasistencia), `dictamen_en_observacion` (buzón `CORREO_ADMISION`; primer intento en la `transicion_estado` a `en_observacion`) y `dictamen_no_apto` (familia; primer intento en la `transicion_estado` a `no_apto`). Siguen la misma regla de intentos. Ninguno lleva conclusiones, observaciones, requisitos complementarios ni el informe (C11).
 
 ---
 
@@ -691,3 +693,13 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 | §4.7: evento `cita_reprogramada` (migración `20261105120100_evento_cita_reprogramada.sql`) | HU0009-2.0 no cambia el estado del expediente: el evento es la evidencia del cambio y el ancla de sus avisos (decisión R4) |
 | La entrevista a los padres empieza después del fin de las demás citas del expediente, al reservar y al reprogramar | R11 («entrevista a los padres al final»), decisión O de John |
 | §4.7 (`atencion_fin`), §6 F4 y §7: avisos de las evaluaciones, también al responsable de la cita | HU0009-1.0 y 2.0, C52 (decisiones C52 y R3) |
+
+### Ajustes por HU0010 y HU0025 (05/11/2026): una columna nueva, sin tablas nuevas
+| Cambio | Motivo |
+|---|---|
+| Columna `Dictamen_Admision.requisitos_complementarios text`, cifrada (migración `20261105130000_dictamen_requisitos_complementarios.sql`). La Figura 12 se regenera | HU0010-2.0 («detalla los requisitos complementarios»): Secretaría los coordina con la familia (R13) y no puede leer `conclusiones` (R3). Decisión D4b-B de John |
+| `Resultado_Evaluacion.observaciones`, `Dictamen_Admision.conclusiones` y `requisitos_complementarios` se cifran en la API | Datos de salud de menores (ADR-03, decisión D1-A) |
+| Transiciones `en_evaluacion → apto`, `en_evaluacion → en_observacion`, `en_evaluacion → no_apto`, `en_observacion → apto` y `en_observacion → no_apto`. `no_apto` es final | HU0010-1.0, 2.0 («antes de un nuevo dictamen») y 3.0 («cierra el expediente»); decisiones D4a-A y D4d |
+| Inasistencia a la evaluación académica = `Cita.estado = no_asistio` y `Resultado_Evaluacion.resultado = 'inasistencia'`; la familia la reprograma en P08 y la cita vieja queda `no_asistio` | HU0025-2.0 («libera la cita … para que reprograme»), decisión D2-A |
+| La entrevista a los padres va al final (R11), salvo al reprogramar una inasistencia si la entrevista ya no se puede mover: registrada, ya pasada o a menos de `REPROGRAMACION_MIN_HORAS` | Sin la excepción, el expediente quedaría detenido en `en_evaluacion` (HU0025-2.0, decisión A de John; ADR-24) |
+| §4.7 (`atencion_fin`), R13, §4.6, §6 F4 y §7: el detalle `dictamen_anterior`, la condición del dictamen, la lectura de Secretaría y los avisos nuevos | ADR-25 |

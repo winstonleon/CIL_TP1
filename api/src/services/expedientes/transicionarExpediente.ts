@@ -21,6 +21,11 @@ export const TRANSICIONES_PERMITIDAS: TransicionesPermitidas = {
     ["portal_habilitado", "en_postulacion"], // HU0005-2.0: primer guardado de la ficha (borrador o completa)
     ["en_postulacion", "en_validacion"], // HU0017-1.0: la verificación de completitud encontró el expediente completo
     ["en_validacion", "en_evaluacion"], // HU0009-1.0: «Confirmar citas» con las tres ramas de R9 conformes (B1)
+    ["en_evaluacion", "apto"], // HU0010-1.0: dictamen «Apto» (ADR-25)
+    ["en_evaluacion", "en_observacion"], // HU0010-2.0: dictamen «En observación» con requisitos complementarios
+    ["en_evaluacion", "no_apto"], // HU0010-3.0: dictamen «No apto»; no_apto es final (sin salidas, D4d)
+    ["en_observacion", "apto"], // HU0010-2.0: nuevo dictamen después de la observación (D4a-A)
+    ["en_observacion", "no_apto"], // HU0010-2.0: nuevo dictamen después de la observación (D4a-A)
   ],
   // R9: cada rama tiene su propio ciclo de observación y subsanación (HU0008 y HU0011, plan del bloque 5).
   estado_documental: [

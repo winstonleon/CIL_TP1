@@ -120,6 +120,16 @@ describe("Rama evaluaciones del flujo agendamiento (n8n)", () => {
     expect(ejecutarCodigo(nodo("Un ítem por aviso de evaluación"), { $input: { all: () => [{ json: { avisos: [] } }] } })).toEqual([]);
   });
 
+  it("HU0025-2.0 el barrido de evaluaciones también saca los avisos de la inasistencia y del dictamen (En observación y No apto, HU0010-2.0 y 3.0), solo con ids (ADR-25, C11)", () => {
+    const NUEVOS = ["evaluacion_inasistencia", "dictamen_en_observacion", "dictamen_no_apto"];
+    const avisos = NUEVOS.map((tipo_evento, i) => ({ id_expediente: 30 + i, tipo_evento, cuerpo: CENTINELA, conclusiones: CENTINELA }));
+
+    const items = ejecutarCodigo(nodo("Un ítem por aviso de evaluación"), { $input: { all: () => [{ json: { avisos } }] } });
+
+    expect(items.map((i) => i.json)).toEqual(NUEVOS.map((tipo_evento, i) => ({ id_expediente: 30 + i, id_notificacion: null, tipo_evento })));
+    expect(JSON.stringify(items)).not.toContain(CENTINELA);
+  });
+
   it("HU0009-2.0 «Reservar aviso de evaluación» manda { id_notificacion } en el camino del webhook y { tipo_evento } en el del barrido; un 409 va a «Sin acción (evaluación)» y un error, al registro del fallo", () => {
     const reservar = nodo("Reservar aviso de evaluación");
     expect(reservar.parameters.method).toBe("POST");

@@ -4,15 +4,18 @@
      «Observar documento» con el motivo y «Solicitar subsanación» (HU0008-2.0).
      Desvíos del mockup: las pestañas Ficha y cuestionario, Pagos, Citas e Historial no tienen HU (C53): se ven
      deshabilitadas y no hacen nada; el panel no tiene vista previa del archivo (se abre con «Ver») y su nota no menciona WhatsApp (C30).
-     Además del mockup: el aviso «Las tres validaciones están conformes…» muestra el resultado de HU0008-1.0 (B1). -->
+     Además del mockup: el aviso «Las tres validaciones están conformes…» muestra el resultado de HU0008-1.0 (B1), y un
+     expediente con dictamen «En observación» muestra sus requisitos complementarios (HU0010-2.0, R13, D4b-B). -->
 <script setup lang="ts">
-import { computed, onMounted, shallowRef } from "vue";
+import { computed, onMounted, ref, shallowRef } from "vue";
 import { RouterLink, useRoute } from "vue-router";
+import { leerRequisitosComplementarios, type RequisitosComplementarios as Requisitos } from "../../api/dictamen";
 import type { DocumentoRevision } from "../../api/validaciones";
 import { chipsRamas, nombreCompleto } from "../../gestion/validacion";
 import { telefonoVisible } from "../../gestion/telefono";
 import ListaRevision from "./validacion/ListaRevision.vue";
 import PanelObservacion from "./validacion/PanelObservacion.vue";
+import RequisitosComplementarios from "./validacion/RequisitosComplementarios.vue";
 import { useRevisionRama } from "./validacion/useRevisionRama";
 
 // Solo «Documentos» tiene HU en este bloque; las demás no tienen HU asignada en el backlog (C53).
@@ -42,7 +45,16 @@ const nombreObservado = computed(() => {
 
 const abrirObservacion = (d: DocumentoRevision) => (r.observando.value = d);
 
-onMounted(r.cargar);
+// Un expediente fuera de en_validacion no tiene validación documental; si está en observación, G03 muestra los requisitos
+// complementarios del dictamen (la API responde 404 en cualquier otro caso y se mantiene el mensaje de la carga).
+const requisitos = ref<Requisitos | null>(null);
+async function iniciar() {
+  await r.cargar();
+  if (r.carga.value !== "error" || idExpediente.value === null) return;
+  requisitos.value = await leerRequisitosComplementarios(idExpediente.value).catch(() => null);
+}
+
+onMounted(iniciar);
 </script>
 
 <template>
@@ -50,6 +62,7 @@ onMounted(r.cargar);
     <RouterLink to="/gestion/bandeja" class="volver">‹ Bandeja de expedientes</RouterLink>
 
     <p v-if="r.carga.value === 'cargando'" class="suave" role="status">Cargando expediente…</p>
+    <RequisitosComplementarios v-else-if="requisitos" :requisitos="requisitos" />
     <p v-else-if="r.carga.value === 'error'" class="mensaje" role="alert" data-testid="error-carga">{{ r.errorCarga.value }}</p>
 
     <template v-else-if="r.detalle.value">

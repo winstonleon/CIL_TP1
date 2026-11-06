@@ -130,6 +130,7 @@ describe("D1 configuración del almacenamiento", () => {
     N8N_WEBHOOK_SECRET: randomBytes(32).toString("hex"), ENLACE_VISITA_KEY: randomBytes(32).toString("base64"),
     RECORDATORIO_VISITA_HORAS: "24", STORAGE_DRIVER: "local", STORAGE_LOCAL_DIR: "/tmp/x",
     ARCHIVOS_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
+    CORREO_ADMISION: "admision@ejemplo.test",
   } as NodeJS.ProcessEnv;
 
   it("D1 una configuración completa es válida y la clave anterior es opcional", () => {

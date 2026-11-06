@@ -57,8 +57,8 @@ export const MENU: Record<RolPersonal, OpcionMenu[]> = {
     { etiqueta: "Configuración de campaña", icono: ICONO.configuracion, ruta: "/gestion/configuracion", columnas: ["configuracion"] },
   ],
   tesoreria: [{ etiqueta: "Validaciones de Tesorería", icono: ICONO.tesoreria, ruta: "/gestion/tesoreria", columnas: ["datos_postulante"] }],
-  psicologa: [{ etiqueta: "Agenda y dictámenes", icono: ICONO.psicologia, columnas: ["datos_postulante"] }],
-  evaluador_academico: [{ etiqueta: "Evaluaciones académicas", icono: ICONO.evaluacion, columnas: ["datos_postulante"] }],
+  psicologa: [{ etiqueta: "Agenda y dictámenes", icono: ICONO.psicologia, ruta: "/gestion/psicologia", columnas: ["datos_postulante"] }],
+  evaluador_academico: [{ etiqueta: "Evaluaciones académicas", icono: ICONO.evaluacion, ruta: "/gestion/evaluacion-academica", columnas: ["datos_postulante"] }],
   directora: [
     { etiqueta: "Adjudicación de vacantes", icono: ICONO.vacantes, columnas: ["datos_postulante"] },
     { etiqueta: "Indicadores", icono: ICONO.indicadores, columnas: ["usuarios_indicadores"] },

@@ -8,7 +8,10 @@ import { manejadorErrores, noEncontrado } from "./errores";
 import { crearKeycloakAdminDesdeConfig, ROLES_PERSONAL, type IdentidadAdmin } from "./identidad/keycloakAdmin";
 import { LIMITE_LECTURA_VISITA, LIMITE_PUBLICO, type OpcionesLimite } from "./limitePorIp";
 import { crearDisparadorN8nDesdeConfig, type DisparadorN8n } from "./orquestacion/n8n";
+import { requireAccesoRestringido } from "./auth/accesoRestringido";
 import { rutasBandeja } from "./routes/bandeja";
+import { rutasEvaluacionAcademica } from "./routes/evaluacionAcademica";
+import { rutasPsicologia } from "./routes/psicologia";
 import { rutaCampanaActiva } from "./routes/campana";
 import { rutasConfiguracion } from "./routes/configuracion";
 import { rutasFamilia } from "./routes/familia";
@@ -96,6 +99,25 @@ export function crearApp(dependencias: Dependencias = {}): Express {
     requireRol("tesoreria"),
     requirePersonalActivo("tesoreria"),
     rutasTesoreria(campanaActiva, almacenamiento, eventos),
+  );
+  // Resultados de las evaluaciones y dictamen (HU0010 y HU0025, ADR-25). Todo G06 expone información del informe
+  // psicológico (resultados, conclusiones e informe): la política de R3 va antes del rol, así cualquier otro rol recibe
+  // 403 auditado con `detalle.recurso` (HU0021-2.0, C17); después, solo la psicóloga activa (la directora verá el informe
+  // con su pantalla, HU0012).
+  app.use(
+    "/psicologia",
+    verificarToken,
+    requireAccesoRestringido("informe_psicologico", { obtenerIdExpediente: (req) => /^\/expedientes\/(\d+)(?:\/|$)/.exec(req.path)?.[1] }),
+    requireRol("psicologa"),
+    requirePersonalActivo("psicologa"),
+    rutasPsicologia(almacenamiento, eventos),
+  );
+  app.use(
+    "/evaluacion-academica",
+    verificarToken,
+    requireRol("evaluador_academico"),
+    requirePersonalActivo("evaluador_academico"),
+    rutasEvaluacionAcademica(eventos),
   );
 
   app.use(noEncontrado);

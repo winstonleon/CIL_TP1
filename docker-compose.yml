@@ -158,6 +158,8 @@ services:
       # colegio para «Lugar» de P02 y de los correos (puede quedar vacía: se ve «[Dirección del colegio]», C39).
       RECORDATORIO_VISITA_HORAS: ${RECORDATORIO_VISITA_HORAS}
       DIRECCION_COLEGIO: ${DIRECCION_COLEGIO}
+      # Buzón del personal de admisión para el aviso del dictamen «En observación» (HU0010-2.0, ADR-25). Obligatoria.
+      CORREO_ADMISION: ${CORREO_ADMISION}
       # Archivos de documentos y comprobantes (HU0006 y HU0007, ADR-12 D1 y ADR-21): adaptador local sobre el volumen
       # `archivos`, siempre cifrados. ARCHIVOS_ENCRYPTION_KEY_ANTERIOR solo se define al rotar la clave (C47).
       STORAGE_DRIVER: ${STORAGE_DRIVER}

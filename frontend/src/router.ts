@@ -11,6 +11,8 @@ import DetalleExpediente from "./views/gestion/DetalleExpediente.vue";
 import UsuariosRoles from "./views/gestion/UsuariosRoles.vue";
 import ValidacionesTesoreria from "./views/gestion/ValidacionesTesoreria.vue";
 import PantallaVisitas from "./views/gestion/PantallaVisitas.vue";
+import AgendaPsicologia from "./views/gestion/AgendaPsicologia.vue";
+import EvaluacionAcademica from "./views/gestion/EvaluacionAcademica.vue";
 import DerechoAdmision from "./views/portal/DerechoAdmision.vue";
 import DocumentosExpediente from "./views/portal/DocumentosExpediente.vue";
 import EvaluacionesAgenda from "./views/portal/EvaluacionesAgenda.vue";
@@ -88,6 +90,9 @@ export function crearEnrutador(historial: RouterHistory) {
           { path: "bandeja", component: BandejaExpedientes, meta: { titulo: "Bandeja de expedientes", roles: ["secretaria"] } },
           { path: "bandeja/:id(\\d+)", component: DetalleExpediente, meta: { titulo: "Detalle del expediente", roles: ["secretaria"] } },
           { path: "tesoreria", component: ValidacionesTesoreria, meta: { titulo: "Validaciones de Tesorería", roles: ["tesoreria"] } },
+          // G06 (HU0010) y G11 (HU0025): resultados de las evaluaciones y dictamen de admisión (ADR-25).
+          { path: "psicologia", component: AgendaPsicologia, meta: { titulo: "Agenda y dictámenes", roles: ["psicologa"] } },
+          { path: "evaluacion-academica", component: EvaluacionAcademica, meta: { titulo: "Evaluaciones académicas", roles: ["evaluador_academico"] } },
         ],
       },
       { path: "/callback/:cliente(portal|gestion)", component: Callback },

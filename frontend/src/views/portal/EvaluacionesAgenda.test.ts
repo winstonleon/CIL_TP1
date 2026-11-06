@@ -223,6 +223,30 @@ describe("P08 agendamiento de evaluaciones", () => {
     expect(e.find('[data-testid="confirmar-cambio"]').exists()).toBe(false);
   });
 
+  it("HU0025-2.0 una evaluación académica a la que no se asistió muestra «No asististe» y «Elegir nuevo horario», y reprograma esa cita (D2-A)", async () => {
+    agenda = {
+      ...agendaBase(),
+      modo: "agendadas",
+      evaluaciones: [
+        { tipo_cita: "evaluacion_academica", cita: { ...cita(1, "evaluacion_academica", "2026-11-02", "08:00", true, false, "no_asistio"), inasistencia: true }, horarios: [h(12, "2026-11-24", "10:00")] },
+        { tipo_cita: "entrevista_padres", cita: cita(3, "entrevista_padres", "2026-11-26", "14:30"), horarios: [h(31, "2026-11-26", "14:30", false)] },
+      ],
+    };
+    const e = await abrir();
+    const academica = e.get('[data-testid="evaluacion-evaluacion_academica"]');
+    expect(academica.get('[data-testid="chip-inasistencia"]').text()).toBe("No asististe");
+    expect(academica.get('[data-testid="nota-inasistencia"]').text()).toBe("No registramos tu asistencia a esta cita. Elige un nuevo horario.");
+    expect(academica.get('[data-testid="reprogramar-evaluacion_academica"]').text()).toBe("Elegir nuevo horario");
+    expect(e.find('[data-testid="evaluacion-entrevista_padres"] [data-testid="nota-inasistencia"]').exists()).toBe(false);
+
+    await academica.get('[data-testid="reprogramar-evaluacion_academica"]').trigger("click");
+    await e.get('[data-testid="horario-12"]').trigger("click");
+    await e.get('[data-testid="confirmar-cambio"]').trigger("click");
+    await esperar();
+
+    expect(envios).toEqual([{ url: `/api/familia/expedientes/${ID}/citas/1/reprogramacion`, cuerpo: { id_horario: 12 } }]);
+  });
+
   it("HU0009-2.0 si la API rechaza el cambio (422 PLAZO_REPROGRAMACION_VENCIDO) muestra su aviso y no confirma nada", async () => {
     agenda = {
       ...agendaBase(),

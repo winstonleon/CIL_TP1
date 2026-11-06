@@ -13,6 +13,11 @@ const HOLGURA_CUERPO = 64 * 1024;
 const TOPE_DESCARTE = 3 * MAXIMO_BYTES;
 const LIMITE_CAMPO = 1024; // bytes de un campo de texto
 
+export interface OpcionesCarga {
+  // Bytes de un campo de texto (p. ej. las conclusiones del dictamen, HU0010). Debe caber en HOLGURA_CUERPO.
+  limiteCampo?: number;
+}
+
 const invalido = (mensaje: string) => new ErrorApi(400, "VALIDACION", mensaje);
 
 function descartar(req: Request): void {
@@ -29,6 +34,27 @@ export function recibirCarga<T>(
   req: Request,
   procesar: (campos: Record<string, string>, archivo: Readable) => Promise<T>,
 ): Promise<T> {
+  // Sin archivo opcional, `recibir` nunca llama a `procesar` con null: falta el archivo es un 400.
+  return recibir(req, (campos, archivo) => procesar(campos, archivo!), false, {});
+}
+
+// Igual, con el archivo opcional (el informe del dictamen, HU0010-1.0): sin la parte «archivo», `procesar` recibe null
+// al terminar el cuerpo.
+export function recibirCargaConArchivoOpcional<T>(
+  req: Request,
+  procesar: (campos: Record<string, string>, archivo: Readable | null) => Promise<T>,
+  opciones: OpcionesCarga = {},
+): Promise<T> {
+  return recibir(req, procesar, true, opciones);
+}
+
+function recibir<T>(
+  req: Request,
+  procesar: (campos: Record<string, string>, archivo: Readable | null) => Promise<T>,
+  archivoOpcional: boolean,
+  opciones: OpcionesCarga,
+): Promise<T> {
+  const limiteCampo = Math.min(opciones.limiteCampo ?? LIMITE_CAMPO, HOLGURA_CUERPO / 2);
   return new Promise<T>((resolver, rechazar) => {
     let terminado = false;
     let analizador: ReturnType<typeof busboy> | undefined;
@@ -47,7 +73,7 @@ export function recibirCarga<T>(
       analizador = busboy({
         headers: req.headers,
         // fileSize + 1: el inspector ve el byte de más y responde 413 (busboy solo trunca como respaldo).
-        limits: { fieldSize: LIMITE_CAMPO, fields: 8, files: 1, parts: 10, fileSize: MAXIMO_BYTES + 1 },
+        limits: { fieldSize: limiteCampo, fields: 8, files: 1, parts: 10, fileSize: MAXIMO_BYTES + 1 },
       });
     } catch {
       return fallar(invalido("Se esperaba un formulario multipart/form-data"));
@@ -79,6 +105,7 @@ export function recibirCarga<T>(
     analizador.on("partsLimit", () => fallar(invalido("Hay partes de más")));
     analizador.on("error", fallar);
     analizador.on("close", () => {
+      if (!resultado && archivoOpcional) resultado = procesar({ ...campos }, null);
       if (!resultado) return fallar(invalido("Falta el archivo"));
       resultado.then((valor) => {
         if (terminado) return;
