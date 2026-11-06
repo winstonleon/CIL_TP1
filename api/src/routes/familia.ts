@@ -20,6 +20,7 @@ import {
 } from "../services/documentos";
 import { TIPOS_EVALUACION, type TipoEvaluacion } from "../repositories/evaluaciones";
 import { confirmarCitas, leerEvaluaciones, reprogramarCita, resolverCita } from "../services/evaluaciones";
+import { elegirModalidad, esquemaModalidad, leerCuota, registrarCuota, subsanarCuota } from "../services/cuotaIngreso";
 import { guardarFicha, leerFicha, listaRequisitos, listarExpedientes } from "../services/fichaInscripcion";
 import { LARGO_MAXIMO } from "../services/reglasSolicitud";
 import { validar } from "../validacion";
@@ -182,6 +183,39 @@ export function rutasFamilia(almacenamiento: Almacenamiento, eventos: Disparador
   rutas.put("/expedientes/:id/derecho-admision", async (req, res) => {
     const e = req.expedienteFamilia!;
     res.json(await recibirCarga(req, (campos, archivo) => subsanarDerecho(almacenamiento, e, campos, archivo)));
+  });
+
+  // ---- P07 · cuota de ingreso (HU0013, HU0014 y HU0015-2.0)
+
+  // GET /familia/expedientes/:id/cuota-ingreso → 200 { disponible, aplica, nivel, grado, monto, max_fracciones, modalidad,
+  // numero_fracciones, montos, bancos, cuenta_colegio, modalidad_editable, registrable, pago, derecho } · 404
+  rutas.get("/expedientes/:id/cuota-ingreso", async (req, res) => {
+    res.json(await leerCuota(req.expedienteFamilia!));
+  });
+
+  // POST /familia/expedientes/:id/cuota-ingreso/modalidad { modalidad: "unico" } | { modalidad: "fraccionado",
+  // numero_fracciones } → 200 como el GET (HU0013-1.0) · 400 · 404 · 409 MODALIDAD_NO_CORRESPONDE, MODALIDAD_YA_ELEGIDA o
+  // CUOTA_NO_APLICA · 422 FRACCIONES_NO_PERMITIDAS con detalle { maximo } (HU0013-2.0)
+  rutas.post("/expedientes/:id/cuota-ingreso/modalidad", async (req, res) => {
+    res.json(await elegirModalidad(req.expedienteFamilia!, validar(esquemaModalidad, req.body)));
+  });
+
+  // POST /familia/expedientes/:id/cuota-ingreso · multipart: banco, numero_operacion, fecha_pago, monto y al final «archivo»
+  // → 201 como el GET, con la cuota en conciliación (HU0014-1.0) · 400 VALIDACION · 404 · 409 COMPROBANTE_DUPLICADO,
+  // CUOTA_YA_REGISTRADA, CUOTA_NO_REGISTRABLE o CUOTA_NO_APLICA · 413 · 415 (HU0014-2.0)
+  rutas.post("/expedientes/:id/cuota-ingreso", async (req, res) => {
+    const e = req.expedienteFamilia!;
+    const { id_notificacion, cuota } = await recibirCarga(req, (campos, archivo) => registrarCuota(almacenamiento, e, campos, archivo));
+    res.status(201).json(cuota);
+    // ADR-16: después del COMMIT y de responder; solo ids (C11). disparar() nunca rechaza.
+    void eventos.disparar("agendamiento", { id_expediente: e.id_expediente, id_notificacion });
+  });
+
+  // PUT /familia/expedientes/:id/cuota-ingreso · multipart: como el POST → 200 como el GET, con la cuota de vuelta en
+  // conciliación (HU0015-2.0, subsanación A1) · 400 VALIDACION · 404 · 409 CUOTA_NO_SUBSANABLE o COMPROBANTE_DUPLICADO · 413 · 415
+  rutas.put("/expedientes/:id/cuota-ingreso", async (req, res) => {
+    const e = req.expedienteFamilia!;
+    res.json(await recibirCarga(req, (campos, archivo) => subsanarCuota(almacenamiento, e, campos, archivo)));
   });
 
   // ---- P08 · evaluaciones (HU0009)

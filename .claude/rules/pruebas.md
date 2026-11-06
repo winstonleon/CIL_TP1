@@ -4,7 +4,7 @@
 - Prueba el comportamiento observable por la interfaz pública (HTTP, pantalla). No pruebes detalles internos.
 - Las pruebas de autorización por rol (403 y auditoría del intento) son obligatorias cuando la HU toca datos restringidos.
 - Las pruebas no dependen de servicios externos reales: el correo va a Mailpit y n8n se simula o se usa la instancia de pruebas.
-- No marques una prueba como `skip` ni la modifiques para que la suite pase (tampoco los scripts de verificación, como `scripts/verificar-infra.mjs`). Si falla, se reporta, y la corrección va en la configuración (compose, realm, init de Postgres) o en el código de producción. Si la prueba parece mal planteada, me detengo y le explico a John por qué, y espero su decisión antes de cambiarla.
+- No marques una prueba como `skip` ni la modifiques para que la suite pase (tampoco los scripts de verificación, como `scripts/verificar-infra.mjs`). Si falla, se reporta, y la corrección va en la configuración (compose, realm, init de Postgres) o en el código de producción. Si la prueba parece mal planteada, me detengo y le explico a John por qué, y espero su decisión antes de cambiarla. Cualquier cambio a una prueba existente, aunque sea mecánico (agregar una variable de configuración, un elemento a una lista esperada), se consulta antes de hacerlo.
 - La salida de las suites se muestra completa, sin `grep` ni otros filtros que oculten líneas. También vale redirigirla a un log y mostrar el log entero.
 - Si una suite falla entera sin ejecutar ninguna prueba (p. ej. «10 failed, no tests»), guardo el log completo en el scratchpad, investigo la causa y se la reporto a John **antes** de reintentar.
 

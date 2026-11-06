@@ -1,6 +1,6 @@
 <!-- Estructura común de las pantallas P* con sesión (mockups P05 y P05b): encabezado con la persona, el expediente y
      «Cerrar sesión», y menú lateral con el postulante. Solo muestra lo que HU0005 necesita: «Ficha y cuestionario» y
-     «Documentos» (se habilita al completar la ficha; P06, HU0006), «Pagos» (P07b, HU0007) y «Evaluaciones» (P08, HU0009;
+     «Documentos» (se habilita al completar la ficha; P06, HU0006), «Pagos» (P07, HU0013 y HU0014; P07b, HU0007) y «Evaluaciones» (P08, HU0009;
      se habilita en la validación y la evaluación, C52). «Mi postulación» llega con su HU. Sin logo hasta que el colegio entregue el archivo (como G10). -->
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
@@ -71,8 +71,8 @@ function salir() {
             Documentos
           </RouterLink>
           <button v-else type="button" class="opcion" data-testid="menu-documentos" disabled aria-disabled="true">Documentos</button>
-          <!-- «Pagos» lleva por ahora al derecho de admisión (P07b, HU0007); P07 llega con HU0013 y HU0014. -->
-          <RouterLink to="/portal/pagos/derecho-admision" class="opcion" exact-active-class="activa" data-testid="menu-pagos">Pagos</RouterLink>
+          <!-- P07 (HU0013 y HU0014). P07b (HU0007) se abre desde P07 y comparte esta opción. -->
+          <RouterLink to="/portal/pagos" class="opcion" active-class="activa" data-testid="menu-pagos">Pagos</RouterLink>
           <RouterLink v-if="evaluacionesHabilitadas" to="/portal/evaluaciones" class="opcion" exact-active-class="activa" data-testid="menu-evaluaciones">
             Evaluaciones
           </RouterLink>

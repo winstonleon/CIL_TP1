@@ -13,7 +13,8 @@ export type TipoEventoAuditoria =
   | "documentos_confirmados"
   | "completitud_verificada"
   | "subsanacion_registrada"
-  | "cita_reprogramada";
+  | "cita_reprogramada"
+  | "cuota_registrada";
 
 export interface EventoAuditoria {
   tipoEvento: TipoEventoAuditoria;

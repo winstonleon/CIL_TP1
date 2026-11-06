@@ -54,7 +54,7 @@ describe("HU0021-1.0 navegación de la gestión interna por rol", () => {
     // dictámenes» (G06, HU0010) y «Evaluaciones académicas» (G11, HU0025); las demás se ven pero no navegan (plan HU0021, P4).
     const enlaces = menu.findAll("a.opcion").map((a) => a.text());
     const conPantalla: Record<string, string[]> = {
-      directora: ["Usuarios y roles"],
+      directora: ["Adjudicación de vacantes", "Usuarios y roles"],
       secretaria: ["Bandeja de expedientes", "Visitas guiadas", "Configuración de campaña"],
       tesoreria: ["Validaciones de Tesorería"],
       psicologa: ["Agenda y dictámenes"],

@@ -151,6 +151,7 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
     - Contar las filas `enviado` o `fallido` es contar avisos. Las `pendiente` son intentos de resultado desconocido y no se cuentan como envíos.
   - **`captacion`** (carpeta, HU0002) sigue sin tope: lo resuelve C41.
 - **[PROPUESTA]** En desarrollo, el correo va a **Mailpit** (contenedor que captura los correos, visible en el navegador). Ningún correo sale a Internet desde dev.
+- **[EQUIPO, bloque 8, 05/11/2026] Avisos de la vacante y de la cuota:** siguen esta misma regla (ADR-26).
 - **[EQUIPO] Excepción:** el enlace para definir la contraseña del personal lo envía Keycloak (ADR-02) y no se registra en notificacion, porque esa tabla exige un expediente. La evidencia queda en registro_auditoria (gestion_usuario).
 
 ## ADR-08 Entornos y portabilidad al VPS
@@ -201,7 +202,7 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 - **[EQUIPO, HU0022]** `Requisito_Documental.tipo_documento` guarda el nombre visible que escribe Secretaría (p. ej. «Partida de nacimiento»).
   - Es único por grado sin distinguir mayúsculas: índice `uq_requisito_grado_tipo_minusculas`.
 - **[EQUIPO, HU0022]** `Grado.monto_cuota_ingreso` admite 0 a propósito, para que la propuesta sirva también a colegios públicos sin cuota de ingreso.
-  - Con cuota 0 no puede registrarse un pago de cuota (`ck_pago_monto > 0`), y R18 dispara la carta con ese pago. Cómo se emite la carta en ese caso lo definen HU0013 a HU0016 (C25).
+  - Con cuota 0 no puede registrarse un pago de cuota (`ck_pago_monto > 0`), y R18 dispara la carta con ese pago. Un grado con cuota 0 adjudica sin pago, y HU0016 toma la carta desde los datos (ADR-26, C62).
 - **[EQUIPO, HU0022]** Vacantes adjudicadas = `vacantes_autorizadas − vacantes_disponibles` (R14, R15 y G07).
   - Al cambiar las autorizadas, las disponibles se mueven con la diferencia y las adjudicadas no cambian.
   - HU0012 y HU0018 prueban que ese valor coincide con los expedientes en `vacante_asignada` o `carta_emitida` (C25).
@@ -343,6 +344,8 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 | Textos de los avisos de las evaluaciones y pautas previas (HU0009 y C52) | `borrador-1`, entre corchetes | `api/src/services/avisosEvaluacion.ts` | El colegio entrega los textos y las pautas, y se sube la versión | `HU0009-1.0 …`, `HU0009-2.0 …` y `C52 …` |
 | Textos de los avisos de la inasistencia y del dictamen (HU0010 y HU0025) | `borrador-1`, entre corchetes | `api/src/services/avisosEvaluacion.ts` | El colegio entrega los textos y se sube la versión | `HU0025-2.0 …`, `HU0010-2.0 …` y `HU0010-3.0 …` |
 | Buzón del personal de admisión (HU0010-2.0) | `admision@ejemplo.test` en dev | `CORREO_ADMISION` (**obligatoria**, `config.ts`) | Editar `.env` y recrear `api` | `HU0010-2.0 …` |
+| Textos de los avisos de la vacante y de la cuota (HU0012 y HU0014) | `borrador-1`, entre corchetes | `api/src/services/avisosVacante.ts` | El colegio entrega los textos y se sube la versión | `HU0012-1.0 …`, `HU0012-2.0 …` y `HU0014-1.0 …` |
+| Buzón de Tesorería (HU0014-1.0) | `tesoreria@ejemplo.test` en dev | `CORREO_TESORERIA` (**obligatoria**, `config.ts`) | Editar `.env` y recrear `api` | `HU0014-1.0 …` |
 | Escala del resultado de las evaluaciones | Texto libre de hasta 50 caracteres, «[Escala por definir]» | `Resultado_Evaluacion.resultado` (§7 del modelo) | El colegio define la escala y una HU la cierra | `HU0025-1.0 …` |
 
 ## ADR-20 Ficha de inscripción y cuestionario de expectativas (HU0005)
@@ -383,7 +386,7 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 - **[EQUIPO, HU0006, 03/11/2026] Desvíos respecto a los mockups de P05, P06 y P07b:**
   - **«Ir a Documentos» (P05):** botón que lleva a P06 desde «Paso siguiente: Documentos», al completar la ficha. El mockup de P05 solo llega a P06 por el menú; el botón se mantiene por comodidad.
   - **«Reemplazar» (P06):** se ofrece en todos los archivos vigentes, no solo en los observados como en el mockup («Subsana solo lo que esté observado»). Limitarlo a los observados queda para HU0011 (subsanación).
-  - **Lo que no se muestra por falta de una HU o de un dato (C49 y C50):** en P06 la franja «Condición laboral declarada en la ficha» con «Editar en la ficha» y el nombre original del archivo; en P07b «Volver a Pagos» y «Registrado el» al volver a la pantalla.
+  - **Lo que no se muestra por falta de una HU o de un dato (C49 y C50):** en P06 la franja «Condición laboral declarada en la ficha» con «Editar en la ficha» y el nombre original del archivo; en P07b «Registrado el» al volver a la pantalla. «Volver a Pagos» llegó con P07 (ADR-26).
 
 ## ADR-22 Verificación automática de completitud (HU0017)
 - **[EQUIPO, HU0017, 03/11/2026] Qué decide cada componente:**
@@ -526,6 +529,29 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
   - cómo entrega la familia los informes complementarios y la «sesión adicional» de HU0010-2.0, que se coordinan fuera del sistema (C59);
   - la bandeja de Secretaría no lista los expedientes en `en_observacion`: se llega por el enlace del correo (C60);
   - la inasistencia a las citas de la psicóloga.
+
+## ADR-26 Adjudicación de la vacante y cuota de ingreso (HU0012 a HU0015)
+- **[EQUIPO, bloque 8, 05/11/2026] Adjudicación (R14):** una sola acción y una sola ruta, `POST /direccion/expedientes/:id/adjudicacion`.
+  - Con el expediente y después la fila del grado bloqueados (`FOR UPDATE`, la misma de G09, así R15 no se cruza): si hay cupo, descuenta 1 y pasa a `vacante_asignada`; si no, pasa a `lista_espera` con la posición `max(posición del grado) + 1`.
+  - Dos adjudicaciones al último cupo: una gana y la otra termina en lista de espera, sin error (HU0012-2.0). G07 muestra el resultado que devuelve la API, no el que ofrecía el botón (ajuste 1 de John). Lo prueban `HU0012-1.0 (concurrencia)` y `HU0012-2.0 G07 muestra el resultado de la API …`.
+  - La posición se escribe después de la transición, por `ck_expediente_posicion_lista_espera`.
+- **[EQUIPO] Lista de espera:** solo la entrada. La transición de salida no tiene escenario ni regla (C61, decisión de John).
+- **[EQUIPO] Estados de la HU, sin enum nuevo:** «Vacante otorgada» = `vacante_asignada`. Del Pago `cuota_ingreso`, fracción 1: `pendiente` = «Cuota en conciliación», `observado` = «Cuota observada» y `conforme` = «Cuota acreditada». Toda la cuota ocurre en `vacante_asignada`.
+- **[EQUIPO] Modalidad (HU0013):** paso previo a la carga. Único = `numero_fracciones = 1`; fraccionado = de 2 a `Grado.max_fracciones` (422 `FRACCIONES_NO_PERMITIDAS` con el máximo). La familia la cambia mientras no haya un pago de cuota registrado; después, 409 `MODALIDAD_YA_ELEGIDA`, comprobado con el expediente bloqueado (ajuste 2 de John).
+  - **Monto de cada pago:** partes iguales a dos decimales; la última absorbe los céntimos.
+- **[EQUIPO] Comprobante (HU0014):** la carga de ADR-21 (firma de bytes, 10 MB, cifrado, R19). `Pago.monto` guarda lo que declara la familia, sin rechazo automático: G05 lo muestra junto al monto que corresponde y Tesorería decide (HU0015-2.0). Solo se registra el pago único o la primera fracción (C64). La calidad del archivo no se valida (C63).
+- **[EQUIPO] Evento `cuota_registrada`** (§4.7, actor familia): `{ id_pago, id_notificacion }`. La cuota no cambia de estado y `Pago` no guarda la fecha (C49): es la fuente del aviso a Tesorería y de «Recibido» en G05.
+- **[EQUIPO] Conciliación (HU0015):** el camino de HU0024 (`detallePago`, `decidirPago`, `abrirComprobante`), generalizado por `tipo_pago`. El derecho exige `en_validacion` y evalúa la unión de R9; la cuota exige `vacante_asignada` y no la evalúa. El rechazo es `observado`, y la regularización va por `PUT /familia/expedientes/:id/cuota-ingreso` en la misma fila (A1, ADR-23), con `subsanacion_registrada`; no avisa otra vez a Tesorería.
+- **[EQUIPO, C62] Carta:** no se dispara ningún webhook: `generacion-carta` no existe. HU0016 toma la carta desde los datos: Pago `cuota_ingreso`, fracción 1, `conforme`; o `vacante_asignada` con cuota 0. La marca `cuota_acreditada: true` en `atencion_fin` queda solo para trazabilidad (ajuste 3 de John).
+- **[EQUIPO, C25 (5)] Cuota 0:** vacante sin pago, porque `ck_pago_monto` exige monto > 0. El expediente queda en `vacante_asignada`, P07 dice que el grado no tiene cuota y el POST de la modalidad y el del comprobante responden 409 `CUOTA_NO_APLICA`. R18 gana ese segundo disparador.
+- **[EQUIPO] Avisos** (ADR-07: una fila por intento, retoma a los 10 min, tope de 6 y fila de cierre `fallido`):
+  - `vacante_asignada` (familia, con el monto y las opciones de pago), `lista_espera` (familia, con la posición) y `cuota_por_conciliar` (buzón `CORREO_TESORERIA`, obligatoria): por `agendamiento`, rama evaluaciones, como los de ADR-25. Sus fuentes son la `transicion_estado` y `cuota_registrada`.
+  - La observación de la cuota usa `subsanacion_solicitada` y `aviso-observacion` (ADR-23), con enlace a P07.
+  - Ninguno lleva datos del dictamen (C11); el de Tesorería lleva solo el código del expediente y el enlace a G05.
+- **[EQUIPO, C58, R3] Acceso:** `/direccion` lleva `requireRol("directora")` y `requirePersonalActivo`. En las rutas del dictamen, `requireAccesoRestringido("informe_psicologico")` va antes del rol, como en G06: otro rol recibe 403 auditado con `detalle.recurso`.
+- **Tiempo de atención (ADR-05):** en G07, ítem `adjudicacion` con el id del expediente; `atencion_inicio` al abrir «Ver dictamen». Si la directora adjudica sin abrirlo, `id_evento_inicio` queda nulo y no suma al cycle time. En G05, ítem `pago`, como HU0024.
+- **Desvíos de los mockups:** P07 confirma la modalidad antes de la carga (el mockup dibuja todo junto) y no muestra «Pago único para alumnos ingresantes…», porque ninguna fuente define esa condición. Los paneles de «Ver dictamen» (G07) y del comprobante de la cuota (G05) no están dibujados.
+- **Fuera del bloque:** la carta, la salida de la lista de espera, la 2.ª fracción en adelante, la pestaña «Con vacante» de G02 (C53) y la devolución de la vacante (HU0018).
 
 ## Orden recomendado de implementación
 0. **Sprint 0, base técnica** (no es una HU; se documenta como habilitador):

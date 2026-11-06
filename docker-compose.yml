@@ -160,6 +160,8 @@ services:
       DIRECCION_COLEGIO: ${DIRECCION_COLEGIO}
       # Buzón del personal de admisión para el aviso del dictamen «En observación» (HU0010-2.0, ADR-25). Obligatoria.
       CORREO_ADMISION: ${CORREO_ADMISION}
+      # Buzón de Tesorería para el aviso de la cuota por conciliar (HU0014-1.0, ADR-26). Obligatoria.
+      CORREO_TESORERIA: ${CORREO_TESORERIA}
       # Archivos de documentos y comprobantes (HU0006 y HU0007, ADR-12 D1 y ADR-21): adaptador local sobre el volumen
       # `archivos`, siempre cifrados. ARCHIVOS_ENCRYPTION_KEY_ANTERIOR solo se define al rotar la clave (C47).
       STORAGE_DRIVER: ${STORAGE_DRIVER}

@@ -54,14 +54,19 @@ export function chipsRamas(r: { documental: EstadoRevision; financiera: EstadoRe
   ];
 }
 
-export function conceptoTesoreria(i: Pick<ItemTesoreria, "concepto" | "monto">): string {
+export function conceptoTesoreria(i: Pick<ItemTesoreria, "concepto" | "monto" | "modalidad" | "numero_fraccion">): string {
+  if (i.concepto === "cuota_ingreso") {
+    if (i.modalidad === "fraccionado") return `Cuota de ingreso · ${i.numero_fraccion ?? 1}.ª fracción`;
+    return `Cuota de ingreso · pago único S/ ${(i.monto ?? 0).toLocaleString("en-US")}`;
+  }
   return i.concepto === "derecho_admision" ? `Derecho de admisión · S/ ${i.monto ?? ""}` : "Documentación financiera";
 }
 
 export function etiquetaTesoreria(i: Pick<ItemTesoreria, "concepto" | "estado" | "subsanado">): Etiqueta {
   if (i.estado === "observado") return { texto: "Observado", tono: "observado" };
   if (i.subsanado) return { texto: "Subsanado", tono: "subsanado" };
-  return { texto: i.concepto === "derecho_admision" ? "Por validar" : "Por revisar", tono: "revision" };
+  const textos = { derecho_admision: "Por validar", cuota_ingreso: "Por conciliar", documentacion_financiera: "Por revisar" };
+  return { texto: textos[i.concepto], tono: "revision" };
 }
 
 // Fechas relativas de G02 y G05 en la hora de Lima: «Hoy, 9:12 a. m.», «Ayer», «Hace 3 días».

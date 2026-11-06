@@ -29,6 +29,8 @@ const entornoPrueba = {
   DIRECCION_COLEGIO: "",
   // Buzón de admisión (HU0010-2.0, ADR-25): el de dev, para no depender del .env.
   CORREO_ADMISION: "admision@ejemplo.test",
+  // Buzón de Tesorería (HU0014-1.0, ADR-26): el de dev, para no depender del .env.
+  CORREO_TESORERIA: "tesoreria@ejemplo.test",
   // Evaluaciones (HU0009-2.0, ADR-19): el valor del escenario («al menos 24 horas»), para no depender del .env.
   REPROGRAMACION_MIN_HORAS: "24",
   // Archivos (HU0006 y HU0007, ADR-21): directorio temporal y clave propios de la corrida, para no tocar los de dev.

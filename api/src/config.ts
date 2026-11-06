@@ -43,6 +43,9 @@ const esquema = z.object({
   // Buzón del personal de admisión: recibe el aviso del dictamen «En observación» (HU0010-2.0, ADR-25, decisión D4c-A de
   // John). Obligatoria: sin ella la API no arranca.
   CORREO_ADMISION: z.email(),
+  // Buzón de Tesorería: recibe el aviso de un comprobante de la cuota por conciliar (HU0014-1.0, ADR-26, decisión de John).
+  // Obligatoria: sin ella la API no arranca.
+  CORREO_TESORERIA: z.email(),
   // Almacenamiento de los archivos de documentos y comprobantes (HU0006 y HU0007, ADR-12 D1 y ADR-21). Un adaptador nuevo
   // (gdrive) se agrega a este enum junto con su configuración y su paso por la suite de contrato.
   STORAGE_DRIVER: z.enum(["local"]),

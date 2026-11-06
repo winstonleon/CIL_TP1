@@ -49,7 +49,7 @@ export async function registrarSubsanacionDocumento(
 // Su archivo no se borra.
 export async function registrarSubsanacionPago(
   cliente: pg.PoolClient,
-  s: { idExpediente: number; idPago: number; anterior: { banco: string; numero_operacion: string; clave: string; motivo: string | null } },
+  s: { idExpediente: number; idPago: number; anterior: { banco: string; numero_operacion: string; clave: string; motivo: string | null; monto?: number } },
 ): Promise<void> {
   await insertarEvento(cliente, {
     tipoEvento: "subsanacion_registrada",

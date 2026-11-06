@@ -1,9 +1,10 @@
-<!-- Panel del comprobante del derecho de admisión en G05 (Tesorería, HU0024): banco, N.° de operación, monto y fecha de
-     pago para contrastarlos con el estado de cuenta, «Ver comprobante», «Marcar conforme» y «Observar comprobante» con el
-     motivo. Abrirlo registra atencion_inicio en la API (§4.7).
+<!-- Panel del comprobante en G05 (Tesorería): banco, N.° de operación, monto y fecha de pago para contrastarlos con el estado
+     de cuenta, «Ver comprobante» y la decisión. Del derecho de admisión (HU0024): «Marcar conforme» y «Observar comprobante».
+     De la cuota de ingreso (HU0015): el abono junto al monto que corresponde, «Conciliar y aprobar pago» y «Rechazar
+     comprobante». Abrirlo registra atencion_inicio en la API (§4.7).
      Desvío: el mockup de G05 solo dibuja el panel de la documentación financiera; este sigue su misma estructura. -->
 <script setup lang="ts">
-import { onMounted, ref, shallowRef } from "vue";
+import { computed, onMounted, ref, shallowRef } from "vue";
 import { mensajeDe } from "../../../api/respuesta";
 import { decidirPago, descargarComprobante, leerPago, type DetallePago } from "../../../api/validaciones";
 import { abrirArchivo, etiquetaDocumento, nombreCompleto } from "../../../gestion/validacion";
@@ -19,6 +20,10 @@ const errorAccion = shallowRef("");
 const aviso = shallowRef("");
 const ocupado = shallowRef(false);
 const observando = shallowRef(false);
+
+const esCuota = computed(() => pago.value?.concepto === "cuota_ingreso");
+const titulo = computed(() => (esCuota.value ? "Cuota de ingreso" : "Derecho de admisión"));
+const botonObservar = computed(() => (esCuota.value ? "Rechazar comprobante" : "Observar comprobante"));
 
 async function cargar() {
   try {
@@ -37,7 +42,9 @@ async function decidir(motivo?: string) {
     aviso.value =
       motivo !== undefined
         ? "Se observó el comprobante. La familia recibirá un correo con el motivo."
-        : r.agendamiento_habilitado
+        : esCuota.value
+          ? "Pago conciliado. La cuota de ingreso quedó acreditada."
+          : r.agendamiento_habilitado
           ? "Comprobante conforme. Las tres validaciones están conformes: el agendamiento de evaluaciones quedó habilitado."
           : "Comprobante conforme.";
     emit("actualizado");
@@ -63,14 +70,15 @@ onMounted(cargar);
 
 <template>
   <section class="tarjeta panel" aria-labelledby="g05-derecho-titulo" data-testid="panel-comprobante">
-    <h2 id="g05-derecho-titulo">Derecho de admisión</h2>
+    <h2 id="g05-derecho-titulo">{{ titulo }}</h2>
     <p v-if="error" class="mensaje" role="alert">{{ error }}</p>
     <template v-else-if="pago">
       <span class="nombre">{{ nombreCompleto(pago.postulante) }} · {{ pago.codigo }}</span>
       <dl class="datos">
         <div><dt>Banco</dt><dd>{{ pago.banco }}</dd></div>
         <div><dt>N.° de operación</dt><dd data-testid="numero-operacion">{{ pago.numero_operacion }}</dd></div>
-        <div><dt>Monto</dt><dd>S/ {{ pago.monto }}</dd></div>
+        <div><dt>{{ esCuota ? "Monto abonado" : "Monto" }}</dt><dd data-testid="monto">S/ {{ pago.monto }}</dd></div>
+        <div v-if="esCuota"><dt>Monto que corresponde</dt><dd data-testid="monto-corresponde">S/ {{ pago.monto_corresponde }}</dd></div>
         <div><dt>Fecha de pago</dt><dd>{{ fechaDeDia(pago.fecha_pago) }}</dd></div>
         <div>
           <dt>Estado</dt>
@@ -86,18 +94,18 @@ onMounted(cargar);
         <PanelObservacion
           v-if="observando"
           id="g05-comprobante"
-          titulo="Observar comprobante"
-          :item="`Derecho de admisión · S/ ${pago.monto}`"
-          boton="Observar comprobante"
+          :titulo="botonObservar"
+          :item="`${titulo} · S/ ${pago.monto}`"
+          :boton="botonObservar"
           nota="La familia recibe un correo con el motivo y el enlace para regularizar el pago."
           :ocupado="ocupado"
           @enviar="decidir"
           @cancelar="observando = false"
         />
         <div v-else class="acciones">
-          <button type="button" class="boton observar grande" :disabled="ocupado" @click="observando = true">Observar comprobante</button>
+          <button type="button" class="boton observar grande" :disabled="ocupado" @click="observando = true">{{ botonObservar }}</button>
           <button type="button" class="boton conforme grande" :disabled="ocupado" data-testid="comprobante-conforme" @click="decidir()">
-            Marcar conforme
+            {{ esCuota ? "Conciliar y aprobar pago" : "Marcar conforme" }}
           </button>
         </div>
       </template>

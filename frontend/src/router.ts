@@ -5,6 +5,7 @@ import Callback from "./views/Callback.vue";
 import Inicio from "./views/Inicio.vue";
 import SesionIniciada from "./views/SesionIniciada.vue";
 import LayoutGestion from "./views/gestion/LayoutGestion.vue";
+import AdjudicacionVacantes from "./views/gestion/AdjudicacionVacantes.vue";
 import BandejaExpedientes from "./views/gestion/BandejaExpedientes.vue";
 import ConfiguracionCampana from "./views/gestion/ConfiguracionCampana.vue";
 import DetalleExpediente from "./views/gestion/DetalleExpediente.vue";
@@ -18,6 +19,7 @@ import DocumentosExpediente from "./views/portal/DocumentosExpediente.vue";
 import EvaluacionesAgenda from "./views/portal/EvaluacionesAgenda.vue";
 import FichaInscripcion from "./views/portal/FichaInscripcion.vue";
 import LayoutPortal from "./views/portal/LayoutPortal.vue";
+import PagosAdmision from "./views/portal/PagosAdmision.vue";
 import SolicitudInformacion from "./views/portal/SolicitudInformacion.vue";
 import VisitaGuiada from "./views/portal/VisitaGuiada.vue";
 
@@ -57,6 +59,12 @@ export function crearEnrutador(historial: RouterHistory) {
         children: [{ path: "", component: DocumentosExpediente }],
       },
       {
+        path: "/portal/pagos",
+        component: LayoutPortal,
+        meta: { cliente: "portal", roles: ["familia"] },
+        children: [{ path: "", component: PagosAdmision }],
+      },
+      {
         path: "/portal/pagos/derecho-admision",
         component: LayoutPortal,
         meta: { cliente: "portal", roles: ["familia"] },
@@ -90,6 +98,8 @@ export function crearEnrutador(historial: RouterHistory) {
           { path: "bandeja", component: BandejaExpedientes, meta: { titulo: "Bandeja de expedientes", roles: ["secretaria"] } },
           { path: "bandeja/:id(\\d+)", component: DetalleExpediente, meta: { titulo: "Detalle del expediente", roles: ["secretaria"] } },
           { path: "tesoreria", component: ValidacionesTesoreria, meta: { titulo: "Validaciones de Tesorería", roles: ["tesoreria"] } },
+          // G07 (HU0012): adjudicación de vacantes.
+          { path: "vacantes", component: AdjudicacionVacantes, meta: { titulo: "Adjudicación de vacantes", roles: ["directora"] } },
           // G06 (HU0010) y G11 (HU0025): resultados de las evaluaciones y dictamen de admisión (ADR-25).
           { path: "psicologia", component: AgendaPsicologia, meta: { titulo: "Agenda y dictámenes", roles: ["psicologa"] } },
           { path: "evaluacion-academica", component: EvaluacionAcademica, meta: { titulo: "Evaluaciones académicas", roles: ["evaluador_academico"] } },

@@ -188,6 +188,11 @@ export const TIPO_LIBERACION_RESPONSABLE = "evaluacion_liberada_responsable";
 export const TIPO_INASISTENCIA = "evaluacion_inasistencia";
 export const TIPO_DICTAMEN_OBSERVACION = "dictamen_en_observacion";
 export const TIPO_DICTAMEN_NO_APTO = "dictamen_no_apto";
+// Bloque 8 (ADR-26): vacante otorgada y lista de espera a la familia (HU0012) y comprobante por conciliar a Tesorería
+// (HU0014). Mismo camino: agendamiento, rama evaluaciones.
+export const TIPO_VACANTE_ASIGNADA = "vacante_asignada";
+export const TIPO_LISTA_ESPERA = "lista_espera";
+export const TIPO_CUOTA_POR_CONCILIAR = "cuota_por_conciliar";
 
 export const TIPOS_AVISO_EVALUACION = [
   TIPO_HABILITACION,
@@ -198,6 +203,9 @@ export const TIPOS_AVISO_EVALUACION = [
   TIPO_INASISTENCIA,
   TIPO_DICTAMEN_OBSERVACION,
   TIPO_DICTAMEN_NO_APTO,
+  TIPO_VACANTE_ASIGNADA,
+  TIPO_LISTA_ESPERA,
+  TIPO_CUOTA_POR_CONCILIAR,
 ] as const;
 export type TipoAvisoEvaluacion = (typeof TIPOS_AVISO_EVALUACION)[number];
 // Avisos dirigidos al personal: su contacto es el correo del responsable, nunca el de la familia.
@@ -224,9 +232,12 @@ const FUENTES = `SELECT r.id_evento, r.id_expediente, x.tipo, x.desde::int AS de
      ('${TIPO_LIBERACION_RESPONSABLE}', CASE WHEN r.tipo_evento = 'cita_reprogramada' THEN r.detalle->>'id_notificacion_responsable_anterior' END),
      ('${TIPO_INASISTENCIA}', CASE WHEN r.tipo_evento = 'atencion_fin' AND r.detalle->>'decision' = 'inasistencia' THEN r.detalle->>'id_notificacion' END),
      ('${TIPO_DICTAMEN_OBSERVACION}', CASE WHEN r.tipo_evento = 'transicion_estado' AND r.estado_nuevo = 'en_observacion' THEN r.detalle->>'id_notificacion' END),
-     ('${TIPO_DICTAMEN_NO_APTO}', CASE WHEN r.tipo_evento = 'transicion_estado' AND r.estado_nuevo = 'no_apto' THEN r.detalle->>'id_notificacion' END)
+     ('${TIPO_DICTAMEN_NO_APTO}', CASE WHEN r.tipo_evento = 'transicion_estado' AND r.estado_nuevo = 'no_apto' THEN r.detalle->>'id_notificacion' END),
+     ('${TIPO_VACANTE_ASIGNADA}', CASE WHEN r.tipo_evento = 'transicion_estado' AND r.estado_nuevo = 'vacante_asignada' THEN r.detalle->>'id_notificacion' END),
+     ('${TIPO_LISTA_ESPERA}', CASE WHEN r.tipo_evento = 'transicion_estado' AND r.estado_nuevo = 'lista_espera' THEN r.detalle->>'id_notificacion' END),
+     ('${TIPO_CUOTA_POR_CONCILIAR}', CASE WHEN r.tipo_evento = 'cuota_registrada' THEN r.detalle->>'id_notificacion' END)
    ) AS x(tipo, desde)
-   WHERE r.tipo_evento IN ('transicion_estado', 'cita_reprogramada', 'atencion_fin') AND x.desde IS NOT NULL`;
+   WHERE r.tipo_evento IN ('transicion_estado', 'cita_reprogramada', 'atencion_fin', 'cuota_registrada') AND x.desde IS NOT NULL`;
 
 // Ancla de la habilitación: el atencion_fin que completó la unión (B1: una sola vez por expediente).
 const ANCLA_HABILITACION = (e: string) => `(SELECT r.fecha_hora FROM registro_auditoria r
@@ -276,6 +287,9 @@ export const ESTADO_DEL_AVISO: Record<TipoAvisoEvaluacion, string> = {
   [TIPO_INASISTENCIA]: "en_evaluacion",
   [TIPO_DICTAMEN_OBSERVACION]: "en_observacion",
   [TIPO_DICTAMEN_NO_APTO]: "no_apto",
+  [TIPO_VACANTE_ASIGNADA]: "vacante_asignada",
+  [TIPO_LISTA_ESPERA]: "lista_espera",
+  [TIPO_CUOTA_POR_CONCILIAR]: "vacante_asignada",
 };
 // El mismo mapa en SQL (lista cerrada de constantes: nunca entra texto del usuario).
 const ESTADO_DEL_AVISO_SQL = (tipo: string) =>

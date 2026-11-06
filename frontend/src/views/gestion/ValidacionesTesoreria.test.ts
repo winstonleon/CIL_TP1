@@ -51,7 +51,7 @@ const responder = (status: number, cuerpo: unknown) => ({ ok: status < 400, stat
 function apiFalsa(url: string, init: RequestInit = {}): Response {
   const metodo = init.method ?? "GET";
   if (url === "/api/campana-activa") return responder(200, { campana: "2027" });
-  if (url.startsWith("/api/tesoreria/validaciones?")) return responder(200, { conteos: { todo: 2, derecho: 1, financiera: 1 }, items });
+  if (url.startsWith("/api/tesoreria/validaciones?")) return responder(200, { conteos: { todo: 2, derecho: 1, financiera: 1, cuota: 0 }, items });
   if (url === "/api/tesoreria/pagos/31" && metodo === "GET") return responder(200, pago);
   if (url === "/api/tesoreria/expedientes/142/documentacion-financiera") return responder(200, financiera);
   if (metodo === "POST") {
@@ -103,7 +103,7 @@ describe("HU0024-1.0 G05 validación conforme del derecho de admisión", () => {
   it("HU0024-1.0 G05 lista lo pendiente con los textos del mockup y el comprobante muestra los datos para contrastar con el estado de cuenta", async () => {
     const e = await abrir();
 
-    expect(e.findAll('[role="tab"]').map((t) => t.text())).toEqual(["Todo pendiente (2)", "Derecho de admisión (1)", "Documentación financiera (1)", "Cuota de ingreso"]);
+    expect(e.findAll('[role="tab"]').map((t) => t.text())).toEqual(["Todo pendiente (2)", "Derecho de admisión (1)", "Documentación financiera (1)", "Cuota de ingreso (0)"]);
     const fila = e.get('[data-testid="item-derecho_admision-31"]').findAll("td").map((td) => td.text());
     expect(fila.slice(0, 4)).toEqual(["ADM-2027-0158", "Camila Flores VegaInicial 4 años", "Derecho de admisión · S/ 300", "Por validar"]);
     expect(e.get('[data-testid="item-documentacion_financiera-142"]').findAll("td")[3]!.text()).toBe("Por revisar");

@@ -178,7 +178,9 @@ export async function condicionesLaborales(db: Consultable, idExpediente: number
 
 // ---- Derecho de admisión (HU0024)
 
-export interface PagoDerecho {
+export interface PagoValidable {
+  tipo_pago: "derecho_admision" | "cuota_ingreso";
+  numero_fraccion: number;
   id_pago: number;
   id_expediente: number;
   banco: string;
@@ -190,17 +192,17 @@ export interface PagoDerecho {
   motivo_observacion: string | null;
 }
 
-const PAGO = `SELECT id_pago, id_expediente, banco, numero_operacion, monto::text AS monto, to_char(fecha_pago, 'YYYY-MM-DD') AS fecha_pago,
+const PAGO = `SELECT id_pago, id_expediente, tipo_pago::text AS tipo_pago, numero_fraccion, banco, numero_operacion, monto::text AS monto, to_char(fecha_pago, 'YYYY-MM-DD') AS fecha_pago,
        comprobante_url, estado_validacion::text AS estado_validacion, motivo_observacion
-  FROM pago WHERE id_pago = $1 AND tipo_pago = 'derecho_admision'`;
+  FROM pago WHERE id_pago = $1`;
 
-export async function leerPagoDerecho(db: Consultable, idPago: number): Promise<PagoDerecho | null> {
-  const { rows } = await db.query<PagoDerecho>(PAGO, [idPago]);
+export async function leerPago(db: Consultable, idPago: number): Promise<PagoValidable | null> {
+  const { rows } = await db.query<PagoValidable>(PAGO, [idPago]);
   return rows[0] ?? null;
 }
 
-export async function bloquearPagoDerecho(db: Consultable, idPago: number): Promise<PagoDerecho | null> {
-  const { rows } = await db.query<PagoDerecho>(`${PAGO} FOR UPDATE`, [idPago]);
+export async function bloquearPago(db: Consultable, idPago: number): Promise<PagoValidable | null> {
+  const { rows } = await db.query<PagoValidable>(`${PAGO} FOR UPDATE`, [idPago]);
   return rows[0] ?? null;
 }
 
@@ -216,17 +218,18 @@ export async function registrarDecisionPago(
   );
 }
 
-// Subsanación del derecho (A1): el comprobante nuevo en la misma fila, que vuelve a `pendiente` sin validador. El motivo
-// se conserva hasta la nueva decisión de Tesorería (nota de Pago); los datos anteriores quedan en subsanacion_registrada.
-export async function subsanarPagoDerecho(
+// Subsanación de un comprobante (A1): el nuevo en la misma fila, que vuelve a `pendiente` sin validador. El motivo se
+// conserva hasta la nueva decisión de Tesorería (nota de Pago); los datos anteriores quedan en subsanacion_registrada. El
+// monto solo cambia en la cuota, donde lo declara la familia (el del derecho es la constante de R16).
+export async function subsanarPago(
   db: Consultable,
-  d: { idPago: number; banco: string; numeroOperacion: string; fechaPago: string; clave: string },
+  d: { idPago: number; banco: string; numeroOperacion: string; fechaPago: string; clave: string; monto?: number },
 ): Promise<void> {
   await db.query(
     `UPDATE pago SET banco = $2, numero_operacion = $3, fecha_pago = $4::date, comprobante_url = $5,
-            estado_validacion = 'pendiente', id_personal_validador = NULL
+            monto = coalesce($6, monto), estado_validacion = 'pendiente', id_personal_validador = NULL
       WHERE id_pago = $1`,
-    [d.idPago, d.banco, d.numeroOperacion, d.fechaPago, d.clave],
+    [d.idPago, d.banco, d.numeroOperacion, d.fechaPago, d.clave, d.monto ?? null],
   );
 }
 
@@ -258,8 +261,11 @@ export interface Observacion {
   motivo: string;
 }
 
-// Observaciones vigentes del expediente: documentos vigentes observados (de las dos ramas) y el comprobante observado.
-export async function observacionesVigentes(db: Consultable, idExpediente: number): Promise<{ documentos: Observacion[]; derecho: string | null }> {
+// Observaciones vigentes del expediente: documentos vigentes observados (de las dos ramas) y los comprobantes observados.
+export async function observacionesVigentes(
+  db: Consultable,
+  idExpediente: number,
+): Promise<{ documentos: Observacion[]; derecho: string | null; cuota: string | null }> {
   const { rows } = await db.query<Observacion>(
     `SELECT r.tipo_documento, pa.parentesco, d.motivo_observacion AS motivo
        FROM documento d
@@ -270,12 +276,13 @@ export async function observacionesVigentes(db: Consultable, idExpediente: numbe
       ORDER BY r.id_requisito, d.id_apoderado NULLS FIRST, d.id_documento`,
     [idExpediente],
   );
-  const pago = await db.query<{ motivo: string }>(
-    `SELECT motivo_observacion AS motivo FROM pago
-      WHERE id_expediente = $1 AND tipo_pago = 'derecho_admision' AND numero_fraccion = 1 AND estado_validacion = 'observado'`,
+  const pagos = await db.query<{ tipo_pago: string; motivo: string }>(
+    `SELECT tipo_pago::text AS tipo_pago, motivo_observacion AS motivo FROM pago
+      WHERE id_expediente = $1 AND numero_fraccion = 1 AND estado_validacion = 'observado'`,
     [idExpediente],
   );
-  return { documentos: rows, derecho: pago.rows[0]?.motivo ?? null };
+  const motivo = (tipo: string) => pagos.rows.find((p) => p.tipo_pago === tipo)?.motivo ?? null;
+  return { documentos: rows, derecho: motivo("derecho_admision"), cuota: motivo("cuota_ingreso") };
 }
 
 // Primer intento del aviso de la última observación del expediente (null si nunca hubo una).
@@ -324,11 +331,10 @@ export async function listarObservacionesPendientes(db: Consultable, o: { minuto
                FROM notificacion n
               WHERE n.id_expediente = e.id_expediente AND n.canal = 'correo' AND n.tipo_evento = '${TIPO_OBSERVACION}'
                 AND n.id_notificacion >= o.desde) f
-      WHERE e.estado = 'en_validacion' AND NOT f.cerrado AND f.ultimo_estado = 'pendiente'
+      WHERE e.estado IN ('en_validacion', 'vacante_asignada') AND NOT f.cerrado AND f.ultimo_estado = 'pendiente'
         AND f.ultimo_intento < now() - make_interval(mins => $1)
         AND (EXISTS (SELECT 1 FROM documento d WHERE d.id_expediente = e.id_expediente AND d.vigente AND d.estado_verificacion = 'observado')
-          OR EXISTS (SELECT 1 FROM pago p WHERE p.id_expediente = e.id_expediente AND p.tipo_pago = 'derecho_admision'
-                                            AND p.estado_validacion = 'observado'))
+          OR EXISTS (SELECT 1 FROM pago p WHERE p.id_expediente = e.id_expediente AND p.estado_validacion = 'observado'))
       ORDER BY f.ultimo_intento, e.id_expediente
       LIMIT $2`,
     [o.minutosReintento, o.limite],
@@ -425,7 +431,7 @@ export async function listarBandeja(
 }
 
 export interface ItemTesoreria {
-  concepto: "documentacion_financiera" | "derecho_admision";
+  concepto: "documentacion_financiera" | "derecho_admision" | "cuota_ingreso";
   id_expediente: number;
   id_pago: number | null;
   codigo: string;
@@ -437,6 +443,9 @@ export interface ItemTesoreria {
   subsanado: boolean;
   motivos_anteriores: string[];
   recibido: Date | null;
+  numero_fraccion?: number;
+  modalidad?: string | null;
+  numero_fracciones?: number | null;
 }
 
 // Lista de G05: la documentación financiera y el comprobante del derecho que no están conformes. «Recibido»: la última
@@ -464,6 +473,34 @@ export async function listarTesoreria(db: Consultable, campana: string): Promise
        FROM b JOIN pago p ON p.id_expediente = b.id_expediente AND p.tipo_pago = 'derecho_admision' AND p.numero_fraccion = 1
       WHERE p.estado_validacion <> 'conforme'
       ORDER BY recibido NULLS LAST, id_expediente, concepto`,
+    [campana],
+  );
+  return rows;
+}
+
+// Pestaña «Cuota de ingreso» de G05 (HU0015): comprobantes de la cuota que no están conformes, de expedientes con la vacante
+// otorgada. «Recibido»: el registro (`cuota_registrada`) o la última subsanación del pago.
+export async function listarCuotasTesoreria(db: Consultable, campana: string): Promise<ItemTesoreria[]> {
+  const { rows } = await db.query<ItemTesoreria>(
+    `SELECT 'cuota_ingreso' AS concepto, b.id_expediente, p.id_pago,
+            'ADM-' || g.campana_admision || '-' || lpad(b.id_expediente::text, 4, '0') AS codigo,
+            pos.nombres AS postulante_nombres, concat_ws(' ', pos.apellido_paterno, pos.apellido_materno) AS postulante_apellidos,
+            g.nombre_grado, p.monto::text AS monto, p.estado_validacion::text AS estado,
+            ${SUBSANADO("pago", "p.id_pago")} AS subsanado,
+            -- El motivo se conserva hasta la nueva decisión (nota de Pago): en pendiente es el de la observación subsanada.
+            CASE WHEN p.estado_validacion = 'pendiente' AND p.motivo_observacion IS NOT NULL THEN ARRAY[p.motivo_observacion]
+                 ELSE '{}'::text[] END AS motivos_anteriores,
+            (SELECT max(s.fecha_hora) FROM registro_auditoria s
+              WHERE s.id_expediente = b.id_expediente AND s.tipo_evento IN ('cuota_registrada', 'subsanacion_registrada')
+                AND s.detalle->>'id_pago' = p.id_pago::text) AS recibido,
+            p.numero_fraccion, b.modalidad_pago_cuota::text AS modalidad, b.numero_fracciones
+       FROM pago p
+       JOIN expediente b ON b.id_expediente = p.id_expediente
+       JOIN grado g ON g.id_grado = b.id_grado
+       LEFT JOIN postulante pos ON pos.id_postulante = b.id_postulante
+      WHERE p.tipo_pago = 'cuota_ingreso' AND b.estado = 'vacante_asignada' AND g.campana_admision = $1
+        AND p.estado_validacion <> 'conforme'
+      ORDER BY recibido NULLS LAST, b.id_expediente`,
     [campana],
   );
   return rows;

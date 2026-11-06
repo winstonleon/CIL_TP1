@@ -5,12 +5,14 @@
 // nunca por su nombre. El motivo lo escribe el personal y queda en las ejecuciones de error de n8n (C11): riesgo aceptado
 // por John (04/11/2026), con el texto de ayuda de G03 y G05. Texto plano.
 import { nombreFaltante, urlDerechoAdmision, urlDocumentos } from "./avisosCompletitud";
+import { urlPagos } from "./avisosVacante";
 
 export const AVISO_VALIDACION = {
   version: "borrador-1",
   introduccion: "[Aviso de observaciones del expediente: por definir con el colegio]",
   contacto: "[Datos de contacto de Admisión: por definir con el colegio]",
   derecho: "Comprobante del derecho de admisión",
+  cuota: "Comprobante de la cuota de ingreso",
 } as const;
 
 export function componerObservaciones(d: {
@@ -18,10 +20,12 @@ export function componerObservaciones(d: {
   campana: string;
   documentos: { tipo_documento: string; parentesco: string | null; motivo: string }[];
   derecho: string | null; // motivo de la observación del comprobante, si está observado
+  cuota?: string | null; // HU0015-2.0: motivo de la observación del comprobante de la cuota
 }): { asunto: string; cuerpo: string } {
   const lista = [
     ...d.documentos.map((o) => `- ${nombreFaltante(o)}: ${o.motivo}`),
     ...(d.derecho !== null ? [`- ${AVISO_VALIDACION.derecho}: ${d.derecho}`] : []),
+    ...(d.cuota ? [`- ${AVISO_VALIDACION.cuota}: ${d.cuota}`] : []),
   ];
   return {
     asunto: `Observaciones en tu expediente · Admisión ${d.campana}`,
@@ -35,6 +39,7 @@ export function componerObservaciones(d: {
       "",
       ...(d.documentos.length ? [`Reemplaza solo los documentos observados en el portal: ${urlDocumentos()}`] : []),
       ...(d.derecho !== null ? [`Regulariza el pago del derecho de admisión: ${urlDerechoAdmision()}`] : []),
+      ...(d.cuota ? [`Regulariza el pago de la cuota de ingreso: ${urlPagos()}`] : []),
       "",
       AVISO_VALIDACION.contacto,
     ].join("\n"),

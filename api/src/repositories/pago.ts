@@ -1,4 +1,5 @@
-// pago: comprobantes que registra la familia (no hay pasarela de pagos, ADR-11). HU0007: derecho de admisión.
+// pago: comprobantes que registra la familia (no hay pasarela de pagos, ADR-11). HU0007: derecho de admisión; HU0014: cuota
+// de ingreso (pago único o primera fracción).
 // `comprobante_url` guarda la clave del almacenamiento (ADR-21). Los nombres de las restricciones los usa el servicio
 // para distinguir un comprobante duplicado (R19, por banco) de un derecho ya registrado en este expediente.
 import type { Consultable } from "../db/pool";
@@ -38,15 +39,35 @@ export async function existeComprobante(db: Consultable, banco: string, numeroOp
   return (rowCount ?? 0) > 0;
 }
 
-export async function insertarDerechoAdmision(
+// R17: la cuota registra el pago único o la primera fracción (`numero_fraccion` = 1); la siguiente no tiene HU (C64).
+export async function leerCuotaIngreso(db: Consultable, idExpediente: number): Promise<FilaPago | null> {
+  const { rows } = await db.query<FilaPago>(
+    `SELECT ${COLUMNAS} FROM pago WHERE id_expediente = $1 AND tipo_pago = 'cuota_ingreso' AND numero_fraccion = 1`,
+    [idExpediente],
+  );
+  return rows[0] ?? null;
+}
+
+// La fecha de validación de un pago se deriva de la bitácora (§7 del modelo): el atencion_fin conforme de su ítem.
+export async function fechaValidacionPago(db: Consultable, idPago: number): Promise<Date | null> {
+  const { rows } = await db.query<{ fecha: Date | null }>(
+    `SELECT max(fecha_hora) AS fecha FROM registro_auditoria
+      WHERE tipo_evento = 'atencion_fin' AND detalle->>'decision' = 'conforme'
+        AND detalle->'item'->>'tipo' = 'pago' AND detalle->'item'->>'id' = $1::text`,
+    [idPago],
+  );
+  return rows[0]?.fecha ?? null;
+}
+
+export async function insertarPago(
   db: Consultable,
-  d: { idExpediente: number; monto: number; banco: string; numeroOperacion: string; fechaPago: string; clave: string },
+  d: { idExpediente: number; tipoPago: "derecho_admision" | "cuota_ingreso"; monto: number; banco: string; numeroOperacion: string; fechaPago: string; clave: string },
 ): Promise<FilaPago & { registrado_en: Date }> {
   const { rows } = await db.query<FilaPago & { registrado_en: Date }>(
     `INSERT INTO pago (id_expediente, tipo_pago, numero_fraccion, numero_operacion, banco, monto, fecha_pago, comprobante_url)
-     VALUES ($1, 'derecho_admision', 1, $2, $3, $4, $5::date, $6)
+     VALUES ($1, $7::tipo_pago, 1, $2, $3, $4, $5::date, $6)
      RETURNING ${COLUMNAS}, now() AS registrado_en`,
-    [d.idExpediente, d.numeroOperacion, d.banco, d.monto, d.fechaPago, d.clave],
+    [d.idExpediente, d.numeroOperacion, d.banco, d.monto, d.fechaPago, d.clave, d.tipoPago],
   );
   return rows[0]!;
 }

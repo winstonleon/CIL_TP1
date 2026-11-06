@@ -1,5 +1,5 @@
-// /tesoreria — validaciones de Tesorería (G05): documentación financiera (HU0011) y comprobante del derecho de admisión
-// (HU0024). El router se monta en app.ts detrás de verificarToken, requireRol("tesoreria") y requirePersonalActivo (C22).
+// /tesoreria — validaciones de Tesorería (G05): documentación financiera (HU0011), comprobante del derecho de admisión
+// (HU0024) y conciliación de la cuota de ingreso (HU0015). El router se monta en app.ts detrás de verificarToken, requireRol("tesoreria") y requirePersonalActivo (C22).
 // Las rutas de la documentación financiera montan además la política de información restringida (R2, C17).
 import { Router } from "express";
 import { z } from "zod";
@@ -21,7 +21,7 @@ import {
 import { validar } from "../validacion";
 import { enviarArchivo, esquemaVacio, idPersonalDe, idRuta, leerDecision } from "./validacion";
 
-const esquemaLista = z.object({ vista: z.enum(["todo", "derecho", "financiera"]).default("todo") }).strict();
+const esquemaLista = z.object({ vista: z.enum(["todo", "derecho", "financiera", "cuota"]).default("todo") }).strict();
 
 export function rutasTesoreria(campana: string, almacenamiento: Almacenamiento, eventos: DisparadorN8n): Router {
   const rutas = Router();
@@ -31,7 +31,7 @@ export function rutasTesoreria(campana: string, almacenamiento: Almacenamiento, 
     if (idNotificacion !== null) void eventos.disparar("verificacion-completitud", { id_expediente: idExpediente, id_notificacion: idNotificacion });
   };
 
-  // GET /tesoreria/validaciones?vista=todo|derecho|financiera → 200 { conteos: { todo, derecho, financiera }, items: [{
+  // GET /tesoreria/validaciones?vista=todo|derecho|financiera|cuota → 200 { conteos: { todo, derecho, financiera, cuota }, items: [{
   //   concepto, id_expediente, id_pago, codigo, postulante, grado, monto, estado, subsanado, recibido }] }
   rutas.get("/validaciones", async (req, res) => {
     res.json(await validacionesTesoreria(campana, validar(esquemaLista, req.query).vista));
@@ -69,7 +69,8 @@ export function rutasTesoreria(campana: string, almacenamiento: Almacenamiento, 
     res.json(await confirmarRama("financiera", validar(idRuta, req.params.id), await idPersonalDe(req)));
   });
 
-  // GET /tesoreria/pagos/:idPago → 200 detalle del comprobante del derecho y registra atencion_inicio · 404 · 409
+  // GET /tesoreria/pagos/:idPago → 200 detalle del comprobante (del derecho o de la cuota, con monto_corresponde) y registra
+  // atencion_inicio · 404 · 409
   rutas.get("/pagos/:idPago", async (req, res) => {
     res.json(await detallePago(validar(idRuta, req.params.idPago), await idPersonalDe(req)));
   });
@@ -83,7 +84,7 @@ export function rutasTesoreria(campana: string, almacenamiento: Almacenamiento, 
 
   // POST /tesoreria/pagos/:idPago/decision { decision: "conforme" } | { decision: "observado", motivo } («Observar
   // comprobante») → 200 { id_pago, id_expediente, estado_validacion, id_notificacion, agendamiento_habilitado }
-  // (HU0024-1.0 y 2.0) · 400 · 404 · 409 PAGO_YA_VALIDADO o VALIDACION_NO_CORRESPONDE
+  // (HU0024-1.0 y 2.0; HU0015-1.0 y 2.0 en la cuota) · 400 · 404 · 409 PAGO_YA_VALIDADO o VALIDACION_NO_CORRESPONDE
   rutas.post("/pagos/:idPago/decision", async (req, res) => {
     const r = await decidirPago(validar(idRuta, req.params.idPago), await idPersonalDe(req), leerDecision(req));
     res.json(r);

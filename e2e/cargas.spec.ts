@@ -206,6 +206,7 @@ test.describe.serial("HU0006 y HU0007 P06 y P07b en el entorno dev", () => {
 
   test("HU0007-2.0 un comprobante ya registrado para el mismo banco se bloquea con la alerta y el campo marcado", async () => {
     await page.getByTestId("menu-pagos").click();
+    await page.getByTestId("ir-derecho").click();
     await expect(page).toHaveURL(`${FRONTEND}/portal/pagos/derecho-admision`);
     await expect(page.getByRole("heading", { name: "Registrar el derecho de admisión" })).toBeVisible();
     await expect(page.locator("main")).toContainText("S/ 300 (no reembolsable)");

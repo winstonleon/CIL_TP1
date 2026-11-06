@@ -139,6 +139,7 @@ async function prepararFamilia(browser: Browser, marca: string): Promise<Familia
 
   // P07b: el derecho de admisión cuenta para la completitud (ADR-22, D2-a).
   await page.getByTestId("menu-pagos").click();
+  await page.getByTestId("ir-derecho").click();
   await page.locator("#p07b-banco").selectOption("[Banco 1]");
   await page.locator("#p07b-operacion").fill(`E2E${Date.now()}${randomBytes(2).toString("hex")}`);
   await page.locator("#p07b-fecha").fill("2026-10-10");

@@ -3,7 +3,7 @@
 // No forman parte de test:api, test:front ni test:e2e, así que la matriz no las cuenta.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { ESTADO_C17, erroresDePartes, estadoDe } from "./matriz.mjs";
+import { ESCENARIOS_POR_PARTES, ESTADO_C17, erroresDePartes, estadoDe } from "./matriz.mjs";
 
 const prueba = (suite, titulo, resultado = "pasó") => ({ suite, archivo: `${suite.toLowerCase()}/x.test.ts`, titulo, resultado });
 const CONFIG = { "HU9999-1.0": { compromiso: "C99", partes: ["almacenamiento", "aplicación"] } };
@@ -78,5 +78,14 @@ describe("matriz: estados que no cambian con las partes", () => {
   it("un escenario sin partes con una prueba que pasa es «cubierto»; sin pruebas, «sin prueba»", () => {
     assert.equal(estadoDe({ id: "HU9999-2.0", pruebas: [prueba("Frontend", "HU9999-2.0 a")] }, CONFIG), "cubierto");
     assert.equal(estadoDe({ id: "HU9999-2.0", pruebas: [] }, CONFIG), "sin prueba");
+  });
+});
+
+describe("matriz: escenarios del bloque 8 que se verifican por partes", () => {
+  it("HU0014-2.0 y HU0015-1.0 quedan pendientes en su compromiso hasta que se verifique la parte que falta", () => {
+    const conciliada = { id: "HU0015-1.0", pruebas: [prueba("API", "HU0015-1.0 [parte: conciliación] a")] };
+    assert.equal(estadoDe(conciliada, ESCENARIOS_POR_PARTES), "verificado: conciliación; pendiente: carta (C62)");
+    const formato = { id: "HU0014-2.0", pruebas: [prueba("API", "HU0014-2.0 [parte: formato] a")] };
+    assert.equal(estadoDe(formato, ESCENARIOS_POR_PARTES), "verificado: formato; pendiente: calidad (C63)");
   });
 });

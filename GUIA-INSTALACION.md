@@ -222,6 +222,7 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
 - **Variables nuevas en `.env`** (las dos están en `.env.example`):
   - `ENLACE_VISITA_KEY`: clave del token del enlace de P02 (32 bytes en base64, ADR-18). Es un secreto: agrega la línea vacía y corre `node scripts/generar-secretos.js`, que la genera sin imprimirla. Si la cambias, los enlaces ya enviados dejan de valer.
   - `CARPETA_INFORMATIVA_URL`: enlace a la carpeta digital del colegio. Es opcional: vacía, el correo lo dice entre corchetes. En dev se usa la URL ficticia `https://carpeta.ejemplo.test/admision-2027`, hasta que el colegio entregue la real (C33).
+  - `CORREO_TESORERIA`: el buzón de Tesorería, que recibe el aviso de un comprobante de la cuota de ingreso por conciliar (HU0014-1.0, ADR-26). Es **obligatoria**: sin ella la API no arranca. En dev, `tesoreria@ejemplo.test` (llega a Mailpit).
   - Si agregas o cambias alguna con los contenedores levantados, recrea `api`: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-deps api`.
 - **Rebotes en dev:** Mailpit rechaza con 550 a todo destinatario que no sea `@ejemplo.test` (`MP_SMTP_ALLOWED_RECIPIENTS` en `docker-compose.dev.yml`, ADR-07). Para probar un rebote, usa un correo `@rebota.ejemplo.test`.
   - Si tu contenedor de Mailpit es anterior a HU0002, recréalo para que tome la variable: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --force-recreate --no-deps mailpit`. Mailpit guarda los correos en memoria, así que se pierden los que tenía.

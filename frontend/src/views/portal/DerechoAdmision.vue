@@ -2,8 +2,7 @@
      formulario, error de comprobante duplicado (HU0007-2.0) y constancia tras el envío (HU0007-1.0).
      - El monto (S/ 300, R16), la lista de bancos y la cuenta del colegio los entrega la API (C26, C48): no se fijan aquí.
      - El archivo se revisa antes de enviarlo (formato por su firma y 10 MB); la API vuelve a validarlo.
-     - El mockup cierra la constancia con «Volver a Pagos»: P07 (Pagos) llega con HU0013 y HU0014, así que ese botón no se
-       muestra todavía. «Registrado el» solo se conoce al registrar (C49).
+     - La constancia cierra con «Volver a Pagos» (P07, C50 punto 2). «Registrado el» solo se conoce al registrar (C49).
      - Subsanación (A1, HU0024-2.0): si Tesorería observó el comprobante, la constancia muestra el motivo y «Regularizar el
        pago» abre el mismo formulario, que reemplaza el comprobante (el anterior queda en el historial). Después, el motivo
        se muestra como «Motivo anterior». -->
@@ -144,8 +143,9 @@ onMounted(cargar);
         <div><dt>Código de constancia</dt><dd data-testid="codigo-constancia">{{ constancia.codigo }}</dd></div>
         <div><dt>Estado</dt><dd>{{ ESTADOS[constancia.estado] }}</dd></div>
       </dl>
-      <div v-if="constancia.subsanable" class="acciones">
-        <button type="button" class="boton primario" data-testid="regularizar" @click="regularizando = true">Regularizar el pago</button>
+      <div class="acciones">
+        <RouterLink to="/portal/pagos" class="boton secundario" data-testid="volver-a-pagos">Volver a Pagos</RouterLink>
+        <button v-if="constancia.subsanable" type="button" class="boton primario" data-testid="regularizar" @click="regularizando = true">Regularizar el pago</button>
       </div>
     </article>
 

@@ -26,6 +26,11 @@ export const ESCENARIOS_POR_PARTES = {
   "HU0008-2.0": { compromiso: "C30", partes: ["correo", "WhatsApp"] },
   // «Deriva a la Dirección» (D3-A, ADR-25): el expediente queda en apto; que G07 lo liste es de HU0012 (C58).
   "HU0010-1.0": { compromiso: "C58", partes: ["dictamen, informe restringido y estado", "derivación"] },
+  // Solo se valida el formato y el tamaño: ninguna fuente fija un umbral de calidad; un comprobante ilegible lo observa
+  // Tesorería en HU0015-2.0 (C63, decisión de John).
+  "HU0014-2.0": { compromiso: "C63", partes: ["formato", "calidad"] },
+  // La conciliación deja el dato; la generación de la carta es de HU0016, que la toma desde los datos (C62).
+  "HU0015-1.0": { compromiso: "C62", partes: ["conciliación", "carta"] },
 };
 export const SUITES_QUE_VERIFICAN = ["API", "E2E"];
 

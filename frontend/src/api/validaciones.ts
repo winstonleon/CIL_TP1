@@ -106,7 +106,7 @@ export async function darConformidad(rama: Rama, id: number): Promise<ResultadoC
   return respuesta(await llamarApi("gestion", `${base(rama, id)}/${parte}`, json("POST", {})));
 }
 
-async function blob(res: Response): Promise<Blob> {
+export async function blob(res: Response): Promise<Blob> {
   if (!res.ok) await respuesta(res);
   return res.blob();
 }
@@ -117,10 +117,10 @@ export async function descargarDocumento(rama: Rama, id: number, idDocumento: nu
 
 // ---- G05 · lista de Tesorería y comprobante del derecho
 
-export type VistaTesoreria = "todo" | "derecho" | "financiera";
+export type VistaTesoreria = "todo" | "derecho" | "financiera" | "cuota";
 
 export interface ItemTesoreria {
-  concepto: "documentacion_financiera" | "derecho_admision";
+  concepto: "documentacion_financiera" | "derecho_admision" | "cuota_ingreso";
   id_expediente: number;
   id_pago: number | null;
   codigo: string;
@@ -131,6 +131,10 @@ export interface ItemTesoreria {
   subsanado: boolean;
   motivos_anteriores: string[];
   recibido: string | null;
+  // Solo en la cuota de ingreso (HU0015).
+  numero_fraccion?: number;
+  modalidad?: "unico" | "fraccionado" | null;
+  numero_fracciones?: number | null;
 }
 
 export interface ListaTesoreria {
@@ -148,6 +152,12 @@ export interface DetallePago {
   codigo: string;
   grado: string;
   postulante: Persona;
+  concepto: "derecho_admision" | "cuota_ingreso";
+  numero_fraccion: number;
+  // Solo en la cuota de ingreso (HU0015): lo que Tesorería compara con el abono.
+  modalidad?: "unico" | "fraccionado" | null;
+  numero_fracciones?: number | null;
+  monto_corresponde?: number | null;
   banco: string;
   numero_operacion: string;
   monto: number;

@@ -1,8 +1,7 @@
-<!-- G05 · Validaciones de Tesorería (HU0011 y HU0024). Implementa docs/ui/G05-Tesoreria.dc.html: pestañas con conteo de
-     lo pendiente, la tabla de lo recibido y, al elegir una fila, el panel de la documentación financiera o el del
-     comprobante del derecho de admisión.
-     Desvíos del mockup: «Cuota de ingreso» llega con HU0015: se ve deshabilitada y no hace nada; el aviso de la Carta de
-     Vacante, también de HU0015, no se muestra; el panel del comprobante no está dibujado en el mockup (PanelComprobante). -->
+<!-- G05 · Validaciones de Tesorería (HU0011, HU0015 y HU0024). Implementa docs/ui/G05-Tesoreria.dc.html: pestañas con conteo
+     de lo pendiente, la tabla de lo recibido y, al elegir una fila, el panel de la documentación financiera o el del
+     comprobante (del derecho de admisión o de la cuota de ingreso).
+     Desvío del mockup: el panel del comprobante no está dibujado (PanelComprobante). -->
 <script setup lang="ts">
 import { onMounted, ref, shallowRef, watch } from "vue";
 import { mensajeDe } from "../../api/respuesta";
@@ -15,7 +14,7 @@ const PESTANAS: { vista: VistaTesoreria | null; texto: string; disponible?: stri
   { vista: "todo", texto: "Todo pendiente" },
   { vista: "derecho", texto: "Derecho de admisión" },
   { vista: "financiera", texto: "Documentación financiera" },
-  { vista: null, texto: "Cuota de ingreso", disponible: "Disponible con HU0015" },
+  { vista: "cuota", texto: "Cuota de ingreso" },
 ];
 
 const vista = shallowRef<VistaTesoreria>("todo");
@@ -110,6 +109,7 @@ onMounted(cargar);
             </tbody>
           </table>
         </div>
+        <p class="aviso-carta" data-testid="aviso-carta">Al conciliar un pago único o una primera fracción de la cuota de ingreso, el sistema emite automáticamente la Carta de Vacante.</p>
       </div>
 
       <div v-if="elegido" class="lateral">
@@ -147,6 +147,12 @@ onMounted(cargar);
 
 .lateral {
   flex: 0 0 440px;
+}
+
+.aviso-carta {
+  margin: 16px 0 0;
+  color: var(--texto-suave);
+  line-height: 1.5;
 }
 
 .enlace {

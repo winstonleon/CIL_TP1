@@ -14,6 +14,7 @@
 import { obtenerConfig } from "../config";
 import { enTransaccion, obtenerPool, type Consultable } from "../db/pool";
 import { ErrorApi } from "../errores";
+import { leerCuotaDeExpediente } from "../repositories/adjudicacion";
 import { insertarEvento } from "../repositories/auditoria";
 import { insertarIntento } from "../repositories/aviso";
 import {
@@ -36,13 +37,16 @@ import {
   marcarCitaReprogramada,
   tipoDeNotificacion,
   TIPO_CONFIRMACION_EVALUACIONES,
+  TIPO_CUOTA_POR_CONCILIAR,
   TIPO_DICTAMEN_NO_APTO,
   TIPO_DICTAMEN_OBSERVACION,
   TIPO_HABILITACION,
   TIPO_INASISTENCIA,
   TIPO_LIBERACION_RESPONSABLE,
+  TIPO_LISTA_ESPERA,
   TIPO_REPROGRAMACION_FAMILIA,
   TIPO_REPROGRAMACION_RESPONSABLE,
+  TIPO_VACANTE_ASIGNADA,
   TIPOS_AL_RESPONSABLE,
   TIPOS_AVISO_EVALUACION,
   TIPOS_EVALUACION,
@@ -65,6 +69,7 @@ import {
   componerObservacionAdmision,
   componerReprogramacionFamilia,
 } from "./avisosEvaluacion";
+import { componerCuotaPorConciliar, componerListaEspera, componerVacante } from "./avisosVacante";
 import { transicionarExpediente } from "./expedientes/transicionarExpediente";
 import { codigoExpediente } from "./fichaInscripcion";
 
@@ -338,6 +343,12 @@ async function componerMensaje(db: Consultable, idExpediente: number, tipo: Tipo
   const familia = (await leerDatosFamilia(db, idExpediente))!;
   const base = { nombres: familia.nombres, campana: familia.campana_admision };
   if (tipo === TIPO_HABILITACION) return componerHabilitacion(base);
+  if (tipo === TIPO_CUOTA_POR_CONCILIAR) return componerCuotaPorConciliar({ codigo: codigoExpediente(familia.campana_admision, idExpediente), campana: familia.campana_admision });
+  if (tipo === TIPO_VACANTE_ASIGNADA || tipo === TIPO_LISTA_ESPERA) {
+    const q = (await leerCuotaDeExpediente(db, idExpediente))!;
+    if (tipo === TIPO_LISTA_ESPERA) return componerListaEspera({ ...base, grado: q.nombre_grado, posicion: q.posicion_lista_espera! });
+    return componerVacante({ ...base, grado: q.nombre_grado, nivel: q.nivel, monto: Number(q.monto), maxFracciones: q.max_fracciones });
+  }
   if (tipo === TIPO_DICTAMEN_NO_APTO) return componerNoApto(base);
   if (tipo === TIPO_DICTAMEN_OBSERVACION) {
     return componerObservacionAdmision({ codigo: codigoExpediente(familia.campana_admision, idExpediente), campana: familia.campana_admision, idExpediente });
@@ -427,13 +438,14 @@ export async function avisosEvaluacionPendientes(): Promise<{ avisos: { id_exped
 }
 
 // Contacto de un intento (notificacion-multicanal, «Obtener contacto»): los avisos al responsable (decisión R3) van al
-// correo del personal de la cita, y el del dictamen En observación al buzón de admisión (CORREO_ADMISION, D4c-A), sin
-// WhatsApp. null si el intento no es un aviso al personal: sigue el camino de siempre (la familia). Un aviso al
+// correo del personal de la cita, el del dictamen En observación al buzón de admisión (CORREO_ADMISION, D4c-A) y el de la
+// cuota por conciliar al buzón de Tesorería (CORREO_TESORERIA, ADR-26), sin WhatsApp. null si el intento no es un aviso al personal: sigue el camino de siempre (la familia). Un aviso al
 // responsable sin contacto responde 404: nunca cae al correo de la familia.
 export async function contactoDelResponsable(idExpediente: number, idNotificacion: number): Promise<ContactoExpediente | null> {
   const db = obtenerPool();
   const tipo = await tipoDeNotificacion(db, idNotificacion, idExpediente);
   if (tipo === TIPO_DICTAMEN_OBSERVACION) return { id_expediente: idExpediente, correo: obtenerConfig().CORREO_ADMISION, autoriza_whatsapp: false };
+  if (tipo === TIPO_CUOTA_POR_CONCILIAR) return { id_expediente: idExpediente, correo: obtenerConfig().CORREO_TESORERIA, autoriza_whatsapp: false };
   if (tipo === null || !TIPOS_AL_RESPONSABLE.includes(tipo)) return null;
   const sinContacto = () => new ErrorApi(404, "CONTACTO_NO_ENCONTRADO", "El aviso no tiene un responsable con correo");
   const fuente = await fuenteDeIntento(db, idExpediente, tipo, idNotificacion);

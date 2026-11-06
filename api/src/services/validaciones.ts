@@ -10,23 +10,27 @@
 // Una decisión sobre un ítem ya decidido (otra persona del mismo rol) responde 409 y no pisa la anterior.
 // Tiempo de atención (ADR-05, §4.7): atencion_inicio al abrir el ítem y atencion_fin emparejado al decidir.
 // Una observación reserva el primer intento del aviso por notificacion-multicanal (ADR-07); n8n lo envía.
+// Conciliación de la cuota de ingreso (HU0015): el mismo camino del comprobante del derecho, por `tipo_pago`. La cuota exige
+// `vacante_asignada` y no evalúa la unión; `cuota_acreditada` en su atencion_fin es solo trazabilidad (C62).
 import type { Readable } from "node:stream";
 import type { Almacenamiento } from "../almacenamiento";
 import { enTransaccion, obtenerPool, type Consultable } from "../db/pool";
 import { ErrorApi } from "../errores";
+import { leerCuotaDeExpediente } from "../repositories/adjudicacion";
 import { insertarIntento } from "../repositories/aviso";
 import { bloquearFichaDeExpediente, leerDatosFamilia } from "../repositories/expediente";
 import {
   bloquearDocumentoDeExpediente,
   bloquearIntentosObservacion,
-  bloquearPagoDerecho,
+  bloquearPago,
   condicionesLaborales,
   contarNoConformes,
   documentosDeRama,
   leerCabecera,
   leerDocumentoDeExpediente,
-  leerPagoDerecho,
+  leerPago,
   listarBandeja,
+  listarCuotasTesoreria,
   listarObservacionesPendientes,
   listarTesoreria,
   observacionesVigentes,
@@ -37,12 +41,14 @@ import {
   TIPO_OBSERVACION,
   type Cabecera,
   type DocumentoDeRama,
+  type PagoValidable,
   type Rama,
   type VistaBandeja,
 } from "../repositories/validacion";
 import { avisoAgotado, decidir, MAXIMO_PENDIENTES, MINUTOS_REINTENTO } from "./agendamiento";
 import { registrarAtencionFin, registrarAtencionInicio } from "./atencion";
 import { componerObservaciones } from "./avisosValidacion";
+import { montosDeFracciones } from "./montosCuota";
 import { formatoPorFirma, type FormatoArchivo } from "./cargaArchivo";
 import { abrirArchivo } from "./documentos";
 import { transicionarExpediente, type CampoEstado } from "./expedientes/transicionarExpediente";
@@ -52,6 +58,8 @@ import { itemDePago, itemDeRama } from "./subsanacion";
 export type { Rama };
 export const ESTADO_VALIDACION = "en_validacion";
 export const LARGO_MAXIMO_MOTIVO = 500;
+// Estado del expediente en el que Tesorería decide cada pago.
+const ESTADO_DEL_PAGO = { derecho_admision: ESTADO_VALIDACION, cuota_ingreso: "vacante_asignada" } as const;
 
 const CAMPO: Record<Rama, CampoEstado> = { documental: "estado_documental", financiera: "estado_financiero" };
 const estadoDeRama = (c: Cabecera, rama: Rama) => (rama === "documental" ? c.estado_documental : c.estado_financiero);
@@ -219,18 +227,32 @@ export async function confirmarRama(rama: Rama, idExpediente: number, idPersonal
 
 // ---------------------------------------------------------------- derecho de admisión (HU0024)
 
-async function pagoEnValidacion(idPago: number) {
-  const pago = await leerPagoDerecho(obtenerPool(), idPago);
+async function pagoExistente(idPago: number) {
+  const pago = await leerPago(obtenerPool(), idPago);
   if (!pago) throw pagoNoEncontrado();
   return pago;
+}
+
+async function cabeceraDelPago(db: Consultable, pago: PagoValidable): Promise<Cabecera> {
+  const c = await leerCabecera(db, pago.id_expediente);
+  if (!c) throw expedienteNoEncontrado();
+  if (c.estado !== ESTADO_DEL_PAGO[pago.tipo_pago]) throw noCorresponde();
+  return c;
+}
+
+// Lo que G05 compara con el abono (HU0015-2.0): el monto del pago único o de la fracción, con la configuración vigente.
+async function datosDeCuota(db: Consultable, pago: PagoValidable) {
+  const q = (await leerCuotaDeExpediente(db, pago.id_expediente))!;
+  const montos = montosDeFracciones(Number(q.monto), q.numero_fracciones ?? 1);
+  return { modalidad: q.modalidad, numero_fracciones: q.numero_fracciones, monto_corresponde: montos[pago.numero_fraccion - 1] ?? null };
 }
 
 // Detalle del comprobante (G05). Abrirlo registra atencion_inicio solo si espera la decisión de Tesorería (`pendiente`):
 // un comprobante observado espera a la familia.
 export async function detallePago(idPago: number, idPersonal: number) {
-  const pago = await pagoEnValidacion(idPago);
+  const pago = await pagoExistente(idPago);
   const db = obtenerPool();
-  const c = await cabeceraEnValidacion(db, pago.id_expediente);
+  const c = await cabeceraDelPago(db, pago);
   if (pago.estado_validacion === "pendiente") {
     await registrarAtencionInicio(db, { idPersonal, idExpediente: pago.id_expediente, item: itemDePago(idPago) });
   }
@@ -240,7 +262,9 @@ export async function detallePago(idPago: number, idPersonal: number) {
     codigo: codigoExpediente(c.campana_admision, pago.id_expediente),
     grado: c.nombre_grado,
     postulante: nombrePostulante(c),
-    concepto: "derecho_admision",
+    concepto: pago.tipo_pago,
+    numero_fraccion: pago.numero_fraccion,
+    ...(pago.tipo_pago === "cuota_ingreso" ? await datosDeCuota(db, pago) : {}),
     banco: pago.banco,
     numero_operacion: pago.numero_operacion,
     monto: Number(pago.monto),
@@ -254,15 +278,16 @@ export async function detallePago(idPago: number, idPersonal: number) {
   };
 }
 
-// «Marcar conforme» u «Observar comprobante» (HU0024): misma transacción que la unión y el aviso.
+// «Marcar conforme» u «Observar comprobante» (HU0024), o «Conciliar y aprobar pago» y «Rechazar comprobante» (HU0015): misma
+// transacción que la unión (solo del derecho) y el aviso.
 export async function decidirPago(idPago: number, idPersonal: number, d: Decision) {
-  const previo = await pagoEnValidacion(idPago);
+  const previo = await pagoExistente(idPago);
   const idExpediente = previo.id_expediente;
   return enTransaccion(async (c) => {
     // Orden de bloqueo: expediente y después pago (el mismo de la subsanación de la familia).
     const bloqueo = await bloquearFichaDeExpediente(c, idExpediente);
-    if (bloqueo?.estado !== ESTADO_VALIDACION) throw noCorresponde();
-    const pago = (await bloquearPagoDerecho(c, idPago))!;
+    if (bloqueo?.estado !== ESTADO_DEL_PAGO[previo.tipo_pago]) throw noCorresponde();
+    const pago = (await bloquearPago(c, idPago))!;
     if (pago.estado_validacion !== "pendiente") throw pagoYaValidado(pago.estado_validacion);
 
     const motivo = d.decision === "observado" ? d.motivo : null;
@@ -273,9 +298,11 @@ export async function decidirPago(idPago: number, idPersonal: number, d: Decisio
     if (d.decision === "observado") {
       idNotificacion = await insertarIntento(c, { idExpediente, tipoEvento: TIPO_OBSERVACION, estadoEnvio: "pendiente" });
       extra = { ...extra, id_notificacion: idNotificacion };
-    } else {
+    } else if (pago.tipo_pago === "derecho_admision") {
       habilita = await ramasConformes(c, idExpediente);
       if (habilita) extra = { ...extra, habilita_agendamiento: true };
+    } else if (pago.numero_fraccion === 1) {
+      extra = { ...extra, cuota_acreditada: true };
     }
     await registrarAtencionFin(c, { idPersonal, idExpediente, item: itemDePago(idPago), decision: d.decision, extra });
     return { id_pago: idPago, id_expediente: idExpediente, estado_validacion: d.decision, id_notificacion: idNotificacion, agendamiento_habilitado: habilita };
@@ -284,8 +311,8 @@ export async function decidirPago(idPago: number, idPersonal: number, d: Decisio
 
 // El comprobante descifrado y verificado. `Pago` no guarda el formato: se reconoce por la firma, como en la carga.
 export async function abrirComprobante(almacenamiento: Almacenamiento, idPago: number): Promise<{ formato: FormatoArchivo; contenido: Buffer }> {
-  const pago = await pagoEnValidacion(idPago);
-  await cabeceraEnValidacion(obtenerPool(), pago.id_expediente);
+  const pago = await pagoExistente(idPago);
+  await cabeceraDelPago(obtenerPool(), pago);
   const flujo: Readable = await abrirArchivo(almacenamiento, idPago, pago.comprobante_url);
   const partes: Buffer[] = [];
   for await (const parte of flujo) partes.push(parte as Buffer);
@@ -319,16 +346,25 @@ export async function bandeja(campana: string, f: { vista: VistaBandeja; idGrado
   };
 }
 
-export type VistaTesoreria = "todo" | "derecho" | "financiera";
+export type VistaTesoreria = "todo" | "derecho" | "financiera" | "cuota";
 
 export async function validacionesTesoreria(campana: string, vista: VistaTesoreria) {
-  const items = await listarTesoreria(obtenerPool(), campana);
+  const db = obtenerPool();
+  const [validaciones, cuotas] = await Promise.all([listarTesoreria(db, campana), listarCuotasTesoreria(db, campana)]);
+  // Orden estable: los más antiguos primero, y sin fecha al final, como cada lista por separado.
+  const instante = (d: Date | null) => d?.getTime() ?? Number.POSITIVE_INFINITY;
+  const items = [...validaciones, ...cuotas].sort((a, b) => (instante(a.recibido) === instante(b.recibido) ? 0 : instante(a.recibido) - instante(b.recibido)));
   const de = (concepto: string) => items.filter((i) => i.concepto === concepto);
   const pendientes = (lista: typeof items) => lista.filter((i) => i.estado === "pendiente").length;
   const visibles =
-    vista === "derecho" ? de("derecho_admision") : vista === "financiera" ? de("documentacion_financiera") : items;
+    vista === "derecho" ? de("derecho_admision") : vista === "financiera" ? de("documentacion_financiera") : vista === "cuota" ? de("cuota_ingreso") : items;
   return {
-    conteos: { todo: pendientes(items), derecho: pendientes(de("derecho_admision")), financiera: pendientes(de("documentacion_financiera")) },
+    conteos: {
+      todo: pendientes(items),
+      derecho: pendientes(de("derecho_admision")),
+      financiera: pendientes(de("documentacion_financiera")),
+      cuota: pendientes(de("cuota_ingreso")),
+    },
     items: visibles.map((i) => ({
       concepto: i.concepto,
       id_expediente: i.id_expediente,
@@ -341,6 +377,7 @@ export async function validacionesTesoreria(campana: string, vista: VistaTesorer
       subsanado: i.subsanado,
       motivos_anteriores: i.motivos_anteriores,
       recibido: i.recibido?.toISOString() ?? null,
+      ...(i.concepto === "cuota_ingreso" ? { numero_fraccion: i.numero_fraccion, modalidad: i.modalidad, numero_fracciones: i.numero_fracciones } : {}),
     })),
   };
 }
@@ -372,7 +409,8 @@ export async function reservarAvisoObservacion(idExpediente: number, idNotificac
     if (!bloqueo) throw expedienteNoEncontrado();
     const desde = await primerIntentoUltimaObservacion(c, idExpediente);
     const vigentes = await observacionesVigentes(c, idExpediente);
-    if (bloqueo.estado !== ESTADO_VALIDACION || desde === null || (vigentes.documentos.length === 0 && vigentes.derecho === null)) {
+    const estadoAdmitido = bloqueo.estado === ESTADO_VALIDACION || bloqueo.estado === ESTADO_DEL_PAGO.cuota_ingreso;
+    if (!estadoAdmitido || desde === null || (vigentes.documentos.length === 0 && vigentes.derecho === null && vigentes.cuota === null)) {
       return { conflicto: noCorrespondeAviso() };
     }
     const intentos = await bloquearIntentosObservacion(c, { idExpediente, desde, minutosReintento: MINUTOS_REINTENTO });
