@@ -1,20 +1,20 @@
 # Matriz de trazabilidad (HU → escenario → prueba → resultado)
 
-> Generada con `npm run evidencias:matriz` el 5/11/26, 12:03 p. m. (America/Lima) sobre el commit `680110e` **con cambios sin commit**. No se edita a mano.
+> Generada con `npm run evidencias:matriz` el 5/11/26, 3:30 p. m. (America/Lima) sobre el commit `d58c668` **con cambios sin commit**. No se edita a mano.
 
 ## Resumen
 
 | Suite | Pruebas | Pasan | Fallan | Omitidas o no ejecutadas |
 |---|---|---|---|---|
-| API | 441 | 441 | 0 | 0 |
-| Frontend | 138 | 138 | 0 | 0 |
-| E2E | 72 | 72 | 0 | 0 |
+| API | 469 | 469 | 0 | 0 |
+| Frontend | 155 | 155 | 0 | 0 |
+| E2E | 74 | 74 | 0 | 0 |
 
-- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **32**.
-- Estados: cubierto: 26 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · verificado: correo; pendiente: WhatsApp (C30): 1 · sin prueba: 23 · verificado: almacenamiento, completitud, agendamiento; pendiente: adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
+- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **37**.
+- Estados: cubierto: 30 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · verificado: correo; pendiente: WhatsApp (C30): 1 · verificado: dictamen, informe restringido y estado; pendiente: derivación (C58): 1 · sin prueba: 18 · verificado: almacenamiento, completitud, agendamiento, dictamen; pendiente: adjudicación (C25): 1 · verificado: regla; pendiente: adjudicación real (C25): 1.
 - Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.
 - «mecanismo probado; verificación en ruta real pendiente (C17)»: todas las pruebas del escenario llevan la marca `[política, ruta de prueba]` (compromiso C17).
-- «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34; HU0005-2.0, C43; HU0017-1.0, C51; HU0008-2.0, C30). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
+- «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34; HU0005-2.0, C43; HU0017-1.0, C51; HU0008-2.0, C30; HU0010-1.0, C58). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
 
 ## HU con pruebas
 
@@ -307,6 +307,34 @@
 |  |  | Frontend | `frontend/src/views/portal/EvaluacionesAgenda.test.ts` | HU0009-2.0 si la API rechaza el cambio (422 PLAZO_REPROGRAMACION_VENCIDO) muestra su aviso y no confirma nada | pasó |
 |  |  | E2E | `e2e/evaluaciones.spec.ts` | HU0009-2.0 con más de 24 h de anticipación la familia reprograma la evaluación académica desde el enlace del correo: se libera el turno anterior, se reserva el nuevo y llegan la confirmación actualizada a la familia y el aviso al evaluador responsable | pasó |
 
+### HU0010 — Registrar los resultados de las evaluaciones a mi cargo y emitir el dictamen de admisión (Apto, En observación o No apto)
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0010-1.0 — Registro de dictamen Apto | verificado: dictamen, informe restringido y estado; pendiente: derivación (C58) | API | `api/test/dictamen.test.ts` | HU0010-1.0 [parte: dictamen, informe restringido y estado] con la entrevista a los padres concluida y los resultados de todas las evaluaciones del grado, la psicóloga ingresa las conclusiones, elige Apto y guarda: el informe queda archivado con acceso restringido y el expediente pasa a apto para la Dirección | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0010-1.0 [parte: dictamen, informe restringido y estado] (resultados incompletos) sin el resultado de la entrevista a los padres el dictamen responde 409 RESULTADOS_INCOMPLETOS con lo que falta, y G06 no lo habilita | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0010-1.0 [parte: dictamen, informe restringido y estado] (validación) un dictamen inválido responde 400 y un informe que no es PDF, JPG ni PNG 415, sin dictamen ni transición | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0010-1.0 [parte: dictamen, informe restringido y estado] (G06) el dictamen muestra la edad del postulante calculada con su fecha de nacimiento; sin ficha, null | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0010-1.0 [parte: dictamen, informe restringido y estado] (atención) abrir la cita y el dictamen en G06 registra atencion_inicio de cada ítem, y registrar el resultado y el dictamen registra su atencion_fin con id_evento_inicio | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0010-1.0 [parte: dictamen, informe restringido y estado] (atención) abrir una cita no crea un inicio del dictamen: solo el panel lo crea, y el atencion_fin se empareja con ese inicio | pasó |
+|  |  | Frontend | `frontend/src/gestion/dictamen.test.ts` | HU0010-1.0 [parte: dictamen, informe restringido y estado] cada componente muestra «Registrada» o, la entrevista, «Realizada» con su fecha; sin resultado, «Pendiente» | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AgendaPsicologia.test.ts` | HU0010-1.0 [parte: dictamen, informe restringido y estado] G06 lista las citas del día y, al abrir la entrevista, registra su resultado con el formulario de la cita (S1) | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AgendaPsicologia.test.ts` | HU0010-1.0 [parte: dictamen, informe restringido y estado] G06 abrir una cita no pide el dictamen: el panel se abre con «Abrir dictamen», una sola vez con abrir=1, y otra cita lo cierra | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AgendaPsicologia.test.ts` | HU0010-1.0 [parte: dictamen, informe restringido y estado] G06 muestra los componentes que exige el grado con sus resultados (el académico incluido, HU0025-1.0); con todos registrados, «Apto» envía las conclusiones y el informe sin requisitos | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AgendaPsicologia.test.ts` | HU0010-1.0 [parte: dictamen, informe restringido y estado] G06 sin los resultados de todas las evaluaciones del grado no ofrece el dictamen y dice cuáles faltan | pasó |
+|  |  | E2E | `e2e/dictamen.spec.ts` | HU0010-1.0 [parte: dictamen, informe restringido y estado] con los resultados del grado registrados en G11 y G06, la psicóloga elige Apto, guarda las conclusiones y el informe, y el expediente pasa a apto con el informe restringido | pasó |
+| HU0010-2.0 — Registro de dictamen En observación con requisitos complementarios | cubierto | API | `api/test/dictamen.test.ts` | HU0010-2.0 la psicóloga selecciona En observación y detalla los requisitos complementarios: el expediente pasa a en_observacion y se notifica al personal de admisión, que ve los requisitos sin las conclusiones | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0010-2.0 (nuevo dictamen, D4a-A) desde en_observacion la psicóloga emite Apto: se actualiza la misma fila y el dictamen anterior se recupera y descifra desde la auditoría | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0010-2.0 (D1) las observaciones de los resultados, las conclusiones y los requisitos complementarios se guardan cifrados: la BD no tiene el texto en claro | pasó |
+|  |  | Frontend | `frontend/src/gestion/dictamen.test.ts` | HU0010-2.0 los requisitos complementarios se exigen solo con «En observación»; el resultado y las conclusiones, siempre | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AgendaPsicologia.test.ts` | HU0010-2.0 G06 el campo de requisitos complementarios, con su texto de ayuda, aparece solo con «En observación», es obligatorio y se envía con el dictamen | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AgendaPsicologia.test.ts` | HU0010-2.0 G06 en observación muestra el dictamen vigente y ofrece el nuevo dictamen solo como Apto o No apto | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AgendaPsicologia.test.ts` | HU0010-2.0 G03 un expediente en observación muestra a Secretaría los requisitos complementarios para coordinar con la familia, sin las conclusiones | pasó |
+| HU0010-3.0 — Registro de dictamen No apto | cubierto | API | `api/test/dictamen.test.ts` | HU0010-3.0 la psicóloga selecciona No apto y registra las conclusiones: el sistema cierra el expediente en no_apto, notifica a la familia sin el contenido del informe psicológico y concluye el proceso | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0010-3.0 (D4d) con una cita de evaluación todavía reservada, No apto responde 409 CITAS_PENDIENTES y no cierra el expediente | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/AgendaPsicologia.test.ts` | HU0010-3.0 G06 «No apto» envía las conclusiones sin requisitos y deja el dictamen emitido sin formulario | pasó |
+|  |  | E2E | `e2e/dictamen.spec.ts` | HU0010-3.0 la psicóloga elige No apto y registra las conclusiones: el expediente queda en no_apto y la familia recibe el resultado sin el contenido del informe psicológico | pasó |
+
 ### HU0011 — Revisar la documentación financiera presentada por los padres de familia postulantes, sin consultar centrales de riesgo
 
 | Escenario | Estado | Suite | Archivo | Prueba | Resultado |
@@ -400,6 +428,8 @@
 |  |  | API | `api/test/accesoRestringido.test.ts` | HU0021-2.0 [política, ruta de prueba] control: psicologa sí abre informe_psicologico y no se registra acceso_denegado | pasó |
 |  |  | API | `api/test/accesoRestringido.test.ts` | HU0021-2.0 [política, ruta de prueba] control: directora sí abre informe_psicologico y no se registra acceso_denegado | pasó |
 |  |  | API | `api/test/accesoRestringido.test.ts` | HU0021-2.0 [política, ruta de prueba] un id de expediente inexistente se bloquea igual y se audita sin id_expediente | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0021-2.0 [ruta real] el evaluador académico, Secretaría y Tesorería reciben 403 en la agenda, el dictamen y el informe de G06, y cada intento queda en acceso_denegado con recurso informe_psicologico | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0021-2.0 [ruta real] G11 es solo del evaluador académico: Psicología, Secretaría y Tesorería reciben 403 auditado como acceso_denegado | pasó |
 |  |  | API | `api/test/validaciones.test.ts` | HU0021-2.0 [ruta real] G03 no devuelve los documentos financieros a Secretaría; abrirlos o validarlos responde 403 sin contenido y queda acceso_denegado | pasó |
 |  |  | API | `api/test/validaciones.test.ts` | HU0021-2.0 [ruta real] solo Tesorería ve y descarga la documentación financiera, con las cabeceras de ADR-21 | pasó |
 | HU0021-3.0 — Modificación de una cuenta del personal | cubierto | API | `api/test/keycloakAdmin.test.ts` | HU0021-3.0 establecerRolUnico quita primero los otros roles de la app y después agrega el nuevo (falla cerrado) | pasó |
@@ -438,7 +468,7 @@
 
 | Escenario | Estado | Suite | Archivo | Prueba | Resultado |
 |---|---|---|---|---|---|
-| HU0022-1.0 — Configuración de un grado de la campaña | verificado: almacenamiento, completitud, agendamiento; pendiente: adjudicación (C25) | API | `api/test/completitud.test.ts` | HU0022-1.0 [parte: completitud] un requisito creado por la ruta de G09 con condición de colegio peruano se exige solo a quien lo declaró en la ficha | pasó |
+| HU0022-1.0 — Configuración de un grado de la campaña | verificado: almacenamiento, completitud, agendamiento, dictamen; pendiente: adjudicación (C25) | API | `api/test/completitud.test.ts` | HU0022-1.0 [parte: completitud] un requisito creado por la ruta de G09 con condición de colegio peruano se exige solo a quien lo declaró en la ficha | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] GET /configuracion lista solo los grados de la campaña activa, con sus vacantes adjudicadas y el derecho de admisión de R16 | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] guarda vacantes, evaluaciones, cuota y máximo de fracciones de un grado: ajusta las disponibles sin cambiar las adjudicadas y registra cambio_configuracion con el valor anterior y el nuevo | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] acepta una cuota de ingreso de 0 (plan HU0022, P10: colegios sin cuota) | pasó |
@@ -476,6 +506,7 @@
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un horario con cupos negativos | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un horario con tipo de cita desconocido | pasó |
 |  |  | API | `api/test/configuracion.test.ts` | HU0022-1.0 [parte: almacenamiento] rechaza con 400 un horario con campaña en el cuerpo (la pone el servidor) | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0022-1.0 [parte: dictamen] un grado configurado por la ruta de G09 con solo la evaluación psicológica exige para el dictamen esa evaluación y la entrevista, no el texto fijo de G06 (C25 4) | pasó |
 |  |  | API | `api/test/evaluaciones.test.ts` | HU0022-1.0 [parte: agendamiento] un grado configurado por la ruta de G09 ofrece y exige solo sus evaluaciones, más la entrevista, con los horarios creados en G09 | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-1.0 [parte: almacenamiento] muestra las pestañas y la tabla del mockup con lo que devuelve la API, sin valores fijos | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-1.0 [parte: almacenamiento] edita vacantes y evaluaciones (chips con aria-pressed) y los envía en un solo guardado | pasó |
@@ -515,13 +546,35 @@
 |  |  | Frontend | `frontend/src/views/gestion/ValidacionesTesoreria.test.ts` | HU0024-2.0 (subsanación) el comprobante regularizado muestra «Subsanado» y su motivo como «Motivo anterior» | pasó |
 |  |  | Frontend | `frontend/src/views/portal/Subsanacion.test.ts` | HU0024-2.0 (subsanación) P07b muestra el motivo de la observación y «Regularizar el pago» envía el comprobante nuevo con PUT; después el motivo queda como anterior | pasó |
 
+### HU0025 — Registrar el resultado de la evaluación académica del postulante o su inasistencia
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0025-1.0 — Registro del resultado de la evaluación académica | cubierto | API | `api/test/dictamen.test.ts` | HU0025-1.0 el evaluador ingresa el resultado y las observaciones en el formulario de su cita y confirma: se registra el resultado, la evaluación académica queda completada y la psicóloga la ve para el dictamen | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0025-1.0 (R3) sin dar al evaluador acceso al informe psicológico ni a la documentación financiera: G11 solo devuelve su cita, y las rutas de Psicología y Tesorería le responden 403 auditado como acceso_denegado | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0025-1.0 (S3) la cita de otro responsable o de otro tipo responde 404, una cita que todavía no empieza 409 CITA_NO_INICIADA y un segundo registro 409 RESULTADO_YA_REGISTRADO | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0025-1.0 (validación) el resultado y las observaciones son obligatorios, el resultado tiene hasta 50 caracteres (escala por definir, S4) y «inasistencia» se registra solo con «No asistió» | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0025-1.0 (agenda) G11 lista solo las citas académicas del día del evaluador de la sesión, y G06 solo las de la psicóloga | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0025-1.0 (atención) abrir la cita en G11 registra atencion_inicio y registrar el resultado, atencion_fin con su id_evento_inicio | pasó |
+|  |  | Frontend | `frontend/src/gestion/dictamen.test.ts` | HU0025-1.0 una cita es «Programada» antes de su hora, «En curso» durante ella, «Registrada» con resultado y «No asistió» con la inasistencia (hora de Lima) | pasó |
+|  |  | Frontend | `frontend/src/gestion/dictamen.test.ts` | HU0025-1.0 el título del día, la hora corta de G06 y el día siguiente o anterior | pasó |
+|  |  | Frontend | `frontend/src/gestion/dictamen.test.ts` | HU0025-1.0 el resultado y las observaciones son obligatorios, el resultado tiene hasta 50 caracteres y la inasistencia va por su botón | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/EvaluacionAcademica.test.ts` | HU0025-1.0 G11 la tabla del día tiene Hora, Postulante, Grado y Estado con los textos del mockup, y una evaluación registrada se ve en solo lectura | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/EvaluacionAcademica.test.ts` | HU0025-1.0 G11 el resultado y las observaciones son obligatorios; al confirmar envía ambos y muestra la nota de que no hay acceso al informe psicológico ni a la documentación financiera | pasó |
+| HU0025-2.0 — Registro de inasistencia a la evaluación académica | cubierto | API | `api/test/dictamen.test.ts` | HU0025-2.0 el evaluador registra la inasistencia: el sistema libera la cita (no_asistio) y notifica a la familia, con el enlace a P08, para que reprograme la evaluación | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0025-2.0 (reprogramación, D2-A) la familia reprograma en P08 la evaluación a la que no asistió, sin la regla de 24 h: la cita vieja queda no_asistio, la nueva es la vigente y la vieja ya no se reprograma | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0025-2.0 (otro responsable) si el nuevo horario de la inasistencia lo atiende otra persona, se avisa al responsable nuevo y también al anterior, como en toda reprogramación (ADR-24) | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0025-2.0 (orden) con la entrevista ya registrada, la inasistencia se reprograma después de ella, el nuevo resultado se registra y el dictamen se habilita (decisión A, ADR-24) | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0025-2.0 (orden) con la entrevista a menos de 24 h la excepción también aplica; con la entrevista movible, el orden se sigue exigiendo con 422 ORDEN_DE_CITAS | pasó |
+|  |  | API | `api/test/dictamen.test.ts` | HU0025-2.0 (aviso) el aviso de la inasistencia sigue ADR-07: si el intento queda pendiente más de 10 min, el barrido de agendamiento lo retoma con una fila nueva | pasó |
+|  |  | API | `api/test/n8nEvaluaciones.test.ts` | HU0025-2.0 el barrido de evaluaciones también saca los avisos de la inasistencia y del dictamen (En observación y No apto, HU0010-2.0 y 3.0), solo con ids (ADR-25, C11) | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/EvaluacionAcademica.test.ts` | HU0025-2.0 G11 «Marcar “No asistió”» pide confirmación; cancelar no envía nada y confirmar registra la inasistencia | pasó |
+|  |  | Frontend | `frontend/src/views/portal/EvaluacionesAgenda.test.ts` | HU0025-2.0 una evaluación académica a la que no se asistió muestra «No asististe» y «Elegir nuevo horario», y reprograma esa cita (D2-A) | pasó |
+
 ## HU sin pruebas
 
 | HU | Escenario | Estado |
 |---|---|---|
-| HU0010 | HU0010-1.0 — Registro de dictamen Apto | sin prueba |
-| HU0010 | HU0010-2.0 — Registro de dictamen En observación con requisitos complementarios | sin prueba |
-| HU0010 | HU0010-3.0 — Registro de dictamen No apto | sin prueba |
 | HU0012 | HU0012-1.0 — Asignación exitosa de vacante escolar | sin prueba |
 | HU0012 | HU0012-2.0 — Intento de asignación en un grado sin vacantes disponibles | sin prueba |
 | HU0013 | HU0013-1.0 — Elección de la modalidad de pago de la cuota de ingreso | sin prueba |
@@ -540,5 +593,3 @@
 | HU0020 | HU0020-2.0 — Atención de una acción pendiente desde el panel | sin prueba |
 | HU0023 | HU0023-1.0 — Primer ingreso con credenciales temporales | sin prueba |
 | HU0023 | HU0023-2.0 — Bloqueo por intentos fallidos de ingreso | sin prueba |
-| HU0025 | HU0025-1.0 — Registro del resultado de la evaluación académica | sin prueba |
-| HU0025 | HU0025-2.0 — Registro de inasistencia a la evaluación académica | sin prueba |
