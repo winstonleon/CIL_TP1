@@ -1,17 +1,17 @@
 # Matriz de trazabilidad (HU → escenario → prueba → resultado)
 
-> Generada con `npm run evidencias:matriz` el 5/11/26, 9:37 p. m. (America/Lima) sobre el commit `c67fc14` **con cambios sin commit**. No se edita a mano.
+> Generada con `npm run evidencias:matriz` el 6/11/26, 6:40 p. m. (America/Lima) sobre el commit `11fd1c1` **con cambios sin commit**. No se edita a mano.
 
 ## Resumen
 
 | Suite | Pruebas | Pasan | Fallan | Omitidas o no ejecutadas |
 |---|---|---|---|---|
-| API | 510 | 510 | 0 | 0 |
-| Frontend | 178 | 178 | 0 | 0 |
-| E2E | 80 | 80 | 0 | 0 |
+| API | 568 | 568 | 0 | 0 |
+| Frontend | 191 | 191 | 0 | 0 |
+| E2E | 82 | 82 | 0 | 0 |
 
-- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **45**.
-- Estados: cubierto: 39 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · verificado: correo; pendiente: WhatsApp (C30): 1 · verificado: formato; pendiente: calidad (C63): 1 · verificado: conciliación; pendiente: carta (C62): 1 · sin prueba: 10.
+- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **47**.
+- Estados: cubierto: 41 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · verificado: correo; pendiente: WhatsApp (C30): 1 · verificado: formato; pendiente: calidad (C63): 1 · verificado: conciliación; pendiente: carta (C62): 1 · sin prueba: 8.
 - Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.
 - «mecanismo probado; verificación en ruta real pendiente (C17)»: todas las pruebas del escenario llevan la marca `[política, ruta de prueba]` (compromiso C17).
 - «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34; HU0005-2.0, C43; HU0017-1.0, C51; HU0008-2.0, C30; HU0010-1.0, C58; HU0014-2.0, C63; HU0015-1.0, C62). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
@@ -472,6 +472,70 @@
 |  |  | Frontend | `frontend/src/views/portal/DocumentosExpediente.test.ts` | HU0017-2.0 P06 una confirmación aceptada oculta los faltantes anteriores hasta la nueva verificación | pasó |
 |  |  | E2E | `e2e/completitud.spec.ts` | HU0017-2.0 con documentos faltantes el expediente sigue en postulación, la familia recibe el correo con lo que falta y P06 lo muestra; confirmar sin cambios no repite el aviso | pasó |
 
+### HU0019 — Visualizar un tablero con el embudo de admisión, el lead time y el cycle time por etapa y la ocupación de vacantes
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0019-1.0 — Visualización del embudo de conversión y tiempos de atención | cubierto | API | `api/test/indicadores.test.ts` | HU0019-1.0 (embudo) cuenta los expedientes que alcanzaron cada etapa, con su tasa de conversión, sin contar dos veces una visita repetida | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (embudo) nunca crece: un expediente sin las transiciones previas en su bitácora cuenta en las etapas que dejó atrás | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (embudo) una campaña sin expedientes responde en cero y sin conversiones | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (observados) es el % de los que llegaron a validación con alguna observación, aunque ya se haya subsanado | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (lead time) va del registro a carta_emitida, por expediente y en promedio | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (lead time) sin cartas emitidas la tarjeta queda nula y cada expediente muestra los días hasta su última etapa, como parcial | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (tramos) cada etapa promedia sus tramos completados, y los tramos suman el lead time | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (cycle time) suma los pares de cada expediente por etapa y promedia entre los expedientes con atención | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (cycle time) un inicio con fin a las 8 h exactas cuenta, y uno a las 8 h y 1 s no | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (cycle time) no cuenta un inicio sin fin ni un fin sin inicio emparejado | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (cycle time) el pago del derecho va a Verificación y el de la cuota a Cuota → carta, y cita, dictamen y adjudicación a sus etapas | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (ocupación) adjudicadas = autorizadas − disponibles por grado, y la tarjeta es sobre el total autorizado | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (ocupación) coincide con los expedientes en vacante_asignada o carta_emitida cuando la vacante se descontó (C25 3) | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (avisos) cada aviso cuenta una sola vez: varios intentos son un envío, y los pendientes y huérfanos no cuentan | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (filtros) el rango usa la fecha de registro en días de Lima, con los dos bordes incluidos | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (filtros) el grado filtra expedientes, avisos y vacantes; la ocupación no depende del rango | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (filtros) sin campaña usa la activa, y otra campaña no mezcla sus expedientes | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (filtros) fecha imposible responde 400 | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (filtros) mes imposible responde 400 | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (filtros) día imposible responde 400 | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (filtros) fecha con otro formato responde 400 | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (filtros) desde después de hasta responde 400 | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (filtros) campaña inválida responde 400 | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (filtros) grado no numérico responde 400 | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (filtros) parámetro desconocido responde 400 | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (filtros) G08 recibe la campaña activa, las campañas con grados y sus grados | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (línea base) sin valores no hay comparación y G08 sabe que está por definir | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (línea base) con valores calcula el % de optimización = (base − actual) / base y lo compara con la meta | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (línea base) la meta es configurable y sin dato actual se muestra la base sin porcentaje | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (acceso) otro rol recibe 403 y el intento se audita como acceso_denegado | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (acceso) la familia recibe 403 y sin token responde 401 | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (acceso) una directora desactivada recibe 403 aunque su token siga vigente (C22) | pasó |
+|  |  | API | `api/test/indicadores.test.ts` | HU0019-1.0 (sin datos personales) la respuesta no trae nombres, correos ni teléfonos | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/IndicadoresAdmision.test.ts` | HU0019-1.0 G08 abre con la campaña activa y muestra tarjetas, embudo con conversión, tiempos por etapa, vacantes y expedientes | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/IndicadoresAdmision.test.ts` | HU0019-1.0 G08 sin cartas emitidas la tarjeta lo dice, y cada expediente rotula su lead time como parcial | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/IndicadoresAdmision.test.ts` | HU0019-1.0 G08 con cartas emitidas muestra el lead time promedio | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/IndicadoresAdmision.test.ts` | HU0019-1.0 G08 la tabla de avisos muestra una etiqueta legible por cada tipo, y un tipo desconocido tal cual | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/IndicadoresAdmision.test.ts` | HU0019-1.0 G08 las etapas sin atención del personal dicen que no se miden | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/IndicadoresAdmision.test.ts` | HU0019-1.0 G08 «Actualizar métricas» consulta con la campaña, el grado y el rango elegidos, y al cambiar de campaña ofrece sus grados | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/IndicadoresAdmision.test.ts` | HU0019-1.0 G08 un error de la API se muestra y los datos anteriores siguen en pantalla | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/IndicadoresAdmision.test.ts` | HU0019-1.0 G08 sin línea base dice «[Línea base por definir]» y no muestra la comparación | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/IndicadoresAdmision.test.ts` | HU0019-1.0 G08 con línea base muestra actual, base, % de optimización y la meta | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/IndicadoresAdmision.test.ts` | HU0019-1.0 G08 la campaña DEMO dice «Datos ficticios de demostración», y otra campaña no | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/IndicadoresAdmision.test.ts` | HU0019-1.0 G08 otro rol no ve la pantalla | pasó |
+|  |  | E2E | `e2e/indicadores.spec.ts` | HU0019-1.0 la directora abre el tablero, actualiza las métricas de la campaña activa y ve embudo, tiempos y vacantes | pasó |
+| HU0019-2.0 — Exportación de reportes consolidados para toma de decisiones | cubierto | API | `api/test/indicadoresReporte.test.ts` | HU0019-2.0 la directora descarga un Excel con las mismas cifras del tablero | pasó |
+|  |  | API | `api/test/indicadoresReporte.test.ts` | HU0019-2.0 cada tipo de aviso de la API tiene su etiqueta en el reporte, y uno desconocido se muestra tal cual | pasó |
+|  |  | API | `api/test/indicadoresReporte.test.ts` | HU0019-2.0 aplica el rango de fechas y lo declara | pasó |
+|  |  | API | `api/test/indicadoresReporte.test.ts` | HU0019-2.0 no expone datos personales de los postulantes | pasó |
+|  |  | API | `api/test/indicadoresReporte.test.ts` | HU0019-2.0 un nombre de grado con forma de fórmula se guarda como texto | pasó |
+|  |  | API | `api/test/indicadoresReporte.test.ts` | HU0019-2.0 sin línea base dice que está por definir, y con valores trae el % de optimización y la meta | pasó |
+|  |  | API | `api/test/indicadoresReporte.test.ts` | HU0019-2.0 la campaña DEMO dice «Datos ficticios de demostración» en cada hoja, y otra campaña no | pasó |
+|  |  | API | `api/test/indicadoresReporte.test.ts` | HU0019-2.0 (acceso) otro rol recibe 403 auditado y una directora desactivada también | pasó |
+|  |  | API | `api/test/indicadoresReporte.test.ts` | HU0019-2.0 (filtros) sin formato responde 400 | pasó |
+|  |  | API | `api/test/indicadoresReporte.test.ts` | HU0019-2.0 (filtros) formato no admitido responde 400 | pasó |
+|  |  | API | `api/test/indicadoresReporte.test.ts` | HU0019-2.0 (filtros) rango invertido responde 400 | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/IndicadoresAdmision.test.ts` | HU0019-2.0 G08 «Exportar reporte ejecutivo» descarga el archivo con los filtros aplicados y dice que no incluye datos personales | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/IndicadoresAdmision.test.ts` | HU0019-2.0 G08 un error de la exportación se muestra | pasó |
+|  |  | E2E | `e2e/indicadores.spec.ts` | HU0019-2.0 la directora aplica un rango de fechas y descarga el reporte ejecutivo en Excel | pasó |
+
 ### HU0021 — Crear, modificar, desactivar y reactivar las cuentas del personal y asignarles un rol (secretaría, Tesorería, psicóloga, evaluador académico o Directora)
 
 | Escenario | Estado | Suite | Archivo | Prueba | Resultado |
@@ -667,8 +731,6 @@
 | HU0016 | HU0016-2.0 — Bloqueo de emisión de Carta de Vacante ante pagos pendientes | sin prueba |
 | HU0018 | HU0018-1.0 — Envío de recordatorio por inactividad de la familia | sin prueba |
 | HU0018 | HU0018-2.0 — Expiración de postulación por vencimiento del plazo de la etapa | sin prueba |
-| HU0019 | HU0019-1.0 — Visualización del embudo de conversión y tiempos de atención | sin prueba |
-| HU0019 | HU0019-2.0 — Exportación de reportes consolidados para toma de decisiones | sin prueba |
 | HU0020 | HU0020-1.0 — Consulta del avance de la postulación | sin prueba |
 | HU0020 | HU0020-2.0 — Atención de una acción pendiente desde el panel | sin prueba |
 | HU0023 | HU0023-1.0 — Primer ingreso con credenciales temporales | sin prueba |
