@@ -45,6 +45,7 @@
   --reservado-fondo: #f1f0ec; /* horario «Reservado» de P02 */
   --reservado-texto: #7a808a;
   --dia-no-disponible: #8c929c; /* día sin horarios en el calendario de P02 */
+  --etapa-pendiente: #c7c3b8; /* punto de una etapa pendiente de P04 */
 
   /* Barra lateral de la gestión interna */
   --nav-texto: #e3e9f4;

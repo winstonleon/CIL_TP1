@@ -12,7 +12,7 @@ const usuarioDeRol = (rol: string) => usuarios.find((u) => u.rol === rol)!.usern
 
 const casos = [
   { ruta: "/gestion", cliente: "gestion-interna", rol: "secretaria", area: "Gestión interna" },
-  { ruta: "/portal", cliente: "portal-familias", rol: "familia", area: "Portal de familias" },
+  { ruta: "/portal", cliente: "portal-familias", rol: "familia", area: "Portal de familias", destino: "/portal/panel" },
 ];
 
 for (const caso of casos) {
@@ -29,10 +29,15 @@ for (const caso of casos) {
     await page.locator("#password").fill(process.env.KEYCLOAK_TEST_USER_PASSWORD!);
     await page.locator("#kc-login").click();
 
-    await expect(page).toHaveURL(new RegExp(`${caso.ruta}$`));
-    await expect(page.getByTestId("estado-sesion")).toHaveText("Sesión iniciada");
-    await expect(page.getByTestId("area")).toHaveText(caso.area);
-    await expect(page.getByTestId("roles")).toContainText(caso.rol);
+    await expect(page).toHaveURL(new RegExp(`${caso.destino ?? caso.ruta}$`));
+    if (caso.destino) {
+      // D7-A: la familia entra por P04, que solo se abre con el rol familia.
+      await expect(page.getByTestId("persona")).toBeVisible();
+    } else {
+      await expect(page.getByTestId("estado-sesion")).toHaveText("Sesión iniciada");
+      await expect(page.getByTestId("area")).toHaveText(caso.area);
+      await expect(page.getByTestId("roles")).toContainText(caso.rol);
+    }
 
     // ADR-02: el token no queda en el almacenamiento del navegador.
     const almacenado = await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }));

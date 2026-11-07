@@ -47,6 +47,7 @@ describe("S0-B5 transicionarExpediente", () => {
         ["en_observacion", "no_apto"], // HU0010-2.0 (nuevo dictamen, D4a-A)
         ["apto", "vacante_asignada"], // HU0012-1.0
         ["apto", "lista_espera"], // HU0012-2.0
+        ["vacante_asignada", "carta_emitida"], // HU0016-1.0
       ],
       estado_documental: [
         ["pendiente", "observado"], // HU0008-2.0

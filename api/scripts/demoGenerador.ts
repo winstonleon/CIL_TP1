@@ -6,10 +6,11 @@
 // - Es irreversible: la bitácora no se borra. Por eso corre en una transacción y `validarDemo` comprueba todo antes del COMMIT;
 //   cualquier inconsistencia revierte y no queda nada.
 // - Semilla y fechas fijas: da las mismas cifras en cada instalación.
-// - Los barridos de n8n de hoy no la toman (lo comprueba `validarDemo`). HU0016 y HU0018 deben excluir la campaña DEMO (C72).
+// - Los barridos de n8n de hoy no la toman (lo comprueba `validarDemo`). HU0016 la excluye; HU0018 también debe hacerlo (C72).
 import type pg from "pg";
 import { insertarApoderado } from "../src/repositories/apoderado";
 import { listarAvisosPendientes, listarRecordatoriosPendientes } from "../src/repositories/aviso";
+import { listarCartasPendientes, TIPO_CARTA } from "../src/repositories/carta";
 import { listarVerificacionesPendientes } from "../src/repositories/completitud";
 import { insertarConsentimiento } from "../src/repositories/consentimiento";
 import { listarAvisosEvaluacionPendientes } from "../src/repositories/evaluaciones";
@@ -278,7 +279,7 @@ export async function validarDemo(c: pg.PoolClient, campana: string): Promise<vo
   const ahora = Date.now();
   const permitidas = new Set(
     [
-      ...[...TRANSICIONES_PERMITIDAS.estado, ["vacante_asignada", "carta_emitida"] as const].map(([d, h]) => `estado:${d}>${h}`),
+      ...TRANSICIONES_PERMITIDAS.estado.map(([d, h]) => `estado:${d}>${h}`),
       ...TRANSICIONES_PERMITIDAS.estado_documental.map(([d, h]) => `estado_documental:${d}>${h}`),
       ...TRANSICIONES_PERMITIDAS.estado_financiero.map(([d, h]) => `estado_financiero:${d}>${h}`),
     ],
@@ -352,6 +353,8 @@ export async function validarDemo(c: pg.PoolClient, campana: string): Promise<vo
     ...(await listarVerificacionesPendientes(c, opciones)),
     ...(await listarObservacionesPendientes(c, opciones)),
     ...(await listarAvisosEvaluacionPendientes(c, opciones)).map((a) => a.id_expediente),
+    // HU0016 excluye la campaña DEMO (C72): aquí se comprueba sin la exclusión, con la campaña que se valida.
+    ...(await listarCartasPendientes(c, { ...opciones, campanaExcluida: "", tipoEvento: TIPO_CARTA })),
   ];
   if (tomados.some((id) => demo.has(id))) fallar("un barrido de n8n tomaría un expediente de la demo");
   const citas = [...(await listarAvisosPendientes(c, opciones)), ...(await listarRecordatoriosPendientes(c, { ...opciones, horas: 24 }))];

@@ -20,8 +20,10 @@ import {
 } from "../services/documentos";
 import { TIPOS_EVALUACION, type TipoEvaluacion } from "../repositories/evaluaciones";
 import { confirmarCitas, leerEvaluaciones, reprogramarCita, resolverCita } from "../services/evaluaciones";
+import { abrirCarta } from "../services/cartaVacante";
 import { elegirModalidad, esquemaModalidad, leerCuota, registrarCuota, subsanarCuota } from "../services/cuotaIngreso";
 import { guardarFicha, leerFicha, listaRequisitos, listarExpedientes } from "../services/fichaInscripcion";
+import { leerPanel } from "../services/panelSeguimiento";
 import { LARGO_MAXIMO } from "../services/reglasSolicitud";
 import { validar } from "../validacion";
 import { recibirCarga } from "./multipart";
@@ -216,6 +218,31 @@ export function rutasFamilia(almacenamiento: Almacenamiento, eventos: Disparador
   rutas.put("/expedientes/:id/cuota-ingreso", async (req, res) => {
     const e = req.expedienteFamilia!;
     res.json(await recibirCarga(req, (campos, archivo) => subsanarCuota(almacenamiento, e, campos, archivo)));
+  });
+
+  // ---- P04 · panel de seguimiento (HU0020) y Carta de Vacante (HU0016)
+
+  // GET /familia/expedientes/:id/panel → 200 { etapas: [{ clave, titulo, estado }], validaciones: { documental, financiera,
+  // derecho }, acciones: [{ tipo, titulo, motivo?, destino? }], historial: [{ fecha, texto }], carta: { disponible,
+  // fecha_emision } } · 404. Solo lee: el historial es una lista blanca, nunca `detalle` (ADR-29).
+  rutas.get("/expedientes/:id/panel", async (req, res) => {
+    res.json(await leerPanel(req.expedienteFamilia!));
+  });
+
+  // La única salida del PDF hacia la familia, con sesión y solo de su expediente (D1-A).
+
+  // GET /familia/expedientes/:id/carta → 200 PDF (ya descifrado y verificado) · 404 CARTA_NO_ENCONTRADA · 500 ARCHIVO_NO_DISPONIBLE
+  rutas.get("/expedientes/:id/carta", async (req, res) => {
+    const e = req.expedienteFamilia!;
+    const { codigo, contenido } = await abrirCarta(almacenamiento, e.id_expediente, e.campana_admision);
+    res.set({
+      "Content-Type": TIPO_CONTENIDO.pdf,
+      "Content-Disposition": `attachment; filename="carta-vacante-${codigo}.pdf"`,
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "sandbox",
+      "Cache-Control": "no-store",
+    });
+    res.send(contenido);
   });
 
   // ---- P08 · evaluaciones (HU0009)

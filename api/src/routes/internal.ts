@@ -3,10 +3,12 @@
 // de credenciales fija la contraseña temporal de la familia (HU0004-1.0, D3).
 import { Router } from "express";
 import { z } from "zod";
+import type { Almacenamiento } from "../almacenamiento";
 import { requireTokenServicio } from "../auth/requireTokenServicio";
 import type { IdentidadAdmin } from "../identidad/keycloakAdmin";
 import { avisosPendientes, cerrarAviso, reservarAviso } from "../services/agendamiento";
 import { ORIGENES_REBOTE, carpetasPendientes, registrarRebote, reservarCarpeta } from "../services/captacion";
+import { cartasPendientes, generarCartaConAviso } from "../services/cartaVacante";
 import { verificacionesPendientes, verificarCompletitud } from "../services/completitud";
 import { TIPOS_AVISO_EVALUACION } from "../repositories/evaluaciones";
 import { registrarErrorFlujo } from "../services/erroresFlujo";
@@ -52,7 +54,7 @@ const cuerpoErrorFlujo = z
   })
   .strict();
 
-export function rutasInternas(identidad: IdentidadAdmin): Router {
+export function rutasInternas(identidad: IdentidadAdmin, almacenamiento: Almacenamiento): Router {
   const rutas = Router();
   rutas.use(requireTokenServicio);
 
@@ -163,6 +165,18 @@ export function rutasInternas(identidad: IdentidadAdmin): Router {
   // Barrido de la rama validación (ADR-16): GET /internal/observaciones/pendientes → { expedientes: [{ id_expediente }] }
   rutas.get("/observaciones/pendientes", async (_req, res) => {
     res.json(await observacionesPendientes());
+  });
+
+  // HU0016-1.0 (flujo generacion-carta): POST /internal/expedientes/:id/carta-vacante → 201 { id_expediente, id_notificacion,
+  // tipo_evento: "carta_emitida", asunto, cuerpo }: emite la carta si hace falta y reserva el aviso. El PDF no sale por aquí
+  // (D1-A). · 404 · 409 CUOTA_NO_CONCILIADA (HU0016-2.0), CARTA_NO_CORRESPONDE, FIRMA_NO_DISPONIBLE, AVISO_YA_REGISTRADO o AVISO_AGOTADO
+  rutas.post("/expedientes/:id/carta-vacante", async (req, res) => {
+    res.status(201).json(await generarCartaConAviso(almacenamiento, validar(idRuta, req.params.id)));
+  });
+
+  // Barrido de generacion-carta (ADR-16): GET /internal/cartas/pendientes → { expedientes: [{ id_expediente }] }
+  rutas.get("/cartas/pendientes", async (_req, res) => {
+    res.json(await cartasPendientes());
   });
 
   // C2 (workflow registro-errores): POST /internal/errores-flujo { flujo, nodo, id_ejecucion } → 204

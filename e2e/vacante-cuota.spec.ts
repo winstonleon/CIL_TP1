@@ -244,8 +244,6 @@ test.describe.serial("HU0012 a HU0015 vacante y cuota de ingreso", () => {
     await contexto.close();
 
     expect(consultarAdmision(`SELECT estado_validacion FROM pago WHERE id_pago = ${idPago}`)).toBe("conforme");
-    // HU0016 toma la carta desde los datos (C62): el expediente no cambia de estado en este bloque.
-    expect(consultarAdmision(`SELECT estado FROM expediente WHERE id_expediente = ${idExpediente}`)).toBe("vacante_asignada");
     const { page } = familia;
     await page.reload();
     await expect(page.getByTestId("estado-cuota")).toHaveText("Cuota acreditada");

@@ -59,6 +59,34 @@ export async function inicioAbierto(db: Consultable, idPersonal: number, item: {
   return rows[0] ? Number(rows[0].id_evento) : null;
 }
 
+export interface EventoHistorial {
+  tipo_evento: string;
+  estado_nuevo: string | null;
+  fecha_hora: Date;
+  campo: string | null;
+  item: string | null;
+  decision: string | null;
+  resultado: string | null;
+  documentos: string | null;
+  tipo_pago: string | null;
+}
+
+// Historial de P04 (HU0020-1.0): solo los campos que la lista blanca necesita, nunca `detalle` entero ni quién actuó. Lo más
+// reciente primero, como el mockup.
+export async function listarHistorial(db: Consultable, idExpediente: number, tipos: readonly string[]): Promise<EventoHistorial[]> {
+  const { rows } = await db.query<EventoHistorial>(
+    `SELECT r.tipo_evento, r.estado_nuevo, r.fecha_hora, r.detalle->>'campo' AS campo, r.detalle->'item'->>'tipo' AS item,
+            r.detalle->>'decision' AS decision, r.detalle->>'resultado' AS resultado, r.detalle->>'documentos_vigentes' AS documentos,
+            p.tipo_pago::text AS tipo_pago
+       FROM registro_auditoria r
+       LEFT JOIN pago p ON r.detalle->'item'->>'tipo' = 'pago' AND p.id_pago::text = r.detalle->'item'->>'id'
+      WHERE r.id_expediente = $1 AND r.tipo_evento = ANY($2::text[])
+      ORDER BY r.id_evento DESC`,
+    [idExpediente, tipos],
+  );
+  return rows;
+}
+
 export async function insertarEvento(db: Consultable, e: EventoAuditoria): Promise<number> {
   const { rows } = await db.query<{ id_evento: string }>(
     `INSERT INTO registro_auditoria (id_expediente, id_personal, tipo_evento, estado_anterior, estado_nuevo, detalle, fecha_hora)

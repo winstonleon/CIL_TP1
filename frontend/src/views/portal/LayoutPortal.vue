@@ -1,7 +1,7 @@
 <!-- Estructura común de las pantallas P* con sesión (mockups P05 y P05b): encabezado con la persona, el expediente y
-     «Cerrar sesión», y menú lateral con el postulante. Solo muestra lo que HU0005 necesita: «Ficha y cuestionario» y
-     «Documentos» (se habilita al completar la ficha; P06, HU0006), «Pagos» (P07, HU0013 y HU0014; P07b, HU0007) y «Evaluaciones» (P08, HU0009;
-     se habilita en la validación y la evaluación, C52). «Mi postulación» llega con su HU. Sin logo hasta que el colegio entregue el archivo (como G10). -->
+     «Cerrar sesión», y menú lateral con el postulante: «Mi postulación» (P04, HU0020), «Ficha y cuestionario», «Documentos» (se
+     habilita al completar la ficha; P06, HU0006), «Pagos» (P07, HU0013 y HU0014; P07b, HU0007) y «Evaluaciones» (P08, HU0009; se
+     habilita en la validación y la evaluación, C52). Sin logo hasta que el colegio entregue el archivo (como G10). -->
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
 import { cerrarSesion } from "../../auth/oidc";
@@ -59,6 +59,7 @@ function salir() {
         </div>
 
         <div class="opciones">
+          <RouterLink to="/portal/panel" class="opcion" exact-active-class="activa" data-testid="menu-panel">Mi postulación</RouterLink>
           <RouterLink to="/portal/ficha" class="opcion" exact-active-class="activa">Ficha y cuestionario</RouterLink>
           <!-- Se habilita al completar la ficha (HU0005-1.0). P06 (HU0006). -->
           <RouterLink

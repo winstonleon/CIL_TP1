@@ -160,6 +160,13 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
 
 ## 9. Notas del entorno de desarrollo
 
+- **Instalación desde cero, en este orden y con dev levantado.** Sin el paso 4 no se emite ninguna Carta de Vacante.
+  1. `node scripts/generar-secretos.js`: rellena los secretos vacíos o con «cambiar» de `.env`.
+  2. `npm run kc:usuarios-prueba`: usuarios ficticios de Keycloak.
+  3. `npm run db:migrate` y luego `npm run db:seed`: esquema y datos ficticios de `admision`.
+  4. `npm run dev:firma-ficticia`: firma ficticia de la directora de prueba. Va después del seed, porque necesita su fila en `personal`.
+  5. `npm run n8n:credenciales` y luego `npm run n8n:importar`: credenciales y flujos de n8n (sección 3).
+  6. `npx --workspace e2e playwright install chromium`: navegador para el E2E.
 - **Después de traer cambios (`git pull`) o de cambiar de rama, corre `npm run db:migrate`.** `npm run test:e2e` y `npm run evidencias:matriz` (sin `--sin-e2e`) ya lo corren solos antes del E2E.
   - Las migraciones nuevas de `db/migrations/` no se aplican solas a la base de dev. Sin ellas, las pantallas o rutas que dependen de un cambio de esquema pueden responder 500. Por ejemplo, el bloque de HU0006 y HU0007 agregó dos migraciones (R19 por banco y el evento `documentos_confirmados`).
   - Es seguro repetirlo: aplica solo las pendientes, con el rol de migración. Las pruebas de la API (`npm run test:api`) usan `admision_test`, que recrean solas.
@@ -183,6 +190,23 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
   - Hacen falta los dos `--`. `test:api` llama a su vez a `npm run test --workspace api`: el primer `--` pasa el argumento a ese segundo `npm`, y el segundo lo pasa a Vitest.
   - Con un solo `--` (`npm run test:api -- --reporter=verbose`), el argumento lo toma npm y Vitest usa su reporter por defecto, que no lista las pruebas.
   - `npm run evidencias:matriz` ya llama a Vitest directamente con el reporter correcto.
+
+### Firma de la Directora y Carta de Vacante (HU0016)
+
+- **Sin firma cargada no se emite ninguna carta.** La API responde 409 `FIRMA_NO_DISPONIBLE` y el expediente sigue en `vacante_asignada`. El barrido reintenta cada minuto y cada intento deja una línea en el log de la API, solo con el id del expediente. En G07 el botón sigue habilitado y el error aparece al pulsarlo.
+- **En dev:** `npm run dev:firma-ficticia` carga en `directora.prueba@ejemplo.test` una imagen que dice «FIRMA FICTICIA · SOLO PRUEBAS». Es seguro repetirlo: si ya la tiene, no hace nada. Hay que correrlo otra vez si se recrea el volumen `archivos`.
+- **Firma real:** `npm run firma:cargar -- <correo de la directora> <ruta de la imagen>`, con un PNG o JPG de hasta 1 MB y la cuenta activa.
+  - Pasa la imagen al contenedor `api`, porque el volumen `archivos` solo se ve desde ahí, y queda cifrada como los documentos (ADR-21). No hay pantalla ni ruta HTTP para cargarla o leerla.
+  - Reemplaza la anterior y la borra: las cartas ya emitidas la llevan incrustada.
+  - Deja `gestion_usuario` en la bitácora.
+- **Quién firma:** la directora activa con firma cargada; si hay varias, la que adjudicó la vacante.
+- **Después de traer este cambio a una PC ya instalada:** `pdfkit` es una dependencia nueva de la imagen, así que hay que reconstruirla y recrear el contenedor, y después correr lo demás:
+  ```bash
+  docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build api
+  npm run db:migrate
+  npm run dev:firma-ficticia
+  npm run n8n:importar
+  ```
 
 ### Campaña activa (`CAMPANA_ACTIVA`, HU0022)
 

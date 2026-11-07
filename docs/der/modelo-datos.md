@@ -380,7 +380,7 @@ Table Carta_Vacante {
   id_expediente integer [not null, unique, note: 'relación 1:0..1 con Expediente']
   id_personal_autoriza integer [not null, note: 'rol directora; su firma escaneada va en el PDF']
   fecha_emision timestamptz [not null, default: `now()`]
-  url_documento varchar(500) [not null, note: 'PDF generado por n8n desde una plantilla']
+  url_documento varchar(500) [not null, note: 'clave del archivo en el adaptador de almacenamiento, como Documento.url_archivo (ADR-21): PDF generado por la API desde la plantilla y cifrado en reposo (ADR-28)']
 }
 
 // =====================================================================
@@ -419,6 +419,7 @@ Table Personal {
   rol rol_personal [not null]
   correo varchar(150) [unique, not null]
   keycloak_user_id uuid [unique, not null, note: 'id del usuario en el realm de Keycloak; su rol de realm coincide con Personal.rol']
+  firma_url varchar(500) [note: 'clave de la firma escaneada en el almacenamiento cifrado (ADR-21, ADR-28); solo cuentas con rol directora; nula hasta que se carga con npm run firma:cargar']
   activo boolean [not null, default: true, note: 'las cuentas se desactivan, no se eliminan; se sincroniza con enabled de Keycloak']
   Note: 'Usuarios internos. Los crea, desactiva y reactiva el rol directora (G10). La API crea el usuario en Keycloak y Keycloak le envía el enlace para definir su contraseña (G01).'
 }
@@ -507,7 +508,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 | R15 | `Grado.vacantes_autorizadas` no puede fijarse por debajo del número de vacantes ya adjudicadas (pantalla G09). Vacantes adjudicadas = `vacantes_autorizadas − vacantes_disponibles`: R14 descuenta las disponibles al asignar y R21 las devuelve (ADR-14). Al cambiar las autorizadas, las disponibles se mueven con la diferencia y las adjudicadas no cambian. | API (y `ck_grado_vacantes` como segunda capa) |
 | R16 | Derecho de admisión: S/ 300, un solo pago (`numero_fraccion = 1`). | API |
 | R17 | Cuota de ingreso: `Grado.monto_cuota_ingreso` (S/ 7000 en Inicial y Primaria, S/ 4000 en Secundaria), en pago único o fraccionado hasta `Grado.max_fracciones`. | API |
-| R18 | **Disparador de la carta:** cuando un Pago con `tipo_pago = 'cuota_ingreso'`, `numero_fraccion = 1` y `estado_validacion = 'conforme'` queda conciliado, n8n genera automáticamente la Carta de Vacante en PDF con la firma escaneada de la Directora, la envía a la familia y el expediente pasa a `carta_emitida`. Las fracciones posteriores no generan una nueva carta. En un grado con `monto_cuota_ingreso = 0` no hay Pago (`ck_pago_monto`): el disparador es el expediente en `vacante_asignada` (C25, C62). | n8n |
+| R18 | **Disparador de la carta:** cuando un Pago con `tipo_pago = 'cuota_ingreso'`, `numero_fraccion = 1` y `estado_validacion = 'conforme'` queda conciliado, n8n pide la carta y la API genera automáticamente la Carta de Vacante en PDF con la firma escaneada de la Directora, y en la misma transacción crea `Carta_Vacante` y pasa el expediente a `carta_emitida`. n8n avisa a la familia con un enlace al portal, donde la descarga con sesión: el PDF no viaja por correo ni por n8n (ADR-28). Las fracciones posteriores no generan una nueva carta. En un grado con `monto_cuota_ingreso = 0` no hay Pago (`ck_pago_monto`): el disparador es el expediente en `vacante_asignada` sin ningún Pago de cuota (C25, C62). | API + n8n |
 | R19 | `numero_operacion` es único **por banco** (`banco`, `numero_operacion`), de modo que un comprobante no puede registrarse dos veces. El mismo número en otro banco es otro comprobante (HU0007-2.0). | BD |
 
 ### 4.5 Seguimiento programado (flujo diario de n8n)
@@ -525,7 +526,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 | `psicologa` | Registrar resultados de observación, evaluación psicológica y entrevista; emitir el dictamen |
 | `evaluador_academico` | Registrar el resultado o la inasistencia en la evaluación académica |
 | `directora` | Asignar vacantes, ver el tablero de indicadores, crear, modificar, desactivar y reactivar usuarios del Personal; autoriza la carta (firma) |
-| Familia (Cuenta_Acceso) | Solo sus propios expedientes: ficha, cuestionario, documentos, pagos y citas |
+| Familia (Cuenta_Acceso) | Solo sus propios expedientes: ficha, cuestionario, documentos, pagos, citas, panel de seguimiento y Carta de Vacante |
 
 ---
 
@@ -540,14 +541,14 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 | `subsanacion_registrada` | La familia subsana una observación en `en_validacion`: reemplaza un documento observado (HU0008-2.0, HU0011-2.0) o registra un comprobante nuevo del derecho de admisión observado (HU0024-2.0); o, en `vacante_asignada`, el de la cuota de ingreso (HU0015-2.0). `detalle`: documento `{ item, id_documento_nuevo, id_documento_anterior }`; pago `{ item, id_pago, anterior: { banco, numero_operacion, clave, motivo, monto } }` (`monto` solo en la cuota). `item` es el de la rama (`validacion_documental` o `documentacion_financiera` con el id del expediente, o `pago` con el id del pago). Con el `atencion_fin` de la observación, mide el tiempo de subsanación (HU0019) | Familia |
 | `acceso_denegado` | Intento de ver datos restringidos por rol (HU0021-2.0) | Personal |
 | `cambio_configuracion` | Cambios en Grado, Requisito_Documental u Horario_Disponible | Secretaría |
-| `gestion_usuario` | Alta, cambio, desactivación o reactivación de Personal | Directora |
+| `gestion_usuario` | Alta, cambio, desactivación o reactivación de Personal; carga de la firma de la Directora (`accion: "firma_cargada"`, ADR-28) | Directora; en la carga de la firma, nulo (la hace un técnico) |
 | `notificacion_rebotada` | Rebote del correo de un prospecto | Sistema |
 | `documentos_confirmados` | La familia presiona «Confirmar documentos» en P06 (HU0006-1.0): solicita la verificación de completitud (HU0017). El expediente no cambia de estado; `detalle` lleva `documentos_vigentes` | Familia |
 | `completitud_verificada` | La API verifica la completitud de una confirmación (R8, HU0017), a pedido de n8n. Una sola vez por confirmación. `detalle` lleva `resultado` (`completo` o `incompleto`), `faltantes` (`[{ id_requisito, id_apoderado }]`), `derecho_registrado` y, si es incompleto, `id_notificacion` (primer intento del aviso de faltantes), solo con ids. Si el resultado es `completo`, la `transicion_estado` a `en_validacion` va en la misma transacción | Sistema |
 | `cita_reprogramada` | La familia reprograma una cita de evaluación en P08 (HU0009-2.0). El expediente no cambia de estado. `detalle`, solo con ids: `id_cita_anterior`, `id_cita_nueva`, `id_horario_anterior`, `id_horario_nuevo`, `id_notificacion` (primer intento del aviso a la familia), `id_notificacion_responsable` (al responsable de la cita nueva) y, si el responsable cambia, `id_notificacion_responsable_anterior` | Familia |
 | `cuota_registrada` | La familia registra el comprobante de la cuota de ingreso en P07 (HU0014-1.0). El expediente no cambia de estado. `detalle`, solo con ids: `id_pago` e `id_notificacion` (primer intento del aviso a Tesorería). Es la fecha «Recibido» de G05, porque `Pago` no guarda la suya (C49) | Familia |
 
-**Medición (OE3, HU0019).** *Lead time* = de la creación del expediente a `carta_emitida`. *Cycle time* de una etapa = suma de los intervalos entre cada `atencion_inicio` y su `atencion_fin` correspondiente en esa etapa. Supuesto aceptado: si alguien abre un ítem y lo deja abierto, el cycle time se sobreestima; un `atencion_inicio` sin `atencion_fin` en 8 horas no se cuenta. Los pares se emparejan por `id_evento_inicio`; un par de más de 8 horas tampoco se cuenta. *Tramo* de una etapa = días entre la primera llegada a un hito y la primera llegada al siguiente (ADR-27); los tramos suman el lead time. Antes de HU0016 no hay `carta_emitida`: G08 muestra el lead time como parcial, por expediente.
+**Medición (OE3, HU0019).** *Lead time* = de la creación del expediente a `carta_emitida`. *Cycle time* de una etapa = suma de los intervalos entre cada `atencion_inicio` y su `atencion_fin` correspondiente en esa etapa. Supuesto aceptado: si alguien abre un ítem y lo deja abierto, el cycle time se sobreestima; un `atencion_inicio` sin `atencion_fin` en 8 horas no se cuenta. Los pares se emparejan por `id_evento_inicio`; un par de más de 8 horas tampoco se cuenta. *Tramo* de una etapa = días entre la primera llegada a un hito y la primera llegada al siguiente (ADR-27); los tramos suman el lead time. Sin cartas emitidas, G08 muestra el lead time como parcial, por expediente.
 
 ---
 
@@ -574,7 +575,7 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 | F2 Recepción y registro | Webhook: evento de la API con `{ id_expediente }` tras «Confirmar documentos» en P06 (HU0017), más un barrido cada minuto de las confirmaciones sin verificar y de los avisos de faltantes por retomar (ADR-16). Entrega cada expediente a F3. La ficha y los archivos los registra la API: no pasan por n8n (ADR-21) | Expediente, Registro_Auditoria (lectura, a través de la API) |
 | F3 Verificación de completitud | Invocado por F2 (sub-workflow). Pide la verificación a la API (R8) y, si falta algo, notifica por F6 | Documento, Requisito_Documental, Pago, Expediente, Notificacion, Registro_Auditoria |
 | F4 Agendamiento | Webhook: evento de la API con `{ id_cita }` tras la reserva en P02 (HU0003) y el registro de la asistencia en G04 (HU0004), o con `{ id_expediente, id_notificacion }` tras «Confirmar citas» y la reprogramación en P08 (HU0009), la inasistencia en G11 (HU0025) y el dictamen En observación o No apto en G06 (HU0010), la adjudicación en G07 (HU0012) y el comprobante de la cuota en P07 (HU0014), más un barrido cada minuto de los avisos pendientes, también el de la habilitación del agendamiento (C52) (ADR-16) | Horario_Disponible, Cita, Cuenta_Acceso, Notificacion, Registro_Auditoria (lectura, a través de la API) |
-| F5 Generación de carta | Webhook: pago conciliado (R18); con cuota 0, la vacante asignada (C62) | Pago, Carta_Vacante, Expediente |
+| F5 Generación de carta | Webhook: evento de la API con `{ id_expediente }` al conciliar la primera fracción o el pago único (R18), más un barrido cada minuto, que también toma la vacante con cuota 0 (C62). La API decide con los datos, genera el PDF y hace la transición; n8n envía el aviso (ADR-16, ADR-28) | Pago, Carta_Vacante, Expediente, Notificacion, Registro_Auditoria (a través de la API) |
 | F6 Notificación multicanal | Invocado por los demás flujos | Notificacion |
 | F7 Seguimiento y recordatorios | Programado diario (R20 y R21, HU0018), más un Schedule cada minuto para el recordatorio de la visita (HU0003, D4) | Expediente, Cita, Notificacion, Registro_Auditoria |
 
@@ -725,3 +726,12 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 |---|---|
 | `Registro_Auditoria`: índices `ix_auditoria_expediente_tipo` e `ix_auditoria_fin_evento_inicio` (migración `20261106130000_indices_auditoria.sql`) | C54 y el tablero G08; medidos con `EXPLAIN ANALYZE` |
 | §4.7, medición: el tramo de una etapa y el emparejamiento por `id_evento_inicio`, con el límite de 8 h inclusive | ADR-27 (D1-C y D5-A) |
+
+### Ajustes por HU0016 y HU0020 (06/11/2026): una columna nueva, sin tablas nuevas
+
+| Cambio | Motivo |
+|---|---|
+| `Personal.firma_url` (migración `20261107120000_personal_firma.sql`) | D2-A: la firma escaneada vive en el almacenamiento cifrado; la columna guarda su clave, sin variables nuevas (ADR-28) |
+| Transición `vacante_asignada → carta_emitida` | HU0016-1.0 |
+| R18, F5 y nota de `Carta_Vacante.url_documento`: el PDF lo genera la API, no n8n; n8n recibe el evento, pide la carta y envía el aviso | Decisión de John (plan del bloque 10): el PDF lleva el nombre de un menor y la firma de la Directora y no pasa por n8n (C11) |
+| §4.6: la familia ve su panel y descarga su carta; §4.7: `gestion_usuario` incluye la carga de la firma | ADR-28 y ADR-29 |

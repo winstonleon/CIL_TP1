@@ -28,6 +28,7 @@ export const TRANSICIONES_PERMITIDAS: TransicionesPermitidas = {
     ["en_observacion", "no_apto"], // HU0010-2.0: nuevo dictamen después de la observación (D4a-A)
     ["apto", "vacante_asignada"], // HU0012-1.0: «Aprobar y asignar vacante» con cupo en el grado
     ["apto", "lista_espera"], // HU0012-2.0: el grado llegó a cero; la salida de la lista de espera no tiene HU (C61)
+    ["vacante_asignada", "carta_emitida"], // HU0016-1.0: la carta se emite con la cuota conciliada o con cuota 0 (R18, C62)
   ],
   // R9: cada rama tiene su propio ciclo de observación y subsanación (HU0008 y HU0011, plan del bloque 5).
   estado_documental: [

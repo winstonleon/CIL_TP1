@@ -277,9 +277,9 @@ test.describe.serial("HU0003 + HU0004 visita guiada (camino principal)", () => {
       await page.locator("#password-new").fill(nueva);
       await page.locator("#password-confirm").fill(nueva);
       await page.locator("form [type='submit']").first().click();
-      await expect(page).toHaveURL(`${FRONTEND}/portal`);
-      await expect(page.getByTestId("estado-sesion")).toHaveText("Sesión iniciada");
-      await expect(page.getByTestId("roles")).toContainText("familia");
+      // D7-A: la familia entra por P04, que solo se abre con el rol familia.
+      await expect(page).toHaveURL(`${FRONTEND}/portal/panel`);
+      await expect(page.getByTestId("etapa-ficha")).toBeVisible();
       await capturar(page, "portal-primer-ingreso", [principal.contrasena, nueva]);
     } finally {
       await contexto.close();

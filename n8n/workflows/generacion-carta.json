@@ -1,0 +1,975 @@
+{
+  "name": "generacion-carta",
+  "nodes": [
+    {
+      "id": "4d8ecc32-d1c1-4a24-975a-b449f1fc1cd9",
+      "name": "Webhook generacion-carta",
+      "webhookId": "2cd00c31-8f74-43d2-979f-c54760e4bac8",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generacion-carta",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-webhook-secret"
+        }
+      }
+    },
+    {
+      "id": "d973da23-127c-40f3-b288-a89db85688c6",
+      "name": "Validar evento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Valida el evento que envía la API cuando la cuota de ingreso queda acreditada (HU0016-1.0), según ADR-16\n// «Receptor generacion-carta»: el cuerpo es exactamente { id_expediente } con un entero de 1 a 2147483647. Cualquier\n// otro campo lo invalida: el contrato lleva solo identificadores (C10, C11). La salida lleva solo { valido, id_expediente }.\nconst esObjeto = (valor) => valor !== null && typeof valor === 'object' && !Array.isArray(valor);\n\nreturn $input.all().map((item, indice) => {\n  const cuerpo = esObjeto(item.json?.body) ? item.json.body : null;\n  const claves = cuerpo ? Object.keys(cuerpo) : [];\n  const id = cuerpo?.id_expediente;\n  const valido = claves.length === 1 && claves[0] === 'id_expediente' && Number.isSafeInteger(id) && id > 0 && id <= 2147483647;\n  return { json: { valido, id_expediente: valido ? id : null }, pairedItem: { item: indice } };\n});"
+      }
+    },
+    {
+      "id": "9027df51-14b0-4f4d-b555-daa6939cca70",
+      "name": "¿Evento válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "7e22ff2b-338e-412a-9ced-b6713452c81e",
+              "leftValue": "={{ $json.valido }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": false,
+        "options": {}
+      }
+    },
+    {
+      "id": "1037c52c-0a60-4ce6-b621-f64d5ae35312",
+      "name": "Responder 202",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        720,
+        -80
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ estado: 'recibido' }) }}",
+        "options": {
+          "responseCode": 202
+        }
+      }
+    },
+    {
+      "id": "423a108a-6c9e-4765-b743-e310767fdef5",
+      "name": "Responder 400 (evento inválido)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        720,
+        120
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: { codigo: 'VALIDACION', mensaje: 'El evento debe ser { id_expediente } con un entero mayor que 0.' } }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "3fed045f-60bb-4d66-a971-5b05c5eb0d1f",
+      "name": "Detener: evento inválido",
+      "notes": "Debe quedar más abajo en el lienzo que sus ramas hermanas que registran un resultado: con executionOrder v1 las ramas corren de arriba abajo y un Stop and Error detiene toda la ejecución.",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        960,
+        700
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "generacion-carta: evento inválido; el cuerpo debe ser solo { id_expediente }"
+      }
+    },
+    {
+      "id": "be167f06-d8a2-40aa-9b22-4039ed6956f8",
+      "name": "Cada minuto",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        240
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ed2d9303-4dee-4cb5-b7a0-4245ea73c2ad",
+      "name": "Pedir pendientes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        240,
+        240
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/cartas/pendientes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "916773f7-1423-4bbd-bfa8-85bbccf178d2",
+      "name": "Un ítem por expediente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        240
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Barrido de generacion-carta (ADR-16, C27; HU0016-1.0): un ítem por cada expediente de GET /internal/cartas/pendientes\n// (cuota acreditada o vacante sin cuota, sin carta o con el aviso de la carta pendiente hace más de 10 min). Recupera la\n// carta cuando el evento del webhook no llegó o el aviso quedó pendiente. Si no hay pendientes no sale ningún ítem y la\n// ejecución termina aquí. Solo lleva id_expediente.\nconst salida = [];\n$input.all().forEach((item, indice) => {\n  const expedientes = Array.isArray(item.json?.expedientes) ? item.json.expedientes : [];\n  for (const e of expedientes) {\n    if (Number.isSafeInteger(e?.id_expediente) && e.id_expediente > 0 && e.id_expediente <= 2147483647) {\n      salida.push({ json: { id_expediente: e.id_expediente }, pairedItem: { item: indice } });\n    }\n  }\n});\nreturn salida;"
+      }
+    },
+    {
+      "id": "8e4a6afd-1339-4314-9da1-21adb931045f",
+      "name": "Expediente recibido",
+      "notes": "Punto de convergencia del webhook y del barrido: ambos pasan solo { id_expediente } a «Generar carta y reservar aviso».",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        960,
+        120
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "af22bf21-a3b2-41f8-ad88-b9ac4cb792d1",
+      "name": "Generar carta y reservar aviso",
+      "notes": "POST sin cuerpo: la API emite la carta si hace falta (el PDF nunca pasa por n8n) y reserva el aviso. onError continueErrorOutput: un expediente que falla no frena a los demás del barrido (C41-4).",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        1200,
+        120
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/expedientes/{{ $json.id_expediente }}/carta-vacante",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "900879cd-f1c4-4a60-a9f7-1d4faf4e144a",
+      "name": "Según la reserva",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1440,
+        120
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "reservado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "f8ff5d69-c29d-4f01-84c1-376d424a1fbb",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 201,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "sin acción",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "25a75cca-a167-44cf-8a87-eed035b970cf",
+                    "leftValue": "={{ $json.statusCode === 409 && ['CUOTA_NO_CONCILIADA', 'CARTA_NO_CORRESPONDE', 'AVISO_YA_REGISTRADO', 'AVISO_AGOTADO'].includes($json.body?.error?.codigo) }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "otro error"
+        }
+      }
+    },
+    {
+      "id": "2b1671fd-a17d-41a1-ac10-137a24905faf",
+      "name": "Sin acción",
+      "notes": "409 CUOTA_NO_CONCILIADA, CARTA_NO_CORRESPONDE, AVISO_YA_REGISTRADO o AVISO_AGOTADO: la API ya decidió que no hay nada que hacer. Cualquier otro estado (404, 409 FIRMA_NO_DISPONIBLE, 5xx) va a «Fallo al reservar carta».",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        360
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "441cf797-4b03-4b35-abfb-e6d1bd3a57b4",
+      "name": "Enviar carta",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "onError": "continueRegularOutput",
+      "position": [
+        1680,
+        0
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "notificacion-multicanal",
+          "cachedResultName": "notificacion-multicanal"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id_expediente": "={{ $json.body.id_expediente }}",
+            "tipo_evento": "={{ $json.body.tipo_evento }}",
+            "asunto": "={{ $json.body.asunto }}",
+            "cuerpo": "={{ $json.body.cuerpo }}",
+            "id_notificacion": "={{ $json.body.id_notificacion }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "id_expediente",
+              "displayName": "id_expediente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "tipo_evento",
+              "displayName": "tipo_evento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "asunto",
+              "displayName": "asunto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "cuerpo",
+              "displayName": "cuerpo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "id_notificacion",
+              "displayName": "id_notificacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "c9db1e56-572d-4d29-bed8-c6afa995d581",
+      "name": "Clasificar resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Decide qué hace generacion-carta con lo que devolvió notificacion-multicanal para el aviso de la carta de\n// vacante (HU0016-1.0). Sigue ADR-07 «Fallos de los avisos de la visita»: la clasificación de D7, sin rebote ni\n// transición (P-j).\n// Entrada: un ítem por aviso, emparejado con su reserva (salida «reservado» de «Según la reserva») por el pairedItem\n// que pone Execute Workflow (el subflujo corre una vez por ítem); si falta, por la posición. Es el resultado del\n// subflujo, { id_expediente, correo: { estado_envio, id_notificacion }, whatsapp }, o, si falló, { error: \"<mensaje>\" }\n// (Execute Workflow con onError continueRegularOutput, C9).\n//   enviado   <- correo.estado_envio = enviado: el subflujo ya cerró la fila                    -> termina\n//   fallido   <- correo.estado_envio = fallido: rechazo permanente del destinatario; con la fila reservada el subflujo\n//                no la cierra                      (motivo rechazo_destinatario) -> PATCH fallido y registro del fallo\n//             <- error «notificacion-multicanal: entrada inválida…» (400): un defecto, la entrada la arma la API\n//                                                  (motivo entrada_invalida)     -> PATCH fallido y registro del fallo\n//   pendiente <- correo.estado_envio = pendiente (error técnico de SMTP, o un 5xx que no es rechazo permanente), un 502,\n//                un 500 o cualquier otro error: resultado desconocido (R22), nunca se marca fallido\n//                                                  -> sin PATCH y registro del fallo; el barrido lo retoma a los 10 min\n//                                                     con un intento nuevo (una fila por intento, ADR-07)\n// Lo que no se reconoce cae en pendiente.\n// La salida lleva solo la acción, el motivo y los ids del expediente y la notificación. Nunca el asunto ni el cuerpo del\n// aviso (trae la carta), ni el mensaje del error del subflujo (C11).\nconst ENTRADA_INVALIDA = 'notificacion-multicanal: entrada inválida';\nconst reservas = $('Según la reserva').all(0);\n\nconst clasificar = (resultado) => {\n  if (resultado.error !== undefined) {\n    const mensaje = typeof resultado.error === 'string' ? resultado.error : String(resultado.error?.message ?? '');\n    return mensaje.startsWith(ENTRADA_INVALIDA)\n      ? { accion: 'fallido', motivo: 'entrada_invalida' }\n      : { accion: 'pendiente', motivo: 'notificacion_no_disponible' };\n  }\n  switch (resultado.correo?.estado_envio) {\n    case 'enviado':\n      return { accion: 'enviado', motivo: 'enviado' };\n    case 'fallido':\n      return { accion: 'fallido', motivo: 'rechazo_destinatario' };\n    case 'pendiente':\n      return { accion: 'pendiente', motivo: 'smtp_pendiente' };\n    default:\n      return { accion: 'pendiente', motivo: 'resultado_desconocido' };\n  }\n};\n\nreturn $input.all().map((item, indice) => {\n  const reserva = reservas[item.pairedItem?.item ?? indice]?.json?.body ?? {};\n  return {\n    json: {\n      ...clasificar(item.json ?? {}),\n      id_expediente: reserva.id_expediente ?? null,\n      id_notificacion: reserva.id_notificacion ?? null,\n    },\n    pairedItem: { item: indice },\n  };\n});"
+      }
+    },
+    {
+      "id": "72967b26-ba2c-4905-af7b-697ff242dede",
+      "name": "Según el resultado",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2160,
+        0
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "enviado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "d2046e08-1a30-4f67-84a3-08931afe1031",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "enviado",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "fallido",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "4e6949e8-0a96-4bea-a2fe-04a1cf92ebf2",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "fallido",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "pendiente",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "2c4ca26b-f41a-46f1-9985-bad6c99f3144",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "pendiente",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": 2
+        }
+      }
+    },
+    {
+      "id": "f44d4aea-c49c-442c-887d-e29ab074bef2",
+      "name": "Aviso enviado",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        -160
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "59f8ab12-0009-46dd-8465-9359aa64a0ef",
+      "name": "Marcar fallido",
+      "notes": "onError continueErrorOutput: si el PATCH no llega, el fallo se registra y el barrido retoma el aviso.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        2400,
+        0
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/notificaciones/{{ $json.id_notificacion }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ estado_envio: 'fallido' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "b66ea987-46a4-49ff-8fbe-be00de42e911",
+      "name": "Según el cierre",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2640,
+        0
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "entrada rechazada",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "77ae2607-243c-4980-872a-8e764d229393",
+                    "leftValue": "={{ $('Clasificar resultado').item.json.motivo }}",
+                    "rightValue": "entrada_invalida",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "cerrado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "or",
+                "conditions": [
+                  {
+                    "id": "fa14bb4c-6f1c-4542-88ec-17fc73cc8d5f",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 200,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "42b88936-fa7f-4e7c-b578-fc4ed1b3e4db",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 409,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "cierre fallido"
+        }
+      }
+    },
+    {
+      "id": "b5134632-3fd1-48fe-821c-6f79fcef7941",
+      "name": "Aviso no entregado",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2880,
+        -80
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "b7dd73e5-44df-46d1-86e9-c74d0c64da0c",
+      "name": "Fallo al reservar carta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        360
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Rama de error de «Generar carta y reservar aviso» en generacion-carta (HU0016-1.0, C2 y C41-4): un expediente que falla no frena a los demás del barrido, y este nodo prepara el registro del fallo. Emite solo los\n// identificadores que admite POST /internal/errores-flujo: el flujo, el nodo y el id de esta ejecución. NO lee el ítem de\n// entrada: trae el mensaje del error, el asunto o el cuerpo de la carta (C11). Un ítem de salida por cada expediente que falló.\nconst id = String($execution?.id ?? '');\nconst id_ejecucion = /^[0-9A-Za-z-]{1,40}$/.test(id) ? id : 'sin-id';\n\nreturn $input.all().map((_item, indice) => ({\n  json: { flujo: 'generacion-carta', nodo: 'Generar carta y reservar aviso', id_ejecucion },\n  pairedItem: { item: indice },\n}));"
+      }
+    },
+    {
+      "id": "7b2e0574-8899-4d8a-a267-0ea39fcfe817",
+      "name": "Fallo al enviar carta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        360
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Rama de error de «Enviar carta» en generacion-carta (HU0016-1.0, C2 y C41-4): un expediente que falla no frena a los demás del barrido, y este nodo prepara el registro del fallo. Emite solo los\n// identificadores que admite POST /internal/errores-flujo: el flujo, el nodo y el id de esta ejecución. NO lee el ítem de\n// entrada: trae el mensaje del error, el asunto o el cuerpo de la carta (C11). Un ítem de salida por cada aviso que quedó pendiente o no se pudo cerrar.\nconst id = String($execution?.id ?? '');\nconst id_ejecucion = /^[0-9A-Za-z-]{1,40}$/.test(id) ? id : 'sin-id';\n\nreturn $input.all().map((_item, indice) => ({\n  json: { flujo: 'generacion-carta', nodo: 'Enviar carta', id_ejecucion },\n  pairedItem: { item: indice },\n}));"
+      }
+    },
+    {
+      "id": "8857b900-17d4-4338-a973-5e830a089a2a",
+      "name": "Registrar fallo en la API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        3120,
+        360
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/errores-flujo",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ flujo: $json.flujo, nodo: $json.nodo, id_ejecucion: $json.id_ejecucion }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook generacion-carta": {
+      "main": [
+        [
+          {
+            "node": "Validar evento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar evento": {
+      "main": [
+        [
+          {
+            "node": "¿Evento válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Evento válido?": {
+      "main": [
+        [
+          {
+            "node": "Responder 202",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 400 (evento inválido)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder 202": {
+      "main": [
+        [
+          {
+            "node": "Expediente recibido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder 400 (evento inválido)": {
+      "main": [
+        [
+          {
+            "node": "Detener: evento inválido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cada minuto": {
+      "main": [
+        [
+          {
+            "node": "Pedir pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir pendientes": {
+      "main": [
+        [
+          {
+            "node": "Un ítem por expediente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Un ítem por expediente": {
+      "main": [
+        [
+          {
+            "node": "Expediente recibido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expediente recibido": {
+      "main": [
+        [
+          {
+            "node": "Generar carta y reservar aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar carta y reservar aviso": {
+      "main": [
+        [
+          {
+            "node": "Según la reserva",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al reservar carta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según la reserva": {
+      "main": [
+        [
+          {
+            "node": "Enviar carta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sin acción",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al reservar carta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar carta": {
+      "main": [
+        [
+          {
+            "node": "Clasificar resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clasificar resultado": {
+      "main": [
+        [
+          {
+            "node": "Según el resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según el resultado": {
+      "main": [
+        [
+          {
+            "node": "Aviso enviado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar fallido",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al enviar carta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar fallido": {
+      "main": [
+        [
+          {
+            "node": "Según el cierre",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al enviar carta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según el cierre": {
+      "main": [
+        [
+          {
+            "node": "Fallo al enviar carta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Aviso no entregado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al enviar carta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallo al reservar carta": {
+      "main": [
+        [
+          {
+            "node": "Registrar fallo en la API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallo al enviar carta": {
+      "main": [
+        [
+          {
+            "node": "Registrar fallo en la API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "saveExecutionProgress": false,
+    "saveManualExecutions": false,
+    "saveDataSuccessExecution": "none",
+    "executionTimeout": 480,
+    "errorWorkflow": "registro-errores",
+    "executionOrder": "v1"
+  }
+}

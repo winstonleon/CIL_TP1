@@ -57,7 +57,7 @@ export function crearApp(dependencias: Dependencias = {}): Express {
   const almacenamiento = dependencias.almacenamiento ?? crearAlmacenamientoDesdeConfig();
 
   app.use(rutaSalud);
-  app.use("/internal", rutasInternas(identidad));
+  app.use("/internal", rutasInternas(identidad, almacenamiento));
   // PÚBLICAS a propósito (ADR-17): P01 y P02 no tienen sesión. Sin verificarToken ni rol.
   app.use(
     "/publico",

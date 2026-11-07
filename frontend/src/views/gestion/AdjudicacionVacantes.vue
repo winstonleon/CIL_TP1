@@ -3,7 +3,8 @@
      que devuelve la API (R14): si otra adjudicación tomó el último cupo, «Aprobar y asignar vacante» termina en lista de
      espera y la pantalla lo dice con la posición.
      Desvío: el mockup no dibuja el panel de «Ver dictamen»; sigue la estructura de los paneles de G05. Abrirlo registra
-     atencion_inicio en la API (§4.7). La lista de espera no tiene acciones: su salida no tiene HU (C61). -->
+     atencion_inicio en la API (§4.7). La lista de espera no tiene acciones: su salida no tiene HU (C61). «Vacantes otorgadas»
+     tampoco está dibujada (HU0016-2.0, ADR-28). -->
 <script setup lang="ts">
 import { computed, onMounted, ref, shallowRef } from "vue";
 import {
@@ -19,6 +20,7 @@ import { mensajeDe } from "../../api/respuesta";
 import { accionDe, gradosDelNivel, gradosSinVacantes, mensajeResultado, NIVELES } from "../../gestion/adjudicacion";
 import { abrirArchivo, fechaRelativa, nombreCompleto } from "../../gestion/validacion";
 import { fechaCorta } from "../../portal/formato";
+import VacantesOtorgadas from "./VacantesOtorgadas.vue";
 
 const panel = ref<PanelAdjudicacion | null>(null);
 const error = shallowRef("");
@@ -29,6 +31,7 @@ const dictamen = ref<DictamenDireccion | null>(null);
 const errorDictamen = shallowRef("");
 const nivel = shallowRef<string>("inicial");
 const ahora = shallowRef(new Date());
+const adjudicaciones = shallowRef(0); // una vacante nueva se ve en «Vacantes otorgadas»
 
 const grados = computed(() => gradosDelNivel(panel.value?.inventario ?? [], nivel.value));
 const sinVacantes = computed(() => gradosSinVacantes(panel.value?.pendientes ?? []));
@@ -74,6 +77,7 @@ async function decidir(p: AptoPorDecidir) {
     errorAccion.value = mensajeDe(e);
   } finally {
     ocupado.value = null;
+    adjudicaciones.value++;
     await cargar();
   }
 }
@@ -156,6 +160,8 @@ onMounted(cargar);
           </template>
         </section>
       </div>
+
+      <VacantesOtorgadas :key="adjudicaciones" />
 
       <section class="tarjeta" aria-labelledby="g07-inventario">
         <h2 id="g07-inventario">Inventario de vacantes</h2>

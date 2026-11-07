@@ -243,9 +243,9 @@ describe("HU0015-1.0 conciliación de la cuota", () => {
     const inicio = (await eventosTipo(f.idExpediente, "atencion_inicio")).at(-1)!;
     const fin = (await eventosTipo(f.idExpediente, "atencion_fin")).at(-1)!;
     expect(fin.detalle).toMatchObject({ item: { tipo: "pago", id: idPago }, decision: "conforme", id_evento_inicio: Number(inicio.id_evento), cuota_acreditada: true });
-    // HU0016 toma la carta desde los datos (C62): el estado no cambia y no se dispara ningún flujo.
+    // La API no emite en esta decisión: solo despierta a generacion-carta, y la carta se toma desde los datos (C62, D6-A).
     expect(await estadoDe(db(), f.idExpediente)).toBe("vacante_asignada");
-    expect(e.eventos.disparar).not.toHaveBeenCalled();
+    expect(e.eventos.disparar.mock.calls).toEqual([["generacion-carta", { id_expediente: f.idExpediente }]]);
     expect((await lista("cuota")).items.map((i: { id_pago: number }) => i.id_pago)).not.toContain(idPago);
 
     const familia = await e.familiaApi(f.token).get(rutaCuota(f.idExpediente));

@@ -2,7 +2,7 @@
 // comprobante del pago único o de la primera fracción. La carga es la de HU0007 (firma de bytes, 10 MB, cifrado y
 // unicidad por banco, ADR-21). La 2.ª fracción y las siguientes no tienen HU (C64).
 // Estados de la HU, derivados del Pago: pendiente = «Cuota en conciliación», observado = «Cuota observada» y conforme =
-// «Cuota acreditada». El expediente sigue en vacante_asignada hasta la carta (HU0016).
+// «Cuota acreditada». El expediente sigue en vacante_asignada hasta que HU0016 emite la carta.
 // Un grado con cuota 0 (C25 punto 5, decisión de John): vacante sin pago, porque ck_pago_monto exige monto > 0.
 // Subsanación (A1, como HU0024-2.0): el comprobante nuevo va en la misma fila del Pago, que vuelve a `pendiente`.
 import type { Readable } from "node:stream";
@@ -87,9 +87,11 @@ export async function leerCuota(e: ExpedienteDeFamilia) {
   const monto = Number(c.monto);
   const aplica = monto > 0;
   const disponible = e.estado === ESTADO_CUOTA;
+  // C62 (b): con la carta emitida la vacante sigue otorgada, pero la cuota ya no se edita.
+  const otorgada = disponible || e.estado === "carta_emitida";
   return {
     version: VERSION_CUOTA,
-    disponible,
+    disponible: otorgada,
     aplica,
     nivel: c.nivel,
     grado: c.nombre_grado,

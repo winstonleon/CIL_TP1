@@ -20,6 +20,7 @@ import DocumentosExpediente from "./views/portal/DocumentosExpediente.vue";
 import EvaluacionesAgenda from "./views/portal/EvaluacionesAgenda.vue";
 import FichaInscripcion from "./views/portal/FichaInscripcion.vue";
 import LayoutPortal from "./views/portal/LayoutPortal.vue";
+import PanelSeguimiento from "./views/portal/PanelSeguimiento.vue";
 import PagosAdmision from "./views/portal/PagosAdmision.vue";
 import SolicitudInformacion from "./views/portal/SolicitudInformacion.vue";
 import VisitaGuiada from "./views/portal/VisitaGuiada.vue";
@@ -44,6 +45,13 @@ export function crearEnrutador(historial: RouterHistory) {
       // P02 (HU0003): PÚBLICA, sin meta.cliente, como P01. El enlace de la carpeta lleva ?t=<token> (ADR-18).
       { path: "/visita-guiada", component: VisitaGuiada },
       { path: "/portal", component: SesionIniciada, meta: { cliente: "portal" } },
+      // P04 (HU0020 y HU0016): panel de seguimiento, la entrada de la familia al portal (D7-A, ADR-29).
+      {
+        path: "/portal/panel",
+        component: LayoutPortal,
+        meta: { cliente: "portal", roles: ["familia"] },
+        children: [{ path: "", component: PanelSeguimiento }],
+      },
       // P05 y P05b (HU0005): ficha de inscripción y cuestionario, solo para el rol familia (la API vuelve a exigirlo).
       {
         path: "/portal/ficha",
@@ -123,6 +131,8 @@ export function crearEnrutador(historial: RouterHistory) {
       return false;
     }
     useSesionStore().establecer(cliente, usuario);
+    // La familia entra por P04 (D7-A); la vista técnica del Sprint 0 queda para los demás roles.
+    if (to.path === "/portal" && rolesDe(usuario).includes("familia")) return "/portal/panel";
     const requeridos = to.meta.roles;
     if (requeridos && !requeridos.some((r) => rolesDe(usuario).includes(r))) {
       return `/${cliente}`;

@@ -152,6 +152,7 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
   - **`captacion`** (carpeta, HU0002) sigue sin tope: lo resuelve C41.
 - **[PROPUESTA]** En desarrollo, el correo va a **Mailpit** (contenedor que captura los correos, visible en el navegador). Ningún correo sale a Internet desde dev.
 - **[EQUIPO, bloque 8, 05/11/2026] Avisos de la vacante y de la cuota:** siguen esta misma regla (ADR-26).
+- **[EQUIPO, bloque 10, 06/11/2026] Aviso de la Carta de Vacante:** sigue esta misma regla y lleva solo el enlace al portal (ADR-28).
 - **[EQUIPO] Excepción:** el enlace para definir la contraseña del personal lo envía Keycloak (ADR-02) y no se registra en notificacion, porque esa tabla exige un expediente. La evidencia queda en registro_auditoria (gestion_usuario).
 
 ## ADR-08 Entornos y portabilidad al VPS
@@ -262,6 +263,11 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
   - **Unicidad:** un solo recordatorio por cita, con la misma ancla que `agendamiento`.
   - **Sin nodos Wait:** el recordatorio queda «programado» por los datos.
   - Los barridos diarios de R20 y R21 son de HU0018.
+- **[EQUIPO, HU0016, D6-A, 06/11/2026] Receptor `generacion-carta`:**
+  - **Evento:** la API lo envía después de conciliar el pago único o la primera fracción (G05) y después de «Generar Carta de Vacante» (G07). El cuerpo es solo `{ "id_expediente": 7 }` (C11). El webhook solo despierta al flujo: la API decide con los datos (C62).
+  - **Recepción:** valida y responde 202 antes de procesar; un cuerpo inválido recibe 400.
+  - **Recuperación:** un Schedule cada minuto pide `GET /internal/cartas/pendientes`: las cartas por emitir (también la vacante con cuota 0, que no tiene webhook) y los avisos sin intentos o con el último `pendiente` hace más de 10 min. Sin espera inicial: la emisión y la reserva son idempotentes. Excluye la campaña `DEMO` (C72).
+  - **Ejecuciones:** no guarda las exitosas y sí las de error, como `recepcion-registro` (C10 y C11). Un ítem que falla no corta el barrido (C41 4).
 - **[EQUIPO, HU0017, D3-i, 03/11/2026] Receptor `recepcion-registro`:**
   - **Evento:** la API lo envía después de «Confirmar documentos» en P06. El cuerpo es solo `{ "id_expediente": 7 }`.
   - **Recepción:** valida y responde 202 antes de procesar; un cuerpo inválido recibe 400.
@@ -347,6 +353,9 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 | Textos de los avisos de la vacante y de la cuota (HU0012 y HU0014) | `borrador-1`, entre corchetes | `api/src/services/avisosVacante.ts` | El colegio entrega los textos y se sube la versión | `HU0012-1.0 …`, `HU0012-2.0 …` y `HU0014-1.0 …` |
 | Buzón de Tesorería (HU0014-1.0) | `tesoreria@ejemplo.test` en dev | `CORREO_TESORERIA` (**obligatoria**, `config.ts`) | Editar `.env` y recrear `api` | `HU0014-1.0 …` |
 | Escala del resultado de las evaluaciones | Texto libre de hasta 50 caracteres, «[Escala por definir]» | `Resultado_Evaluacion.resultado` (§7 del modelo) | El colegio define la escala y una HU la cierra | `HU0025-1.0 …` |
+| Plantilla de la Carta de Vacante (HU0016) | `borrador-1`, entre corchetes y sin logo | `api/src/services/plantillaCarta.ts` | El colegio entrega el texto y el logo, y se sube la versión | `HU0016-1.0 …` |
+| Texto del aviso de la carta (HU0016) | `borrador-1`, entre corchetes | `api/src/services/avisosCarta.ts` | El colegio entrega el texto y se sube la versión | `HU0016-1.0 (D1-A) …` |
+| Firma de la Directora (HU0016) | Imagen ficticia en dev | `Personal.firma_url`, archivo cifrado (ADR-21) | `npm run firma:cargar -- <correo> <ruta>` | `D2 …` |
 | Línea base del OE3 y meta de optimización (HU0019) | Valores en null, «[Línea base por definir]»; meta 70 % | `api/src/services/lineaBase.ts` (`borrador-1`) | Se mide con el colegio (C66), se registra con su fuente y se sube la versión | `HU0019-1.0 (línea base) …` y `HU0019-2.0 sin línea base …` |
 
 ## ADR-20 Ficha de inscripción y cuestionario de expectativas (HU0005)
@@ -543,7 +552,7 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 - **[EQUIPO] Comprobante (HU0014):** la carga de ADR-21 (firma de bytes, 10 MB, cifrado, R19). `Pago.monto` guarda lo que declara la familia, sin rechazo automático: G05 lo muestra junto al monto que corresponde y Tesorería decide (HU0015-2.0). Solo se registra el pago único o la primera fracción (C64). La calidad del archivo no se valida (C63).
 - **[EQUIPO] Evento `cuota_registrada`** (§4.7, actor familia): `{ id_pago, id_notificacion }`. La cuota no cambia de estado y `Pago` no guarda la fecha (C49): es la fuente del aviso a Tesorería y de «Recibido» en G05.
 - **[EQUIPO] Conciliación (HU0015):** el camino de HU0024 (`detallePago`, `decidirPago`, `abrirComprobante`), generalizado por `tipo_pago`. El derecho exige `en_validacion` y evalúa la unión de R9; la cuota exige `vacante_asignada` y no la evalúa. El rechazo es `observado`, y la regularización va por `PUT /familia/expedientes/:id/cuota-ingreso` en la misma fila (A1, ADR-23), con `subsanacion_registrada`; no avisa otra vez a Tesorería.
-- **[EQUIPO, C62] Carta:** no se dispara ningún webhook: `generacion-carta` no existe. HU0016 toma la carta desde los datos: Pago `cuota_ingreso`, fracción 1, `conforme`; o `vacante_asignada` con cuota 0. La marca `cuota_acreditada: true` en `atencion_fin` queda solo para trazabilidad (ajuste 3 de John).
+- **[EQUIPO, C62] Carta:** HU0016 creó `generacion-carta`, y la conciliación ahora lo despierta (ADR-16, D6-A). HU0016 toma la carta desde los datos: Pago `cuota_ingreso`, fracción 1, `conforme`; o `vacante_asignada` con cuota 0. La marca `cuota_acreditada: true` en `atencion_fin` queda solo para trazabilidad (ajuste 3 de John).
 - **[EQUIPO, C25 (5)] Cuota 0:** vacante sin pago, porque `ck_pago_monto` exige monto > 0. El expediente queda en `vacante_asignada`, P07 dice que el grado no tiene cuota y el POST de la modalidad y el del comprobante responden 409 `CUOTA_NO_APLICA`. R18 gana ese segundo disparador.
 - **[EQUIPO] Avisos** (ADR-07: una fila por intento, retoma a los 10 min, tope de 6 y fila de cierre `fallido`):
   - `vacante_asignada` (familia, con el monto y las opciones de pago), `lista_espera` (familia, con la posición) y `cuota_por_conciliar` (buzón `CORREO_TESORERIA`, obligatoria): por `agendamiento`, rama evaluaciones, como los de ADR-25. Sus fuentes son la `transicion_estado` y `cuota_registrada`.
@@ -577,6 +586,48 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
   - No crea citas, dictámenes, documentos ni cuentas: la campaña `DEMO` solo se ve en G08. G08 y el reporte dicen «Datos ficticios de demostración». HU0016 y HU0018 deben excluir esa campaña de sus barridos (C72).
 - **Desvíos del mockup de G08:** «Grado» en vez de «Nivel»; fechas `desde` y `hasta` en vez de un select de periodo; el botón de exportar sin menú de formatos; las secciones «Contraste con la línea base», «Ocupación de vacantes por grado», «Lead time por expediente» (la exige la HU) y «Avisos enviados» (C8); la conversión % del embudo; y el gráfico por etapas de D5-A.
 - **Fuera del bloque:** el tiempo de subsanación (C68), el PDF (C69), la minería de procesos, el ranking del personal y `cita_reprogramada` y `cuota_registrada` como métricas.
+
+## ADR-28 Carta de Vacante (HU0016)
+- **[EQUIPO, bloque 10, 06/11/2026] Quién decide:** la API. Aplica R18 y C62 con los datos: Pago `cuota_ingreso`, fracción 1, `conforme`; o grado con cuota 0 y ningún Pago de cuota. Es una sola definición (`repositories/carta.ts`), que usan la emisión, el barrido y G07. Un grado que pasó a cuota 0 con un Pago sin conciliar no emite: decide Tesorería.
+- **[EQUIPO, D8] Dependencias:** `pdfkit` 0.20.2 (API) para generar el PDF, y `pdfjs-dist` 6.5.438 y `@types/pdfkit` 0.17.7, solo de desarrollo: las pruebas leen el texto real de la carta. `pdfkit` no publica sus tipos. No suman vulnerabilidades a C70.
+- **[EQUIPO] Emisión:** con el expediente bloqueado, la API genera el PDF, lo guarda cifrado (ADR-21) y, en la misma transacción, crea `Carta_Vacante` y hace `vacante_asignada → carta_emitida`. Si algo falla después de guardar, elimina el archivo.
+  - **Idempotente:** el bloqueo y `uq_carta_expediente` impiden dos cartas. Quien pierde la carrera no genera archivo. Lo prueba `HU0016-1.0 (idempotencia) …`.
+  - El PDF se guarda dentro de la transacción: un fallo entre el guardado y el COMMIT lo deja huérfano (C45), y el barrido genera otro.
+- **[EQUIPO, D1-A] Remisión por enlace:** HU0016-1.0 dice que el sistema «la remite por correo electrónico». Se cumple con un correo que lleva el enlace al portal, **sin el PDF adjunto**.
+  - **Por qué:** el PDF lleva el nombre de un menor y la firma escaneada de la Directora. Por eso no viaja por correo, donde quedaría en buzones fuera del control del colegio, ni por n8n, cuyas ejecuciones de error guardan lo que pasa por ellas (C10, C11).
+  - La familia lo descarga solo desde P04, con sesión y solo de su expediente: `GET /familia/expedientes/:id/carta`, con 404 para uno ajeno (ADR-20), y las cabeceras de ADR-21 con `attachment`.
+  - **Alternativas descartadas:** adjunto por n8n; adjunto enviado por la API, que rompe ADR-07; enlace firmado sin sesión, con el que un correo reenviado entrega el PDF a cualquiera.
+  - **Costo aceptado:** la familia necesita su contraseña para ver la carta.
+- **[EQUIPO, D2-A] Firma de la Directora:** archivo cifrado en el almacenamiento de ADR-21, con su clave en la columna nueva `Personal.firma_url`.
+  - La carga un técnico con `npm run firma:cargar -- <correo> <ruta>`: solo PNG o JPG por sus bytes, hasta 1 MB, y legible. Sin pantalla ni ruta HTTP: nunca sale de la API y solo se incrusta en el PDF.
+  - Cada carga deja `gestion_usuario` con `accion: "firma_cargada"`. La nueva reemplaza a la anterior y la borra: las cartas emitidas ya la llevan.
+  - En dev, `npm run dev:firma-ficticia` carga una imagen que dice «FIRMA FICTICIA · SOLO PRUEBAS». El script corre dentro del contenedor, porque el volumen `archivos` solo se ve desde ahí.
+  - **Quién autoriza (`id_personal_autoriza`):** la directora activa con firma cargada; si hay varias, la que adjudicó la vacante. La adjudicación cuenta como la «autorización de la Directora» de la Tabla 3 del TI: no hay un paso adicional.
+  - **Sin firma no se emite:** 409 `FIRMA_NO_DISPONIBLE`, sin cambios. n8n lo registra como fallo y la API deja una línea en su log, solo con el id del expediente. G07 no lo anticipa: el botón sigue habilitado y el error aparece al pulsarlo.
+- **[EQUIPO, D3-A] Contenido:** `plantillaCarta.ts` (`borrador-1`). Lleva el colegio, la dirección, la fecha, el N.° `CARTA-<código del expediente>`, el destinatario y el texto institucional entre corchetes, el nombre del menor, el nivel, el grado, la campaña, la firma y la Directora. No lleva montos, datos de pago, dictamen ni datos de los apoderados. **Tampoco el DNI**, para no dejar una copia descifrada fuera del sistema (ADR-03); si el colegio lo exige, se reabre esta decisión (C75).
+- **[EQUIPO, D5-A] «Generar Carta de Vacante» (HU0016-2.0):** ningún mockup dibuja el botón. Va en la sección «Vacantes otorgadas» de G07, porque la directora autoriza la carta (§4.6). Con la cuota sin conciliar se ve deshabilitado, con la alerta «La cuota de ingreso no está conciliada», y un POST directo responde 409 `CUOTA_NO_CONCILIADA` sin archivo, fila, transición ni aviso. Con R18 cumplida y sin carta, se habilita como respaldo si n8n está caído, y usa la misma emisión idempotente.
+- **G07 con cuota 0:** un Pago de cuota ya registrado manda: si el grado pasó a cuota 0 después, la fila muestra el estado del Pago, no «Sin cuota de ingreso».
+- **Aviso** `carta_emitida`: ADR-07, por `generacion-carta`. Lleva el saludo al apoderado y el enlace al portal, sin datos del menor. Se reserva después de la emisión, en otra transacción: si la API cae entre las dos, el barrido lo retoma sin tocar la carta. Hay una sola carta por expediente, así que todas las filas del tipo son de ese aviso.
+- **Tiempo de atención:** la emisión es del sistema; no hay `atencion_*`. G07 tampoco abre un ítem con esta sección (ADR-05).
+- **Fuera del bloque:** la descarga por el personal, la reemisión o anulación de una carta, la pantalla para cargar la firma y el logo en el PDF.
+
+## ADR-29 Panel de seguimiento de la familia (HU0020, P04)
+- **[EQUIPO, bloque 10, 06/11/2026] Sin reglas nuevas:** `GET /familia/expedientes/:id/panel` solo compone lo que ya existe (ramas de R9, observaciones vigentes, verificación de completitud, P07 y P08). «En revisión» se deriva: rama `pendiente` con el expediente en `en_validacion`; `en_revision` sigue sin uso (ADR-23).
+- **[EQUIPO, D4] Historial por lista blanca:** cada evento visible de la bitácora se traduce a un texto fijo, y lo que no está en la lista se omite. `detalle` nunca llega al cliente: la respuesta es solo fecha y texto. Los actores van por área («Tesorería»), nunca por nombre.
+  - **Nunca se muestran:** `atencion_inicio`, `acceso_denegado`, `notificacion_rebotada`, los `atencion_fin` de citas, dictamen y adjudicación, ni las transiciones de las ramas, que ya salen por su `atencion_fin`.
+  - El motivo de una observación va solo en «Acciones pendientes». Nunca aparecen conclusiones, observaciones de las evaluaciones, nombres del personal ni datos de otras familias.
+- **[EQUIPO, D4-A] Dictamen:** la familia solo ve lo que ya se le notificó. Con Apto y En observación, la etapa «Resultado» dice «En revisión» y el historial no los nombra (ADR-25, D3-A).
+  - **Estado neutro (John, 07/11/2026):** con el expediente en `apto` o `en_observacion`, `GET /familia/expedientes` y la ficha devuelven `resultado_en_revision`: ninguna respuesta de `/familia/*` revela esos estados, aunque la familia mire las herramientas de red. Ninguna pantalla lo muestra y el menú no cambia. `no_apto` sí se ve, porque ya se le notificó. Lo prueba `HU0020-1.0 (D4-A) con el expediente en …`.
+- **[EQUIPO, D7-A] Entrada:** `/portal` lleva a `/portal/panel` con el rol `familia`. La vista técnica del Sprint 0 queda para los demás roles.
+- **Acciones sin observación:** además de subsanar, P04 lleva a completar la ficha, cargar los documentos, registrar el derecho, agendar las evaluaciones, elegir la modalidad y registrar la cuota. Con el comprobante de la cuota en conciliación, informa que la carta se emite al conciliarlo. Si la última verificación solo encontró que falta el derecho, no pide documentos.
+- **Historial:** una verificación incompleta dice «Tu expediente aún está incompleto», porque puede faltar solo el derecho. Los textos están en `historialFamilia.ts` (C76).
+- **Desvíos del mockup de P04:**
+  - El botón de descarga de la carta (no está dibujado), en un bloque verde «Tu Carta de Vacante está emitida.» dentro de «Acciones pendientes».
+  - Una línea con las tres ramas de R9, porque HU0020-1.0 pide el estado de cada validación y el mockup junta dos en una etapa.
+  - Sin «Completaste la ficha y el cuestionario», porque no hay evento ni fecha de eso (C77).
+  - Una observación lleva en el título el documento y el parentesco, y el motivo aparte, como «Motivo: …». El mockup los pone en una línea.
+  - Las acciones que no son una observación van en una tarjeta azul con el botón «Continuar». El mockup no le pone botón a esa tarjeta, y usa el ícono del calendario también para el aviso de la conciliación.
+- **Fuera del bloque:** P04 con un expediente caducado (C78).
 
 ## Orden recomendado de implementación
 0. **Sprint 0, base técnica** (no es una HU; se documenta como habilitador):

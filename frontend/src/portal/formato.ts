@@ -12,6 +12,10 @@ const diaHora = new Intl.DateTimeFormat("es-PE", {
   hour12: true,
 });
 
+// El historial de P04: «12 oct., 4:15 p. m.», como el mockup.
+const historial = new Intl.DateTimeFormat("es-PE", { timeZone: ZONA, day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true });
+
+export const fechaHistorial = (iso: string) => historial.format(new Date(iso));
 export const fechaCorta = (iso: string) => dia.format(new Date(iso));
 export const fechaHora = (iso: string) => diaHora.format(new Date(iso));
 

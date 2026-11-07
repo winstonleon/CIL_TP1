@@ -43,6 +43,12 @@ const ESTADOS_EDITABLES = ["portal_habilitado", "en_postulacion"];
 // Código visible al usuario: ADM-<campaña>-<id con 4 dígitos> (modelo de datos, nota de Expediente).
 export const codigoExpediente = (campana: string, idExpediente: number) => `ADM-${campana}-${String(idExpediente).padStart(4, "0")}`;
 
+// ADR-29 (decisión de John, 07/11/2026): la familia solo ve lo que ya se le notificó, y Apto y En observación no se le notifican
+// (ADR-25, D3-A). Las respuestas de /familia/* llevan este valor neutro; ninguna pantalla lo muestra y el menú sigue igual.
+export const ESTADO_RESULTADO_EN_REVISION = "resultado_en_revision";
+const ESTADOS_SIN_NOTIFICAR: ReadonlySet<string> = new Set(["apto", "en_observacion"]);
+const estadoParaFamilia = (estado: string) => (ESTADOS_SIN_NOTIFICAR.has(estado) ? ESTADO_RESULTADO_EN_REVISION : estado);
+
 export async function listarExpedientes(keycloakUserId: string) {
   const db = obtenerPool();
   const filas = UUID.test(keycloakUserId) ? await listarExpedientesDeFamilia(db, keycloakUserId) : [];
@@ -53,7 +59,7 @@ export async function listarExpedientes(keycloakUserId: string) {
       return {
         id_expediente: e.id_expediente,
         codigo: codigoExpediente(e.campana_admision, e.id_expediente),
-        estado: e.estado,
+        estado: estadoParaFamilia(e.estado),
         grado: e.nombre_grado,
         postulante: nombre || null,
         ficha_completa: p?.ficha_completa ?? false,
@@ -74,7 +80,7 @@ export async function leerFicha(e: ExpedienteDeFamilia) {
   return {
     id_expediente: e.id_expediente,
     codigo: codigoExpediente(e.campana_admision, e.id_expediente),
-    estado: e.estado,
+    estado: estadoParaFamilia(e.estado),
     ficha_completa: postulante?.ficha_completa ?? false,
     guardado_en: cuestionario?.guardado_en ?? null,
     grado: { nombre_grado: e.nombre_grado, nivel: e.nivel },

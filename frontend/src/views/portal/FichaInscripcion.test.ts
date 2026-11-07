@@ -162,7 +162,7 @@ describe("HU0005-2.0 P05 y P05b retoman el borrador", () => {
 
     expect(puts).toHaveLength(1);
     expect(puts[0]).toMatchObject({ modo: "borrador", postulante: { nombres: "Sofía" } });
-    expect(enrutador.currentRoute.value.path).toBe("/portal");
+    expect(enrutador.currentRoute.value.path).toBe("/portal/panel");
   });
 
   it("HU0005-2.0 [parte: segundo apoderado parcial] el indicador avisa que el bloque no se guardó hasta tener los cinco datos", async () => {

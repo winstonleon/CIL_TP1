@@ -52,6 +52,12 @@ export async function actualizarPostulante(db: Consultable, id: number, d: Datos
   );
 }
 
+// Sin leer el DNI: el panel de P04 solo necesita saber si la ficha está completa.
+export async function fichaEstaCompleta(db: Consultable, id: number): Promise<boolean> {
+  const { rows } = await db.query<{ ficha_completa: boolean }>("SELECT ficha_completa FROM postulante WHERE id_postulante = $1", [id]);
+  return rows[0]?.ficha_completa === true;
+}
+
 export async function leerPostulante(db: Consultable, id: number): Promise<FilaPostulante | null> {
   const { rows } = await db.query<Omit<FilaPostulante, "dni"> & { dni_cifrado: string | null }>(
     `SELECT id_postulante, dni_cifrado, nombres, apellido_paterno, apellido_materno,

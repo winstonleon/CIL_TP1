@@ -40,7 +40,7 @@ describe("S0-C4 protección de las áreas con Keycloak", () => {
   });
 
   it("S0-C4 con sesión, /portal muestra «Sesión iniciada», el nombre y solo los roles de la aplicación", async () => {
-    vi.mocked(usuarioActual).mockResolvedValue(usuarioFalso(["familia", "offline_access", "default-roles-cil-admision"], "Familia Prueba"));
+    vi.mocked(usuarioActual).mockResolvedValue(usuarioFalso(["secretaria", "offline_access", "default-roles-cil-admision"], "Familia Prueba"));
     const { envoltorio } = await montarEn("/portal");
 
     expect(usuarioActual).toHaveBeenCalledWith("portal");
@@ -48,7 +48,7 @@ describe("S0-C4 protección de las áreas con Keycloak", () => {
     expect(envoltorio.get('[data-testid="estado-sesion"]').text()).toBe("Sesión iniciada");
     expect(envoltorio.get('[data-testid="area"]').text()).toBe("Portal de familias");
     expect(envoltorio.get('[data-testid="nombre"]').text()).toBe("Familia Prueba");
-    expect(envoltorio.findAll('[data-testid="roles"] li').map((li) => li.text())).toEqual(["familia"]);
+    expect(envoltorio.findAll('[data-testid="roles"] li').map((li) => li.text())).toEqual(["secretaria"]);
   });
 
   it("S0-C4 la página de inicio no exige sesión", async () => {

@@ -257,6 +257,7 @@ export async function ramasConformes(db: Consultable, idExpediente: number): Pro
 
 export interface Observacion {
   tipo_documento: string;
+  categoria: string;
   parentesco: string | null;
   motivo: string;
 }
@@ -267,7 +268,7 @@ export async function observacionesVigentes(
   idExpediente: number,
 ): Promise<{ documentos: Observacion[]; derecho: string | null; cuota: string | null }> {
   const { rows } = await db.query<Observacion>(
-    `SELECT r.tipo_documento, pa.parentesco, d.motivo_observacion AS motivo
+    `SELECT r.tipo_documento, r.categoria::text AS categoria, pa.parentesco, d.motivo_observacion AS motivo
        FROM documento d
        JOIN requisito_documental r ON r.id_requisito = d.id_requisito
        JOIN expediente e ON e.id_expediente = d.id_expediente

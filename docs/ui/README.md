@@ -29,7 +29,7 @@ Son copias de los artboards del lienzo «Mockups – Sistema de Admisión CIL» 
 | G04 | `G04-Visitas.dc.html` | Visitas guiadas, registro de asistencia y prospectos con contacto no entregado | Secretaría | HU0004, HU0002-2.0 |
 | G05 | `G05-Tesoreria.dc.html` | Validaciones de Tesorería | Tesorería | HU0011, HU0015, HU0024 |
 | G06 | `G06-Psicologia.dc.html` | Agenda de Psicología y dictamen | Psicóloga | HU0010 |
-| G07 | `G07-Vacantes.dc.html` | Adjudicación de vacantes | Directora | HU0012 |
+| G07 | `G07-Vacantes.dc.html` | Adjudicación de vacantes | Directora | HU0012, HU0016-2.0 |
 | G08 | `G08-Indicadores.dc.html` | Tablero de indicadores | Directora | HU0019 |
 | G09 | `G09-Configuracion.dc.html` | Configuración de la campaña | Secretaría | HU0022 |
 | G10 | `G10-Usuarios.dc.html` | Usuarios y roles | Directora | HU0021 |

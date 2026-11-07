@@ -11,7 +11,8 @@
 // Tiempo de atención (ADR-05, §4.7): atencion_inicio al abrir el ítem y atencion_fin emparejado al decidir.
 // Una observación reserva el primer intento del aviso por notificacion-multicanal (ADR-07); n8n lo envía.
 // Conciliación de la cuota de ingreso (HU0015): el mismo camino del comprobante del derecho, por `tipo_pago`. La cuota exige
-// `vacante_asignada` y no evalúa la unión; `cuota_acreditada` en su atencion_fin es solo trazabilidad (C62).
+// `vacante_asignada` y no evalúa la unión; `cuota_acreditada` en su atencion_fin es solo trazabilidad, y la ruta despierta a
+// generacion-carta, que decide con los datos (C62).
 import type { Readable } from "node:stream";
 import type { Almacenamiento } from "../almacenamiento";
 import { enTransaccion, obtenerPool, type Consultable } from "../db/pool";
@@ -295,6 +296,7 @@ export async function decidirPago(idPago: number, idPersonal: number, d: Decisio
     let extra: Record<string, unknown> = { id_pago: idPago };
     let idNotificacion: number | null = null;
     let habilita = false;
+    let cuotaAcreditada = false;
     if (d.decision === "observado") {
       idNotificacion = await insertarIntento(c, { idExpediente, tipoEvento: TIPO_OBSERVACION, estadoEnvio: "pendiente" });
       extra = { ...extra, id_notificacion: idNotificacion };
@@ -302,10 +304,18 @@ export async function decidirPago(idPago: number, idPersonal: number, d: Decisio
       habilita = await ramasConformes(c, idExpediente);
       if (habilita) extra = { ...extra, habilita_agendamiento: true };
     } else if (pago.numero_fraccion === 1) {
+      cuotaAcreditada = true;
       extra = { ...extra, cuota_acreditada: true };
     }
     await registrarAtencionFin(c, { idPersonal, idExpediente, item: itemDePago(idPago), decision: d.decision, extra });
-    return { id_pago: idPago, id_expediente: idExpediente, estado_validacion: d.decision, id_notificacion: idNotificacion, agendamiento_habilitado: habilita };
+    return {
+      id_pago: idPago,
+      id_expediente: idExpediente,
+      estado_validacion: d.decision,
+      id_notificacion: idNotificacion,
+      agendamiento_habilitado: habilita,
+      cuota_acreditada: cuotaAcreditada,
+    };
   });
 }
 

@@ -86,9 +86,11 @@ export function rutasTesoreria(campana: string, almacenamiento: Almacenamiento, 
   // comprobante») → 200 { id_pago, id_expediente, estado_validacion, id_notificacion, agendamiento_habilitado }
   // (HU0024-1.0 y 2.0; HU0015-1.0 y 2.0 en la cuota) · 400 · 404 · 409 PAGO_YA_VALIDADO o VALIDACION_NO_CORRESPONDE
   rutas.post("/pagos/:idPago/decision", async (req, res) => {
-    const r = await decidirPago(validar(idRuta, req.params.idPago), await idPersonalDe(req), leerDecision(req));
+    const { cuota_acreditada, ...r } = await decidirPago(validar(idRuta, req.params.idPago), await idPersonalDe(req), leerDecision(req));
     res.json(r);
     avisar(r.id_expediente, r.id_notificacion);
+    // HU0016-1.0 (ADR-16): solo despierta al flujo; la API decide con los datos (C62). Solo ids (C11).
+    if (cuota_acreditada) void eventos.disparar("generacion-carta", { id_expediente: r.id_expediente });
   });
 
   return rutas;

@@ -147,13 +147,18 @@ function vistaCita(c: CitaEvaluacion, estadoExpediente: string): CitaVista {
 
 export type ModoP08 = "bloqueado" | "agendar" | "agendadas";
 
-// GET /familia/expedientes/:id/evaluaciones. «agendar» con las tres ramas conformes (B1); «agendadas» en evaluación.
+// «agendar» con las tres ramas conformes (B1); «agendadas» en evaluación. También lo lee el panel de P04 (HU0020).
+export async function modoEvaluaciones(db: Consultable, e: ExpedienteDeFamilia): Promise<ModoP08> {
+  if (e.estado === ESTADO_EVALUACION) return "agendadas";
+  return e.estado === ESTADO_VALIDACION && (await ramasConformes(db, e.id_expediente)) ? "agendar" : "bloqueado";
+}
+
+// GET /familia/expedientes/:id/evaluaciones.
 export async function leerEvaluaciones(e: ExpedienteDeFamilia, campana: string) {
   const db = obtenerPool();
   const { REPROGRAMACION_MIN_HORAS } = obtenerConfig();
   const exigidas = await evaluacionesDelGrado(db, e.id_expediente);
-  const modo: ModoP08 =
-    e.estado === ESTADO_EVALUACION ? "agendadas" : e.estado === ESTADO_VALIDACION && (await ramasConformes(db, e.id_expediente)) ? "agendar" : "bloqueado";
+  const modo = await modoEvaluaciones(db, e);
   const citas = modo === "agendadas" ? await citasActivas(db, e.id_expediente) : [];
   // Con citas ya agendadas se muestran sus tipos aunque el grado haya cambiado después (C25 7: siguen válidas).
   const tipos = TIPOS_EVALUACION.filter((t) => exigidas.includes(t) || citas.some((c) => c.tipo_cita === t));

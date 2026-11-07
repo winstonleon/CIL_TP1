@@ -7,6 +7,7 @@ import type { DisparadorN8n } from "../orquestacion/n8n";
 import { z } from "zod";
 import type { FiltrosIndicadores } from "../repositories/indicadores";
 import { adjudicarVacante, dictamenParaDireccion, informeParaDireccion, panelAdjudicacion } from "../services/adjudicacion";
+import { emitirCartaManual, vacantesOtorgadas } from "../services/cartaVacante";
 import { fechaValida } from "../services/derechoAdmision";
 import { calcularIndicadores, filtrosDeIndicadores } from "../services/indicadores";
 import type { LineaBase } from "../services/lineaBase";
@@ -67,6 +68,22 @@ export function rutasDireccion(campana: string, almacenamiento: Almacenamiento, 
     res.json(cuerpo);
     // ADR-16: después del COMMIT y de responder; solo ids (C11). disparar() nunca rechaza.
     void eventos.disparar("agendamiento", { id_expediente: idExpediente, id_notificacion });
+  });
+
+  // GET /direccion/cartas → 200 { items: [{ id_expediente, codigo, postulante, grado, cuota, emitible }] } (HU0016-2.0, G07)
+  rutas.get("/cartas", async (_req, res) => {
+    res.json(await vacantesOtorgadas(campana));
+  });
+
+  // POST /direccion/expedientes/:id/carta {} («Generar Carta de Vacante») → 201 { id_carta } (la misma emisión idempotente de
+  // n8n, de respaldo si n8n está caído) · 400 · 404 · 409 CUOTA_NO_CONCILIADA (HU0016-2.0), CARTA_NO_CORRESPONDE,
+  // CARTA_YA_EMITIDA o FIRMA_NO_DISPONIBLE
+  rutas.post("/expedientes/:id/carta", async (req, res) => {
+    const idExpediente = validar(idRuta, req.params.id);
+    validar(esquemaVacio, req.body ?? {});
+    res.status(201).json(await emitirCartaManual(almacenamiento, idExpediente, await idPersonalDe(req)));
+    // ADR-16: el flujo solo reserva y envía el aviso, porque la carta ya existe. Solo ids (C11).
+    void eventos.disparar("generacion-carta", { id_expediente: idExpediente });
   });
 
   // Tablero de indicadores (HU0019, G08). Solo lectura: agregados y códigos de expediente.
