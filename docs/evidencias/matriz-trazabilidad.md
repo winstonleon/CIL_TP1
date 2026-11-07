@@ -1,17 +1,17 @@
 # Matriz de trazabilidad (HU → escenario → prueba → resultado)
 
-> Generada con `npm run evidencias:matriz` el 6/11/26, 6:40 p. m. (America/Lima) sobre el commit `11fd1c1` **con cambios sin commit**. No se edita a mano.
+> Generada con `npm run evidencias:matriz` el 7/11/26, 1:02 p. m. (America/Lima) sobre el commit `d38ea87` **con cambios sin commit**. No se edita a mano.
 
 ## Resumen
 
 | Suite | Pruebas | Pasan | Fallan | Omitidas o no ejecutadas |
 |---|---|---|---|---|
-| API | 568 | 568 | 0 | 0 |
-| Frontend | 191 | 191 | 0 | 0 |
-| E2E | 82 | 82 | 0 | 0 |
+| API | 630 | 630 | 0 | 0 |
+| Frontend | 208 | 208 | 0 | 0 |
+| E2E | 89 | 89 | 0 | 0 |
 
-- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **47**.
-- Estados: cubierto: 41 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · verificado: correo; pendiente: WhatsApp (C30): 1 · verificado: formato; pendiente: calidad (C63): 1 · verificado: conciliación; pendiente: carta (C62): 1 · sin prueba: 8.
+- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **51**.
+- Estados: cubierto: 46 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · verificado: correo; pendiente: WhatsApp (C30): 1 · verificado: formato; pendiente: calidad (C63): 1 · sin prueba: 4.
 - Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.
 - «mecanismo probado; verificación en ruta real pendiente (C17)»: todas las pruebas del escenario llevan la marca `[política, ruta de prueba]` (compromiso C17).
 - «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34; HU0005-2.0, C43; HU0017-1.0, C51; HU0008-2.0, C30; HU0010-1.0, C58; HU0014-2.0, C63; HU0015-1.0, C62). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
@@ -419,13 +419,16 @@
 
 | Escenario | Estado | Suite | Archivo | Prueba | Resultado |
 |---|---|---|---|---|---|
-| HU0015-1.0 — Aprobación de la conciliación bancaria de la cuota | verificado: conciliación; pendiente: carta (C62) | API | `api/test/cuotaIngreso.test.ts` | HU0015-1.0 [parte: conciliación] Tesorería ve el abono junto al monto que corresponde y concilia: el pago queda conforme, «Cuota acreditada», con la marca de trazabilidad y sin webhook de la carta | pasó |
+| HU0015-1.0 — Aprobación de la conciliación bancaria de la cuota | cubierto | API | `api/test/cartaVacante.test.ts` | HU0015-1.0 [parte: carta] conciliar el pago único dispara generacion-carta solo con el id, y con esa señal la API emite la carta | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0015-1.0 [parte: carta] la primera fracción de un pago fraccionado también emite la carta | pasó |
+|  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-1.0 [parte: conciliación] Tesorería ve el abono junto al monto que corresponde y concilia: el pago queda conforme, «Cuota acreditada», con la marca de trazabilidad y sin webhook de la carta | pasó |
 |  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-1.0 [parte: conciliación] una fracción posterior conforme no lleva la marca, porque solo la primera acredita la cuota | pasó |
 |  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-1.0 [parte: conciliación] (dos personas) una segunda decisión responde 409 PAGO_YA_VALIDADO, y otro rol recibe 403 auditado | pasó |
 |  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-1.0 [parte: conciliación] (derecho) el comprobante del derecho sigue exigiendo en_validacion: en otro estado responde 409 y G05 no lo abre | pasó |
 |  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0015-1.0 [parte: conciliación] P07 muestra «Cuota acreditada» con la fecha de validación | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/ConciliacionCuota.test.ts` | HU0015-1.0 [parte: conciliación] G05 la pestaña «Cuota de ingreso» se habilita con su conteo, pide su vista y lista con los textos del mockup | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/ConciliacionCuota.test.ts` | HU0015-1.0 [parte: conciliación] G05 muestra el abono junto al monto que corresponde y «Conciliar y aprobar pago» envía la conformidad | pasó |
+|  |  | E2E | `e2e/carta-vacante.spec.ts` | HU0015-1.0 [parte: carta] P07 sigue mostrando la cuota acreditada con la carta emitida, y G07 ya no ofrece emitirla | pasó |
 |  |  | E2E | `e2e/vacante-cuota.spec.ts` | HU0015-1.0 [parte: conciliación] Tesorería contrasta el abono en la pestaña «Cuota de ingreso» de G05 y concilia: la familia ve «Cuota acreditada» | pasó |
 | HU0015-2.0 — Rechazo por inconsistencia en el monto o número de operación | cubierto | API | `api/test/cuotaIngreso.test.ts` | HU0015-2.0 Tesorería rechaza el comprobante con el motivo: queda «Cuota observada», la familia recibe el detalle y el enlace, y regulariza en la misma fila | pasó |
 |  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-2.0 (aviso) un aviso sin cerrar se retoma por el barrido de observaciones a los 10 min | pasó |
@@ -433,6 +436,50 @@
 |  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-2.0 (validación) el motivo es obligatorio | pasó |
 |  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0015-2.0 P07 muestra «Cuota observada» con el motivo y regulariza con PUT en la misma fila; después el motivo es el anterior | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/ConciliacionCuota.test.ts` | HU0015-2.0 G05 «Rechazar comprobante» exige el motivo del desajuste y lo envía | pasó |
+
+### HU0016 — Emitir automáticamente la Carta de Vacante en formato PDF con la firma escaneada de la Directora
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0016-1.0 — Generación y despacho automático de la Carta de Vacante | cubierto | API | `api/test/cartaVacante.test.ts` | HU0016-1.0 con la cuota conciliada genera la carta con los datos del menor, el grado y la firma, y el expediente queda en carta_emitida en la misma operación | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0016-1.0 (D3-A) la carta no lleva el DNI, montos, datos de pago, dictamen ni datos de los apoderados | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0016-1.0 (ADR-21) la carta se guarda cifrada: en reposo no es un PDF ni contiene el nombre del menor | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0016-1.0 (D1-A) n8n recibe solo el aviso: el correo lleva el enlace al portal y ningún dato del menor, y el PDF no viaja | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0016-1.0 (idempotencia) dos pedidos a la vez dejan una carta, una transición, un archivo y un aviso | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0016-1.0 (idempotencia) la retoma del aviso no repite la carta: una fila por intento, tope de 6 y fila de cierre | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0016-1.0 (fallo) si el almacenamiento falla no queda carta, ni transición, ni aviso | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0016-1.0 (fallo) si la BD falla después de guardar el PDF, el archivo se elimina y la transición se revierte | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0016-1.0 (barrido) entrega las cartas por emitir y, emitida la carta, solo el aviso sin intentos o vencido | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0016-1.0 (descarga) la familia descarga su carta ya descifrada, con cabeceras seguras y sin caché | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0016-1.0 (descarga) la carta de otra familia responde 404, como un expediente inexistente, y el intento se audita | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0016-1.0 (descarga) sin token responde 401 y sin carta emitida 404 CARTA_NO_ENCONTRADA | pasó |
+|  |  | API | `api/test/n8nCarta.test.ts` | HU0016-1.0 (n8n) «Validar evento» acepta solo { id_expediente } con un entero de 1 a 2147483647 y responde 202 o 400 | pasó |
+|  |  | API | `api/test/n8nCarta.test.ts` | HU0016-1.0 (n8n) «Un ítem por expediente» saca un ítem por cada expediente pendiente del barrido y solo con id_expediente | pasó |
+|  |  | API | `api/test/n8nCarta.test.ts` | HU0016-1.0 (n8n) «Generar carta y reservar aviso» hace POST sin cuerpo y «Según la reserva» reparte 201, los 409 sin acción y el resto como fallo | pasó |
+|  |  | API | `api/test/n8nCarta.test.ts` | HU0016-1.0 (n8n) «Enviar carta» llama a notificacion-multicanal por nombre con la reserva y maneja sus errores con onError (C9) | pasó |
+|  |  | API | `api/test/n8nCarta.test.ts` | HU0016-1.0 (n8n) «Clasificar resultado» elige la rama de ADR-07 ante cada resultado de notificacion-multicanal | pasó |
+|  |  | API | `api/test/n8nCarta.test.ts` | HU0016-1.0 (n8n) sin el campo pairedItem «Clasificar resultado» empareja el resultado con su reserva por la posición | pasó |
+|  |  | API | `api/test/n8nCarta.test.ts` | HU0016-1.0 (n8n) el fallo de un ítem no corta el barrido: va a «Fallo al …» y se registra solo { flujo, nodo, id_ejecucion } (C41-4, C11) | pasó |
+|  |  | API | `api/test/n8nCarta.test.ts` | HU0016-1.0 (n8n) el flujo no guarda ejecuciones exitosas, declara el Error Workflow por nombre y no lleva secretos ni IDs | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PanelSeguimiento.test.ts` | HU0016-1.0 sin carta no se ofrece la descarga | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PanelSeguimiento.test.ts` | HU0016-1.0 con la carta emitida, la familia la descarga con su sesión y el nombre del expediente | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PanelSeguimiento.test.ts` | HU0016-1.0 si la descarga falla, la pantalla lo dice | pasó |
+|  |  | E2E | `e2e/carta-vacante.spec.ts` | HU0016-1.0 Tesorería concilia: generacion-carta emite la carta, llega el correo con el enlace en menos de cinco minutos y el expediente queda en carta_emitida | pasó |
+|  |  | E2E | `e2e/carta-vacante.spec.ts` | HU0016-1.0 (descarga) desde P04, la familia descarga su Carta de Vacante en PDF y el panel la muestra completa | pasó |
+| HU0016-2.0 — Bloqueo de emisión de Carta de Vacante ante pagos pendientes | cubierto | API | `api/test/cartaVacante.test.ts` | HU0016-2.0 con la cuota pendiente de conciliación no se crea el documento: 409 CUOTA_NO_CONCILIADA para n8n y para la directora, y G07 no la ofrece | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0016-2.0 con la cuota observada por Tesorería no se crea el documento: 409 CUOTA_NO_CONCILIADA para n8n y para la directora, y G07 no la ofrece | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0016-2.0 sin comprobante registrado tampoco se emite | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0016-2.0 (R18) una fracción posterior conforme no reemplaza a la primera | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0016-2.0 (estado) sin vacante otorgada responde 409 CARTA_NO_CORRESPONDE, y un expediente inexistente 404 | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0016-2.0 (botón) con la cuota conciliada, la directora la emite desde G07: autoriza la firma vigente, se registra quién la pidió y no se emite dos veces | pasó |
+|  |  | API | `api/test/cartaVacante.test.ts` | HU0016-2.0 (rol) las rutas de la carta en G07 son solo de la directora | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/VacantesOtorgadas.test.ts` | HU0016-2.0 con la cuota pendiente deshabilita la acción, muestra la alerta y no envía nada | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/VacantesOtorgadas.test.ts` | HU0016-2.0 con la cuota observado deshabilita la acción, muestra la alerta y no envía nada | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/VacantesOtorgadas.test.ts` | HU0016-2.0 con la cuota sin_registrar deshabilita la acción, muestra la alerta y no envía nada | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/VacantesOtorgadas.test.ts` | HU0016-2.0 si la API rechaza la emisión, G07 muestra su mensaje | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/VacantesOtorgadas.test.ts` | HU0016-2.0 (conciliada) sin alerta, el botón sirve de respaldo y el expediente sale de la lista | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/VacantesOtorgadas.test.ts` | HU0016-2.0 un grado sin cuota se muestra así y se puede emitir | pasó |
+|  |  | E2E | `e2e/carta-vacante.spec.ts` | HU0016-2.0 con la cuota sin conciliar, G07 deshabilita «Generar Carta de Vacante», muestra la alerta y no se crea el documento | pasó |
 
 ### HU0017 — Que el sistema verifique automáticamente la completitud del expediente según el grado y lo declarado en la ficha de inscripción
 
@@ -535,6 +582,44 @@
 |  |  | Frontend | `frontend/src/views/gestion/IndicadoresAdmision.test.ts` | HU0019-2.0 G08 «Exportar reporte ejecutivo» descarga el archivo con los filtros aplicados y dice que no incluye datos personales | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/IndicadoresAdmision.test.ts` | HU0019-2.0 G08 un error de la exportación se muestra | pasó |
 |  |  | E2E | `e2e/indicadores.spec.ts` | HU0019-2.0 la directora aplica un rango de fechas y descarga el reporte ejecutivo en Excel | pasó |
+
+### HU0020 — Consultar el avance de mi postulación, las acciones pendientes y el historial del expediente en un panel de seguimiento
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0020-1.0 — Consulta del avance de la postulación | cubierto | API | `api/test/panelSeguimiento.test.ts` | HU0020-1.0 muestra las seis etapas del proceso, en el orden del mockup | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-1.0 en validación muestra el estado de cada validación: conforme, en revisión u observado, y la etapa toma la peor | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-1.0 con el expediente en en_evaluacion, evaluaciones = en_revision y resultado = pendiente | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-1.0 con el expediente en en_observacion, evaluaciones = completado y resultado = en_revision | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-1.0 con el expediente en apto, evaluaciones = completado y resultado = en_revision | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-1.0 con el expediente en no_apto, evaluaciones = completado y resultado = completado | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-1.0 con el expediente en lista_espera, evaluaciones = completado y resultado = completado | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-1.0 la cuota en conciliación deja «Cuota y carta» en revisión; la carta emitida la completa y queda disponible | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-1.0 (historial) muestra los cambios del expediente con su fecha, lo más reciente primero y por área | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-1.0 (historial) nombra la observación de Tesorería sin el motivo, que va solo en las acciones | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-1.0 (historial) traduce cada evento de la lista blanca a su texto | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-1.0 (privacidad) no muestra conclusiones, observaciones de evaluaciones, nombres del personal, el dictamen Apto ni datos de otra familia | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-1.0 (D4-A) con el dictamen Apto o En observación, la familia ve «En revisión» y ningún rastro del dictamen | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-1.0 (D4-A) con el expediente en apto, ninguna respuesta de /familia/* lo revela | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-1.0 (D4-A) con el expediente en en_observacion, ninguna respuesta de /familia/* lo revela | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-1.0 (D4-A) el No apto sí se ve, porque ya se notificó a la familia | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-1.0 (acceso) un expediente ajeno responde 404, como uno inexistente, y el intento se audita | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PanelSeguimiento.test.ts` | HU0020-1.0 muestra las seis etapas con su estado, el expediente y el saludo del mockup | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PanelSeguimiento.test.ts` | HU0020-1.0 muestra el estado de cada validación con los nombres del mockup | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PanelSeguimiento.test.ts` | HU0020-1.0 muestra el historial con su fecha, en hora de Lima | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PanelSeguimiento.test.ts` | HU0020-1.0 sin acciones ni movimientos lo dice, y un error de la API se puede reintentar | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PanelSeguimiento.test.ts` | HU0020-1.0 (D4-A) con el valor neutro de la API, el menú «Evaluaciones» sigue deshabilitado como con el dictamen | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PanelSeguimiento.test.ts` | HU0020-1.0 la familia entra al portal por P04, y «Mi postulación» está en el menú | pasó |
+|  |  | E2E | `e2e/carta-vacante.spec.ts` | HU0020-1.0 la familia abre el panel: ve las seis etapas, el estado de cada validación y el historial con su fecha | pasó |
+| HU0020-2.0 — Atención de una acción pendiente desde el panel | cubierto | API | `api/test/panelSeguimiento.test.ts` | HU0020-2.0 un documento observado muestra el motivo y lleva a P06; el de Tesorería se nombra por su área | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-2.0 un comprobante observado del derecho lleva a P07b, y uno de la cuota a P07, con su motivo | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-2.0 subsanada la observación, la acción desaparece | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-2.0 cada acción pendiente lleva a su pantalla: ficha, documentos, derecho, evaluaciones y cuota | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-2.0 si la última verificación solo encontró que falta el derecho, la acción lleva a P07b y no a documentos | pasó |
+|  |  | API | `api/test/panelSeguimiento.test.ts` | HU0020-2.0 mientras las validaciones siguen abiertas, avisa cuándo se podrán agendar las evaluaciones, sin enlace | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PanelSeguimiento.test.ts` | HU0020-2.0 muestra el motivo de la observación y «Subsanar» lleva a la pantalla donde se subsana | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PanelSeguimiento.test.ts` | HU0020-2.0 una acción informativa no tiene enlace | pasó |
+|  |  | E2E | `e2e/carta-vacante.spec.ts` | HU0020-2.0 Tesorería observa el comprobante: el panel muestra el motivo y lleva a la pantalla donde la familia lo subsana | pasó |
 
 ### HU0021 — Crear, modificar, desactivar y reactivar las cuentas del personal y asignarles un rol (secretaría, Tesorería, psicóloga, evaluador académico o Directora)
 
@@ -727,11 +812,7 @@
 
 | HU | Escenario | Estado |
 |---|---|---|
-| HU0016 | HU0016-1.0 — Generación y despacho automático de la Carta de Vacante | sin prueba |
-| HU0016 | HU0016-2.0 — Bloqueo de emisión de Carta de Vacante ante pagos pendientes | sin prueba |
 | HU0018 | HU0018-1.0 — Envío de recordatorio por inactividad de la familia | sin prueba |
 | HU0018 | HU0018-2.0 — Expiración de postulación por vencimiento del plazo de la etapa | sin prueba |
-| HU0020 | HU0020-1.0 — Consulta del avance de la postulación | sin prueba |
-| HU0020 | HU0020-2.0 — Atención de una acción pendiente desde el panel | sin prueba |
 | HU0023 | HU0023-1.0 — Primer ingreso con credenciales temporales | sin prueba |
 | HU0023 | HU0023-2.0 — Bloqueo por intentos fallidos de ingreso | sin prueba |
