@@ -405,6 +405,10 @@ Table Registro_Auditoria {
   estado_nuevo varchar(40)
   fecha_hora timestamptz [not null, default: `now()`]
   detalle jsonb
+  indexes {
+    (id_expediente, tipo_evento) [name: 'ix_auditoria_expediente_tipo']
+    (`(detalle->>'id_evento_inicio')::bigint`) [name: 'ix_auditoria_fin_evento_inicio', note: 'parcial: solo tipo_evento = atencion_fin (C54)']
+  }
   Note: 'Bitácora de solo inserción (sin UPDATE ni DELETE). Fuente para calcular el lead time y el cycle time por etapa y para la minería de procesos.'
 }
 
@@ -543,7 +547,7 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 | `cita_reprogramada` | La familia reprograma una cita de evaluación en P08 (HU0009-2.0). El expediente no cambia de estado. `detalle`, solo con ids: `id_cita_anterior`, `id_cita_nueva`, `id_horario_anterior`, `id_horario_nuevo`, `id_notificacion` (primer intento del aviso a la familia), `id_notificacion_responsable` (al responsable de la cita nueva) y, si el responsable cambia, `id_notificacion_responsable_anterior` | Familia |
 | `cuota_registrada` | La familia registra el comprobante de la cuota de ingreso en P07 (HU0014-1.0). El expediente no cambia de estado. `detalle`, solo con ids: `id_pago` e `id_notificacion` (primer intento del aviso a Tesorería). Es la fecha «Recibido» de G05, porque `Pago` no guarda la suya (C49) | Familia |
 
-**Medición (OE3, HU0019).** *Lead time* = de la creación del expediente a `carta_emitida`. *Cycle time* de una etapa = suma de los intervalos entre cada `atencion_inicio` y su `atencion_fin` correspondiente en esa etapa. Supuesto aceptado: si alguien abre un ítem y lo deja abierto, el cycle time se sobreestima; un `atencion_inicio` sin `atencion_fin` en 8 horas no se cuenta.
+**Medición (OE3, HU0019).** *Lead time* = de la creación del expediente a `carta_emitida`. *Cycle time* de una etapa = suma de los intervalos entre cada `atencion_inicio` y su `atencion_fin` correspondiente en esa etapa. Supuesto aceptado: si alguien abre un ítem y lo deja abierto, el cycle time se sobreestima; un `atencion_inicio` sin `atencion_fin` en 8 horas no se cuenta. Los pares se emparejan por `id_evento_inicio`; un par de más de 8 horas tampoco se cuenta. *Tramo* de una etapa = días entre la primera llegada a un hito y la primera llegada al siguiente (ADR-27); los tramos suman el lead time. Antes de HU0016 no hay `carta_emitida`: G08 muestra el lead time como parcial, por expediente.
 
 ---
 
@@ -714,3 +718,10 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 | Transiciones `apto → vacante_asignada` y `apto → lista_espera`. `lista_espera` queda sin salida | HU0012-1.0 y 2.0; la salida no tiene escenario (C61) |
 | R18: segundo disparador con cuota 0, y nota de Pago: subsanación de la cuota | Decisión de John (C25 punto 5, ADR-26) |
 | §6 F4 y §7: los avisos nuevos y los estados derivados de la cuota | ADR-26 |
+
+### Ajustes por HU0019 (05/11/2026), sin tablas ni columnas nuevas
+
+| Cambio | Motivo |
+|---|---|
+| `Registro_Auditoria`: índices `ix_auditoria_expediente_tipo` e `ix_auditoria_fin_evento_inicio` (migración `20261106130000_indices_auditoria.sql`) | C54 y el tablero G08; medidos con `EXPLAIN ANALYZE` |
+| §4.7, medición: el tramo de una etapa y el emparejamiento por `id_evento_inicio`, con el límite de 8 h inclusive | ADR-27 (D1-C y D5-A) |

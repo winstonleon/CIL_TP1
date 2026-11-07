@@ -6,6 +6,7 @@ import Inicio from "./views/Inicio.vue";
 import SesionIniciada from "./views/SesionIniciada.vue";
 import LayoutGestion from "./views/gestion/LayoutGestion.vue";
 import AdjudicacionVacantes from "./views/gestion/AdjudicacionVacantes.vue";
+import IndicadoresAdmision from "./views/gestion/IndicadoresAdmision.vue";
 import BandejaExpedientes from "./views/gestion/BandejaExpedientes.vue";
 import ConfiguracionCampana from "./views/gestion/ConfiguracionCampana.vue";
 import DetalleExpediente from "./views/gestion/DetalleExpediente.vue";
@@ -100,6 +101,8 @@ export function crearEnrutador(historial: RouterHistory) {
           { path: "tesoreria", component: ValidacionesTesoreria, meta: { titulo: "Validaciones de Tesorería", roles: ["tesoreria"] } },
           // G07 (HU0012): adjudicación de vacantes.
           { path: "vacantes", component: AdjudicacionVacantes, meta: { titulo: "Adjudicación de vacantes", roles: ["directora"] } },
+          // G08 (HU0019): tablero de indicadores.
+          { path: "indicadores", component: IndicadoresAdmision, meta: { titulo: "Indicadores de admisión", roles: ["directora"] } },
           // G06 (HU0010) y G11 (HU0025): resultados de las evaluaciones y dictamen de admisión (ADR-25).
           { path: "psicologia", component: AgendaPsicologia, meta: { titulo: "Agenda y dictámenes", roles: ["psicologa"] } },
           { path: "evaluacion-academica", component: EvaluacionAcademica, meta: { titulo: "Evaluaciones académicas", roles: ["evaluador_academico"] } },

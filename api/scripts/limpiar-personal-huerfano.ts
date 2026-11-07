@@ -3,27 +3,18 @@
 // activo = false y registra cada baja como gestion_usuario (actor: el sistema, origen limpieza_dev).
 // No borra filas: registro_auditoria las referencia. Solo toca correos @ejemplo.test (datos ficticios).
 // Aborta si las URLs del entorno no son locales. Imprime solo cuántas filas cambió.
+import { motivoNoLocal, prepararEntornoHost } from "../../scripts/lib/entornoLocal.mjs";
 import { cargarEntorno, requerida, tokenAdmin, urlKeycloak } from "../../scripts/lib/keycloak.mjs";
 
 cargarEntorno();
 
-const HOSTS_LOCALES = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
-for (const nombre of ["KEYCLOAK_PUBLIC_URL", "FRONTEND_PUBLIC_URL"]) {
-  let host = "";
-  try {
-    host = new URL(requerida(nombre)).hostname;
-  } catch {
-    // URL inválida: se aborta abajo
-  }
-  if (!HOSTS_LOCALES.has(host)) {
-    console.error(`Abortado: ${nombre} no apunta al entorno local. Este script es solo para dev.`);
-    process.exit(1);
-  }
+const motivo = motivoNoLocal();
+if (motivo) {
+  console.error(`Abortado: ${motivo}. Este script es solo para dev.`);
+  process.exit(1);
 }
 
-// Desde el host se llega a Postgres por el puerto publicado (como en seed.ts).
-process.env.POSTGRES_HOST = "127.0.0.1";
-process.env.POSTGRES_PORT = process.env.POSTGRES_HOST_PORT || "55432";
+prepararEntornoHost();
 
 const { cerrarPool, enTransaccion, obtenerPool } = await import("../src/db/pool");
 const { insertarEvento } = await import("../src/repositories/auditoria");

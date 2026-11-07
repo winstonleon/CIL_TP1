@@ -30,7 +30,10 @@ export const BANCOS = ["[Banco 1]", "[Banco 2]", "[Banco 3]"] as const;
 export const CUENTA_COLEGIO = "[Banco y N.º de cuenta del colegio]";
 const ESTADO_REGISTRABLE = "en_postulacion";
 
-const fechaValida = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(`${v}T00:00:00Z`).toISOString().startsWith(v);
+export const fechaValida = (v: string) => {
+  const fecha = new Date(`${v}T00:00:00Z`);
+  return /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(fecha.getTime()) && fecha.toISOString().startsWith(v);
+};
 // La fecha de hoy en Lima (TZ del colegio): un abono no puede ser de una fecha futura.
 const hoyEnLima = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(new Date());
 

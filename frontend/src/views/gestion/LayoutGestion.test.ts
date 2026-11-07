@@ -51,10 +51,11 @@ describe("HU0021-1.0 navegación de la gestión interna por rol", () => {
 
     // Tienen pantalla «Usuarios y roles» (G10, HU0021), «Configuración de campaña» (G09, HU0022), «Visitas guiadas»
     // (G04, HU0002), «Bandeja de expedientes» (G02, HU0008), «Validaciones de Tesorería» (G05, HU0011 y HU0024), «Agenda y
-    // dictámenes» (G06, HU0010) y «Evaluaciones académicas» (G11, HU0025); las demás se ven pero no navegan (plan HU0021, P4).
+    // dictámenes» (G06, HU0010), «Indicadores» (G08, HU0019) y «Evaluaciones académicas» (G11, HU0025); las demás se ven pero
+    // no navegan (plan HU0021, P4).
     const enlaces = menu.findAll("a.opcion").map((a) => a.text());
     const conPantalla: Record<string, string[]> = {
-      directora: ["Adjudicación de vacantes", "Usuarios y roles"],
+      directora: ["Adjudicación de vacantes", "Indicadores", "Usuarios y roles"],
       secretaria: ["Bandeja de expedientes", "Visitas guiadas", "Configuración de campaña"],
       tesoreria: ["Validaciones de Tesorería"],
       psicologa: ["Agenda y dictámenes"],

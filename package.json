@@ -17,10 +17,11 @@
     "db:migrate": "node scripts/db.mjs up",
     "db:seed": "npm run seed --workspace api",
     "dev:limpiar-personal-huerfano": "npm run limpiar-personal-huerfano --workspace api",
+    "dev:demo": "npm run demo --workspace api",
     "test:api": "npm run test --workspace api",
     "test:front": "npm run test --workspace frontend",
     "test:e2e": "npm run db:migrate && npm run test --workspace e2e --",
-    "test:scripts": "node --test scripts/lib/matriz.test.mjs",
+    "test:scripts": "node --test scripts/lib/matriz.test.mjs scripts/lib/entornoLocal.test.mjs",
     "evidencias:matriz": "npm run test:scripts && node scripts/matriz-trazabilidad.mjs",
     "n8n:importar": "node scripts/importar-workflows.mjs",
     "n8n:credenciales": "node scripts/n8n-credenciales.mjs"

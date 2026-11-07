@@ -4,11 +4,39 @@
 import { Router } from "express";
 import type { Almacenamiento } from "../almacenamiento";
 import type { DisparadorN8n } from "../orquestacion/n8n";
+import { z } from "zod";
+import type { FiltrosIndicadores } from "../repositories/indicadores";
 import { adjudicarVacante, dictamenParaDireccion, informeParaDireccion, panelAdjudicacion } from "../services/adjudicacion";
+import { fechaValida } from "../services/derechoAdmision";
+import { calcularIndicadores, filtrosDeIndicadores } from "../services/indicadores";
+import type { LineaBase } from "../services/lineaBase";
+import { generarReporte, nombreReporte, TIPO_XLSX } from "../services/reporteIndicadores";
 import { validar } from "../validacion";
 import { enviarArchivo, esquemaVacio, idPersonalDe, idRuta } from "./validacion";
 
-export function rutasDireccion(campana: string, almacenamiento: Almacenamiento, eventos: DisparadorN8n): Router {
+const camposFiltro = {
+  campana: z.string().regex(/^[0-9A-Za-z-]{1,10}$/).optional(),
+  id_grado: idRuta.optional(),
+  desde: z.string().refine(fechaValida).optional(),
+  hasta: z.string().refine(fechaValida).optional(),
+};
+const rangoOrdenado = (f: { desde?: string | undefined; hasta?: string | undefined }) => !f.desde || !f.hasta || f.desde <= f.hasta;
+const esquemaFiltros = z.object(camposFiltro).strict().refine(rangoOrdenado, { path: ["desde"] });
+const esquemaExportacion = z
+  .object({ ...camposFiltro, formato: z.literal("xlsx") })
+  .strict()
+  .refine(rangoOrdenado, { path: ["desde"] });
+
+function leerFiltros(q: z.infer<typeof esquemaFiltros>, campanaActiva: string): FiltrosIndicadores {
+  return {
+    campana: q.campana ?? campanaActiva,
+    ...(q.id_grado === undefined ? {} : { idGrado: q.id_grado }),
+    ...(q.desde === undefined ? {} : { desde: q.desde }),
+    ...(q.hasta === undefined ? {} : { hasta: q.hasta }),
+  };
+}
+
+export function rutasDireccion(campana: string, almacenamiento: Almacenamiento, eventos: DisparadorN8n, lineaBase: LineaBase): Router {
   const rutas = Router();
 
   // GET /direccion/adjudicacion → 200 { pendientes: [{ id_expediente, codigo, postulante, grado, dictamen, recibido,
@@ -39,6 +67,31 @@ export function rutasDireccion(campana: string, almacenamiento: Almacenamiento, 
     res.json(cuerpo);
     // ADR-16: después del COMMIT y de responder; solo ids (C11). disparar() nunca rechaza.
     void eventos.disparar("agendamiento", { id_expediente: idExpediente, id_notificacion });
+  });
+
+  // Tablero de indicadores (HU0019, G08). Solo lectura: agregados y códigos de expediente.
+  // GET /direccion/indicadores/filtros → 200 { campana_activa, campanas, grados: [{ id_grado, nivel, grado, campana }] }
+  rutas.get("/indicadores/filtros", async (_req, res) => {
+    res.json(await filtrosDeIndicadores(campana));
+  });
+
+  // GET /direccion/indicadores?campana=&id_grado=&desde=&hasta= → 200 { filtros, es_demo, tarjetas, embudo, etapas, vacantes,
+  // avisos, expedientes, linea_base } · 400
+  rutas.get("/indicadores", async (req, res) => {
+    res.json(await calcularIndicadores(leerFiltros(validar(esquemaFiltros, req.query), campana), lineaBase));
+  });
+
+  // GET /direccion/indicadores/exportacion?…&formato=xlsx → 200 archivo adjunto (HU0019-2.0) · 400
+  rutas.get("/indicadores/exportacion", async (req, res) => {
+    const filtros = leerFiltros(validar(esquemaExportacion, req.query), campana);
+    const contenido = await generarReporte(await calcularIndicadores(filtros, lineaBase));
+    res.set({
+      "Content-Type": TIPO_XLSX,
+      "Content-Disposition": `attachment; filename="${nombreReporte(filtros.campana)}"`,
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": "no-store",
+    });
+    res.send(contenido);
   });
 
   return rutas;

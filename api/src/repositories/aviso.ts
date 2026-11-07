@@ -176,20 +176,27 @@ export async function estadoDeAvisos(db: Consultable, idsCita: number[]): Promis
   return new Map(rows.map((r) => [r.id_cita, { tipo_evento: r.tipo_evento, estado_envio: r.estado_envio }]));
 }
 
-// Definición de C8 para HU0019: así se cuentan los avisos en los indicadores. Hoy solo la usa su prueba
-// («HU0003-1.0 (indicadores) …»), que fija la definición; HU0019 debe usar esta consulta y no contar filas por su cuenta.
+// Definición de C8: así se cuentan los avisos en los indicadores (HU0019, G08). La fija la prueba «HU0003-1.0 (indicadores) …».
 // Avisos cerrados por tipo y resultado en la campaña: cuenta las filas `enviado` y `fallido`, una por aviso (ADR-07);
-// las `pendiente` son intentos de resultado desconocido y no cuentan como envíos.
-export async function contarAvisosCerrados(db: Consultable, campana: string): Promise<{ tipo_evento: string; estado_envio: string; avisos: number }[]> {
+// las `pendiente` son intentos de resultado desconocido, y las de un aviso reemplazado quedan huérfanas: no cuentan como
+// envíos. Los filtros son los del tablero: el grado y la fecha de registro del expediente, en días de Lima.
+export async function contarAvisosCerrados(
+  db: Consultable,
+  campana: string,
+  filtros: { idGrado?: number; desde?: string; hasta?: string } = {},
+): Promise<{ tipo_evento: string; estado_envio: string; avisos: number }[]> {
   const { rows } = await db.query<{ tipo_evento: string; estado_envio: string; avisos: number }>(
     `SELECT n.tipo_evento, n.estado_envio::text AS estado_envio, count(*)::int AS avisos
        FROM notificacion n
        JOIN expediente e ON e.id_expediente = n.id_expediente
        JOIN grado g ON g.id_grado = e.id_grado
       WHERE g.campana_admision = $1 AND n.estado_envio IN ('enviado', 'fallido')
+        AND ($2::int IS NULL OR g.id_grado = $2)
+        AND ($3::date IS NULL OR e.fecha_registro >= $3::date::timestamp AT TIME ZONE 'America/Lima')
+        AND ($4::date IS NULL OR e.fecha_registro < ($4::date + 1)::timestamp AT TIME ZONE 'America/Lima')
       GROUP BY n.tipo_evento, n.estado_envio
       ORDER BY n.tipo_evento, n.estado_envio`,
-    [campana],
+    [campana, filtros.idGrado ?? null, filtros.desde ?? null, filtros.hasta ?? null],
   );
   return rows;
 }

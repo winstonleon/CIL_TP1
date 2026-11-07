@@ -103,6 +103,7 @@ Todos se ejecutan desde la raíz del repo. No inventes otros scripts: si hace fa
 - Pruebas de las reglas de la matriz (`scripts/lib/matriz.mjs`, con `node --test`): `npm run test:scripts`
 - Matriz de trazabilidad HU → escenario → prueba → resultado (corre primero `test:scripts`, y si pasa, las tres suites, y escribe `docs/evidencias/matriz-trazabilidad.md`; con `-- --sin-e2e` omite el E2E): `npm run evidencias:matriz`
 - Solo dev, después de reimportar el realm de Keycloak: `npm run dev:limpiar-personal-huerfano` (desactiva en `personal` las cuentas `@ejemplo.test` que ya no existen en Keycloak)
+- Solo dev, datos ficticios del tablero G08: `npm run dev:demo` (60 expedientes en la campaña `DEMO`; es irreversible y se niega a correr dos veces)
 - Importar workflows a n8n: `npm run n8n:importar` (crea o actualiza por nombre, verifica las credenciales de cada nodo y exporta de vuelta al repo)
 - Crear o actualizar las credenciales de n8n desde `.env`: `npm run n8n:credenciales`
 

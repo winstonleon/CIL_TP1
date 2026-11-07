@@ -7,12 +7,11 @@
 // Es idempotente. No imprime datos personales. Corre con el usuario de la API (le basta INSERT/UPDATE).
 import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { prepararEntornoHost } from "../../scripts/lib/entornoLocal.mjs";
 import { RAIZ, adminApi, cargarEntorno, tokenAdmin } from "../../scripts/lib/keycloak.mjs";
 
 cargarEntorno();
-// Desde el host se llega a Postgres por el puerto publicado.
-process.env.POSTGRES_HOST = "127.0.0.1";
-process.env.POSTGRES_PORT = process.env.POSTGRES_HOST_PORT || "55432";
+prepararEntornoHost();
 
 const { cerrarPool, enTransaccion, obtenerPool } = await import("../src/db/pool");
 const { existeApoderadoConDni, insertarApoderado } = await import("../src/repositories/apoderado");

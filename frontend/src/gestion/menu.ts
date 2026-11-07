@@ -61,7 +61,7 @@ export const MENU: Record<RolPersonal, OpcionMenu[]> = {
   evaluador_academico: [{ etiqueta: "Evaluaciones académicas", icono: ICONO.evaluacion, ruta: "/gestion/evaluacion-academica", columnas: ["datos_postulante"] }],
   directora: [
     { etiqueta: "Adjudicación de vacantes", icono: ICONO.vacantes, ruta: "/gestion/vacantes", columnas: ["datos_postulante"] },
-    { etiqueta: "Indicadores", icono: ICONO.indicadores, columnas: ["usuarios_indicadores"] },
+    { etiqueta: "Indicadores", icono: ICONO.indicadores, ruta: "/gestion/indicadores", columnas: ["usuarios_indicadores"] },
     { etiqueta: "Usuarios y roles", icono: ICONO.usuarios, ruta: "/gestion/usuarios", columnas: ["usuarios_indicadores"] },
   ],
 };

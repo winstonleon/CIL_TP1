@@ -23,6 +23,7 @@ import { rutasPublicas } from "./routes/publico";
 import { rutaSalud } from "./routes/salud";
 import { rutasTesoreria } from "./routes/tesoreria";
 import { rutasVisitas } from "./routes/visitas";
+import { LINEA_BASE, type LineaBase } from "./services/lineaBase";
 
 // Dependencias externas inyectables: las pruebas usan un JWKS local, un Keycloak simulado, su propia campaña,
 // un n8n simulado y sus propios límites de las rutas públicas.
@@ -35,6 +36,8 @@ export interface Dependencias {
   limiteLecturaVisita?: OpcionesLimite;
   // Almacenamiento de los archivos (HU0006 y HU0007): las pruebas usan un directorio temporal.
   almacenamiento?: Almacenamiento;
+  // Línea base del OE3 (HU0019): las pruebas inyectan valores; en la API rige el módulo versionado.
+  lineaBase?: LineaBase;
 }
 
 export function crearApp(dependencias: Dependencias = {}): Express {
@@ -132,7 +135,7 @@ export function crearApp(dependencias: Dependencias = {}): Express {
     verificarToken,
     requireRol("directora"),
     requirePersonalActivo("directora"),
-    rutasDireccion(campanaActiva, almacenamiento, eventos),
+    rutasDireccion(campanaActiva, almacenamiento, eventos, dependencias.lineaBase ?? LINEA_BASE),
   );
 
   app.use(noEncontrado);
