@@ -1,20 +1,20 @@
 # Matriz de trazabilidad (HU → escenario → prueba → resultado)
 
-> Generada con `npm run evidencias:matriz` el 7/11/26, 1:02 p. m. (America/Lima) sobre el commit `d38ea87` **con cambios sin commit**. No se edita a mano.
+> Generada con `npm run evidencias:matriz` el 11/11/26, 10:58 p. m. (America/Lima) sobre el commit `433d38a` **con cambios sin commit**. No se edita a mano.
 
 ## Resumen
 
 | Suite | Pruebas | Pasan | Fallan | Omitidas o no ejecutadas |
 |---|---|---|---|---|
-| API | 630 | 630 | 0 | 0 |
-| Frontend | 208 | 208 | 0 | 0 |
-| E2E | 89 | 89 | 0 | 0 |
+| API | 664 | 664 | 0 | 0 |
+| Frontend | 211 | 211 | 0 | 0 |
+| E2E | 97 | 97 | 0 | 0 |
 
-- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **51**.
-- Estados: cubierto: 46 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · verificado: correo; pendiente: WhatsApp (C30): 1 · verificado: formato; pendiente: calidad (C63): 1 · sin prueba: 4.
+- Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **55**.
+- Estados: cubierto: 48 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · verificado: correo; pendiente: WhatsApp (C30): 2 · verificado: formato; pendiente: calidad (C63): 1 · verificado: cambio obligatorio; pendiente: política (C6): 1.
 - Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.
 - «mecanismo probado; verificación en ruta real pendiente (C17)»: todas las pruebas del escenario llevan la marca `[política, ruta de prueba]` (compromiso C17).
-- «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34; HU0005-2.0, C43; HU0017-1.0, C51; HU0008-2.0, C30; HU0010-1.0, C58; HU0014-2.0, C63; HU0015-1.0, C62). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
+- «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34; HU0005-2.0, C43; HU0017-1.0, C51; HU0008-2.0, C30; HU0010-1.0, C58; HU0014-2.0, C63; HU0015-1.0, C62; HU0018-1.0, C30; HU0023-1.0, C6). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
 
 ## HU con pruebas
 
@@ -519,6 +519,50 @@
 |  |  | Frontend | `frontend/src/views/portal/DocumentosExpediente.test.ts` | HU0017-2.0 P06 una confirmación aceptada oculta los faltantes anteriores hasta la nueva verificación | pasó |
 |  |  | E2E | `e2e/completitud.spec.ts` | HU0017-2.0 con documentos faltantes el expediente sigue en postulación, la familia recibe el correo con lo que falta y P06 lo muestra; confirmar sin cambios no repite el aviso | pasó |
 
+### HU0018 — Distribuir recordatorios automatizados por correo electrónico y WhatsApp ante acciones pendientes y vencimiento de plazos
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0018-1.0 — Envío de recordatorio por inactividad de la familia | verificado: correo; pendiente: WhatsApp (C30) | API | `api/test/n8nSeguimiento.test.ts` | HU0018-1.0 [parte: correo] (n8n) el Schedule diario de las 8 y el Manual Trigger llevan a «Pedir seguimiento», y el barrido de la visita no cambia | pasó |
+|  |  | API | `api/test/n8nSeguimiento.test.ts` | HU0018-1.0 [parte: correo] (n8n) «Un ítem por acción» emite un ítem por expediente con su acción y solo con ids | pasó |
+|  |  | API | `api/test/n8nSeguimiento.test.ts` | HU0018-1.0 [parte: correo] (n8n) «Enviar aviso» llama a notificacion-multicanal por nombre con el aviso y maneja sus errores con onError (C9) | pasó |
+|  |  | API | `api/test/n8nSeguimiento.test.ts` | HU0018-1.0 [parte: correo] (n8n) la retoma de cada minuto pide los avisos pendientes y reserva con aviso-seguimiento y su tipo_evento | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-1.0 [parte: correo] con 48 h sin interacción en la postulación, la revisión diaria lo toma y el recordatorio lleva la acción pendiente, la fecha límite de la etapa y el enlace a su expediente | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-1.0 [parte: correo] con 47 h sin interacción todavía no se envía: la revisión no lo toma y la reserva responde 409 RECORDATORIO_NO_CORRESPONDE | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-1.0 [parte: correo] (interacción, D3-A) una carga de documento, el guardado del cuestionario o un evento de la familia en las últimas 48 h aplazan el recordatorio | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-1.0 [parte: correo] (etapas) la subsanación, el agendamiento, la reprogramación de la académica y la cuota toman su ancla y su acción pendiente | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-1.0 [parte: correo] (sin acción de la familia) un expediente que espera al colegio no recibe recordatorio: en revisión sin observaciones, apto o con la cuota en conciliación | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-1.0 [parte: correo] (idempotencia) un solo recordatorio por etapa: dos revisiones no lo repiten, y una observación nueva abre otro período | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-1.0 [parte: correo] (retoma, ADR-07) un intento pendiente de más de 10 min vuelve por el barrido de cada minuto con otra fila; con 6 intentos se cierra con la fila fallido y 409 AVISO_AGOTADO | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-1.0 [parte: correo] (validación) las rutas internas exigen el token de servicio, no aceptan cuerpo y validan el tipo del aviso | pasó |
+|  |  | E2E | `e2e/seguimiento.spec.ts` | HU0018-1.0 [parte: correo] la revisión diaria envía a la familia con 48 h sin interacción el recordatorio con la acción pendiente, la fecha límite y el enlace a su expediente, y lo registra | pasó |
+|  |  | E2E | `e2e/seguimiento.spec.ts` | HU0018-1.0 [parte: correo] (idempotencia) una segunda revisión el mismo día no repite el recordatorio ni la caducidad | pasó |
+| HU0018-2.0 — Expiración de postulación por vencimiento del plazo de la etapa | cubierto | API | `api/test/n8nSeguimiento.test.ts` | HU0018-2.0 (n8n) «Reservar seguimiento» llama a caducidad o recordatorio-inactividad sin cuerpo y la reserva se reparte en 201, 409 sin acción y otro | pasó |
+|  |  | API | `api/test/n8nSeguimiento.test.ts` | HU0018-2.0 (n8n) la caducidad saca un ítem por aviso (familia y buzón de admisión) y el recordatorio uno solo | pasó |
+|  |  | API | `api/test/n8nSeguimiento.test.ts` | HU0018-2.0 (n8n) «Clasificar resultado del aviso» elige la rama de ADR-07 ante cada resultado de notificacion-multicanal | pasó |
+|  |  | API | `api/test/n8nSeguimiento.test.ts` | HU0018-2.0 (n8n) el fallo de un ítem no corta el barrido: va a «Fallo al …» y se registra solo { flujo, nodo, id_ejecucion } (C41-4, C11) | pasó |
+|  |  | API | `api/test/n8nSeguimiento.test.ts` | HU0018-2.0 (n8n) «Revisión manual» es el primer nodo del flujo: n8n execute arranca desde él (D8-A) | pasó |
+|  |  | API | `api/test/n8nSeguimiento.test.ts` | HU0018-2.0 (n8n) el flujo conserva sus ajustes, no lleva secretos ni IDs y cada Code cita su HU | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-2.0 al vencer el plazo de la postulación el expediente pasa a caducado con su transición en la bitácora y se notifica a los padres y al personal de admisión | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-2.0 con un día menos del plazo no caduca: recibe el recordatorio y la caducidad responde 409 CADUCIDAD_NO_CORRESPONDE | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-2.0 (vacante, C25) al caducar en la cuota se devuelve la vacante con la fila del grado bloqueada, y autorizadas − disponibles sigue igual a los expedientes con vacante o carta | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-2.0 (concurrencia, C25 punto 1) caducar y adjudicar a la vez en el mismo grado: cada operación bloquea la fila del grado y la identidad de las adjudicadas se mantiene | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-2.0 (idempotencia) dos caducidades a la vez dejan una transición, una sola devolución de la vacante y un par de avisos; la segunda responde 409 | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-2.0 (citas) al caducar sin reprogramar la académica se cancelan las citas reservadas y se liberan los cupos de los turnos futuros | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-2.0 (citas) una cita reservada cuyo turno ya pasó se cancela sin devolver el cupo | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-2.0 (etapas) la subsanación y el agendamiento caducan a los 7 días de su ancla | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-2.0 (fallo) si algo falla dentro de la caducidad no queda nada: ni la vacante devuelta, ni las citas canceladas, ni la transición, ni los avisos | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-2.0 (retoma, ADR-07) los avisos de la caducidad pendientes de más de 10 min vuelven por el barrido de cada minuto, cada uno con su fila | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-2.0 (barridos) ningún otro barrido toma un expediente caducado: ni la observación pendiente, ni los avisos de las evaluaciones, ni la carta, ni la completitud | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-2.0 (C78) P04 de un expediente caducado conserva el avance que tenía, no ofrece acciones ni «Subsanar», dice cuándo caducó y qué venció, y lo agrega al historial | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-2.0 (C78) con el expediente caducado las rutas de la familia rechazan la ficha, la carga de documentos y el agendamiento | pasó |
+|  |  | API | `api/test/seguimiento.test.ts` | HU0018-2.0 (plazos, ADR-19) las variables PLAZO_* son enteros de 3 a 90 y, sin definir, valen 15, 7, 7, 7 y 7 | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PanelCaducado.test.ts` | HU0018-2.0 (C78) P04 dice que la postulación caducó, cuándo y qué venció, con el contacto de Secretaría, sin acciones ni «Subsanar» | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PanelCaducado.test.ts` | HU0018-2.0 (C78) las etapas se muestran como quedaron al caducar | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PanelCaducado.test.ts` | HU0018-2.0 (C78) sin caducidad no se muestra el aviso | pasó |
+|  |  | E2E | `e2e/seguimiento.spec.ts` | HU0018-2.0 al vencer el plazo de la etapa la revisión diaria pasa el expediente a caducado y notifica a los padres y al personal de admisión | pasó |
+|  |  | E2E | `e2e/seguimiento.spec.ts` | HU0018-2.0 (vacante, C25) la caducidad en la cuota devuelve la vacante y la identidad de las adjudicadas se mantiene | pasó |
+
 ### HU0019 — Visualizar un tablero con el embudo de admisión, el lead time y el cycle time por etapa y la ocupación de vacantes
 
 | Escenario | Estado | Suite | Archivo | Prueba | Resultado |
@@ -763,6 +807,15 @@
 |  |  | Frontend | `frontend/src/views/gestion/ConfiguracionCampana.test.ts` | HU0022-2.0 [parte: regla] no valida la regla en el cliente: envía el cambio y, con el 422 de la API, marca el grado con «Ya hay 27 adjudicadas» y muestra el aviso con el mínimo | pasó |
 |  |  | E2E | `e2e/vacante-cuota.spec.ts` | HU0022-2.0 [parte: adjudicación real] con la vacante adjudicada, G09 rechaza fijar menos autorizadas e informa el mínimo | pasó |
 
+### HU0023 — Ingresar al portal de postulación con las credenciales temporales recibidas tras la visita guiada
+
+| Escenario | Estado | Suite | Archivo | Prueba | Resultado |
+|---|---|---|---|---|---|
+| HU0023-1.0 — Primer ingreso con credenciales temporales | verificado: cambio obligatorio; pendiente: política (C6) | E2E | `e2e/acceso-familias.spec.ts` | HU0023-1.0 [parte: cambio obligatorio] con las credenciales temporales, P03 lleva a P03b, que exige crear una contraseña nueva, y al guardarla da acceso al portal | pasó |
+|  |  | E2E | `e2e/acceso-familias.spec.ts` | HU0023-1.0 [parte: cambio obligatorio] el personal con una contraseña temporal sigue viendo la página de Keycloak, no P03b | pasó |
+| HU0023-2.0 — Bloqueo por intentos fallidos de ingreso | cubierto | E2E | `e2e/acceso-familias.spec.ts` | HU0023-2.0 tras cinco intentos fallidos consecutivos la cuenta se bloquea temporalmente y P03c informa cómo recuperar el acceso | pasó |
+|  |  | E2E | `e2e/acceso-familias.spec.ts` | HU0023-2.0 en G01 una cuenta del personal bloqueada sigue viendo el mensaje genérico, sin P03c | pasó |
+
 ### HU0024 — Validar el comprobante de pago del derecho de admisión (S/ 300) contra los movimientos de la cuenta bancaria del colegio
 
 | Escenario | Estado | Suite | Archivo | Prueba | Resultado |
@@ -812,7 +865,3 @@
 
 | HU | Escenario | Estado |
 |---|---|---|
-| HU0018 | HU0018-1.0 — Envío de recordatorio por inactividad de la familia | sin prueba |
-| HU0018 | HU0018-2.0 — Expiración de postulación por vencimiento del plazo de la etapa | sin prueba |
-| HU0023 | HU0023-1.0 — Primer ingreso con credenciales temporales | sin prueba |
-| HU0023 | HU0023-2.0 — Bloqueo por intentos fallidos de ingreso | sin prueba |
