@@ -78,6 +78,12 @@ export async function descontarVacante(db: Consultable, idGrado: number): Promis
   await db.query("UPDATE grado SET vacantes_disponibles = vacantes_disponibles - 1 WHERE id_grado = $1", [idGrado]);
 }
 
+// R21 (HU0018-2.0): la caducidad devuelve la vacante, con la fila del grado ya bloqueada (C25 punto 1). Las adjudicadas
+// (autorizadas − disponibles) bajan en 1, igual que los expedientes en vacante_asignada o carta_emitida (C25 punto 2).
+export async function devolverVacante(db: Consultable, idGrado: number): Promise<void> {
+  await db.query("UPDATE grado SET vacantes_disponibles = vacantes_disponibles + 1 WHERE id_grado = $1", [idGrado]);
+}
+
 // La posición siguiente de la lista de espera del grado (R14). Con la fila del grado bloqueada, dos expedientes no la repiten.
 export async function siguientePosicion(db: Consultable, idGrado: number): Promise<number> {
   const { rows } = await db.query<{ posicion: number }>(

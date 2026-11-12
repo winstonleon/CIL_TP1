@@ -2,6 +2,18 @@
   "name": "seguimiento-recordatorios",
   "nodes": [
     {
+      "id": "87d9a2b4-8c9f-43f1-a52a-0c5d1052495b",
+      "name": "Revisión manual",
+      "notes": "Solo dev: el E2E lo dispara con «n8n execute --id». Inerte en producción (nadie lo pulsa; el flujo activo corre por los Schedule).",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        900
+      ],
+      "parameters": {}
+    },
+    {
       "id": "91530cbe-58b3-4c1e-b39e-6416b17772a7",
       "name": "Cada minuto",
       "type": "n8n-nodes-base.scheduleTrigger",
@@ -560,6 +572,770 @@
         "errorType": "errorMessage",
         "errorMessage": "=seguimiento-recordatorios: no se pudo cerrar como fallido el recordatorio rechazado (cita {{ $('Clasificar resultado').item.json.id_cita }}, notificación {{ $('Clasificar resultado').item.json.id_notificacion }}, PATCH fallido: HTTP {{ $json.statusCode }}); sigue pendiente y el barrido lo retoma con un intento nuevo"
       }
+    },
+    {
+      "id": "47a5e0da-13ce-4470-ab84-f4ceb0f80270",
+      "name": "Cada día a las 8",
+      "notes": "08:00 en la zona horaria de la instancia (GENERIC_TIMEZONE=America/Lima).",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        700
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f1363947-c1bc-4704-98b8-394bf9498350",
+      "name": "Pedir seguimiento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        240,
+        800
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/seguimiento/pendientes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "3f85e722-4bd4-4e57-9c5c-d0aa1a732da9",
+      "name": "Un ítem por acción",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        800
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Revisión diaria del seguimiento (HU0018-1.0 recordatorio a las 48 h, R20; HU0018-2.0 caducidad, R21; ADR-16): un ítem por\n// cada expediente de GET /internal/seguimiento/pendientes, con la acción que le toca: { accion: 'caducidad' | 'recordatorio',\n// id_expediente }. Si no hay pendientes no sale ningún ítem y la ejecución termina aquí. Solo lleva ids.\nconst salida = [];\nconst valido = (e) => Number.isSafeInteger(e?.id_expediente) && e.id_expediente > 0 && e.id_expediente <= 2147483647;\n$input.all().forEach((item, indice) => {\n  const pares = [['caducidad', item.json?.caducidades], ['recordatorio', item.json?.recordatorios]];\n  for (const [accion, lista] of pares) {\n    for (const e of Array.isArray(lista) ? lista : []) {\n      if (valido(e)) salida.push({ json: { accion, id_expediente: e.id_expediente }, pairedItem: { item: indice } });\n    }\n  }\n});\nreturn salida;"
+      }
+    },
+    {
+      "id": "824ace6d-3c14-4a03-b7d3-c4712b3ff711",
+      "name": "Reservar seguimiento",
+      "notes": "POST sin cuerpo: caducidad o recordatorio-inactividad según la acción. onError continueErrorOutput: un expediente que falla no frena a los demás (C41-4).",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        720,
+        800
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/expedientes/{{ $json.id_expediente }}/{{ $json.accion === 'caducidad' ? 'caducidad' : 'recordatorio-inactividad' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "dbc7c165-d36e-4c88-9151-91b9caafd709",
+      "name": "Según la reserva del seguimiento",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        960,
+        800
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "reservado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "13d9bfd5-5420-4ca6-9076-c282c60455fe",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 201,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "sin acción",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "4e628fe5-0cc6-49f2-be5c-7626e745b04a",
+                    "leftValue": "={{ $json.statusCode === 409 && ['CADUCIDAD_NO_CORRESPONDE','RECORDATORIO_NO_CORRESPONDE','RECORDATORIO_YA_REGISTRADO','AVISO_AGOTADO'].includes($json.body?.error?.codigo) }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "otro error"
+        }
+      }
+    },
+    {
+      "id": "ee968222-9281-473c-bf36-000ff805dc76",
+      "name": "Cada minuto (avisos)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        1300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "1e4a7f0a-dbf4-4a03-9290-c17395a177e3",
+      "name": "Pedir avisos pendientes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        240,
+        1300
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/seguimiento/avisos-pendientes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "a3c1e392-fe67-439f-9007-4273da95ad00",
+      "name": "Un ítem por aviso pendiente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        1300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Retoma de los avisos del seguimiento (HU0018-1.0 y HU0018-2.0; ADR-07, ADR-16): un ítem por cada aviso de\n// GET /internal/seguimiento/avisos-pendientes (el último intento sigue pendiente hace más de 10 min). Si no hay pendientes\n// no sale ningún ítem y la ejecución termina aquí. Solo lleva { id_expediente, tipo_evento }.\nconst salida = [];\n$input.all().forEach((item, indice) => {\n  const avisos = Array.isArray(item.json?.avisos) ? item.json.avisos : [];\n  for (const a of avisos) {\n    const idValido = Number.isSafeInteger(a?.id_expediente) && a.id_expediente > 0 && a.id_expediente <= 2147483647;\n    if (idValido && typeof a.tipo_evento === 'string' && /^[a-z0-9_]{1,60}$/.test(a.tipo_evento)) {\n      salida.push({ json: { id_expediente: a.id_expediente, tipo_evento: a.tipo_evento }, pairedItem: { item: indice } });\n    }\n  }\n});\nreturn salida;"
+      }
+    },
+    {
+      "id": "349912b2-a018-4d7d-8d75-853fff85fa05",
+      "name": "Reservar aviso",
+      "notes": "onError continueErrorOutput: un aviso que falla no frena a los demás del barrido (C41-4).",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        720,
+        1300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/expedientes/{{ $json.id_expediente }}/aviso-seguimiento",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tipo_evento: $json.tipo_evento }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "3f3541d6-8c60-41bd-ab13-aee3818a6e84",
+      "name": "Según la reserva del aviso",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        960,
+        1300
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "reservado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "a7527802-c1e0-47df-8455-cc6085c73157",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 201,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "sin acción",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "edc6c7e0-87fa-4af4-b7ac-ac837ade627c",
+                    "leftValue": "={{ $json.statusCode === 409 && ['AVISO_NO_CORRESPONDE','RECORDATORIO_YA_REGISTRADO','AVISO_AGOTADO'].includes($json.body?.error?.codigo) }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "otro error"
+        }
+      }
+    },
+    {
+      "id": "2d021fa9-fae2-46bd-9bc9-97a0057b56bf",
+      "name": "Sin acción del seguimiento",
+      "notes": "409 de la API (CADUCIDAD_NO_CORRESPONDE, RECORDATORIO_NO_CORRESPONDE, AVISO_NO_CORRESPONDE, RECORDATORIO_YA_REGISTRADO o AVISO_AGOTADO): la API ya decidió que no hay nada que hacer.",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        1000
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "104ad6ea-625f-4cb5-a62b-9f3f425c7c56",
+      "name": "Un ítem por aviso",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        1100
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Avisos reservados del seguimiento (HU0018-1.0 recordatorio a las 48 h; HU0018-2.0 caducidad con dos avisos, a la familia y al\n// buzón de admisión): un ítem por cada aviso de la reserva. La caducidad responde { id_expediente, avisos: [...] } y el\n// recordatorio y la retoma, un solo aviso { id_expediente, id_notificacion, tipo_evento, asunto, cuerpo }. El contacto lo\n// resuelve la API por id_notificacion. Lo que no tiene la forma esperada se descarta.\nconst salida = [];\nconst entero = (v) => Number.isSafeInteger(v) && v > 0 && v <= 2147483647;\n$input.all().forEach((item, indice) => {\n  const cuerpo = item.json?.body ?? {};\n  const avisos = Array.isArray(cuerpo.avisos) ? cuerpo.avisos : [cuerpo];\n  for (const a of avisos) {\n    if (entero(a?.id_expediente) && entero(a?.id_notificacion) && typeof a.tipo_evento === 'string' && typeof a.asunto === 'string' && typeof a.cuerpo === 'string') {\n      salida.push({\n        json: { id_expediente: a.id_expediente, id_notificacion: a.id_notificacion, tipo_evento: a.tipo_evento, asunto: a.asunto, cuerpo: a.cuerpo },\n        pairedItem: { item: indice },\n      });\n    }\n  }\n});\nreturn salida;"
+      }
+    },
+    {
+      "id": "6f777b48-36bb-4c8f-9338-44382172f78e",
+      "name": "Enviar aviso",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "onError": "continueRegularOutput",
+      "position": [
+        1440,
+        1100
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "notificacion-multicanal",
+          "cachedResultName": "notificacion-multicanal"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id_expediente": "={{ $json.id_expediente }}",
+            "tipo_evento": "={{ $json.tipo_evento }}",
+            "asunto": "={{ $json.asunto }}",
+            "cuerpo": "={{ $json.cuerpo }}",
+            "id_notificacion": "={{ $json.id_notificacion }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "id_expediente",
+              "displayName": "id_expediente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "tipo_evento",
+              "displayName": "tipo_evento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "asunto",
+              "displayName": "asunto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "cuerpo",
+              "displayName": "cuerpo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "id_notificacion",
+              "displayName": "id_notificacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "129b7f1c-1164-4c98-896a-2ee994181f81",
+      "name": "Clasificar resultado del aviso",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        1100
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Decide qué hace seguimiento-recordatorios con lo que devolvió notificacion-multicanal para cada aviso del seguimiento\n// (HU0018-1.0 recordatorio a las 48 h; HU0018-2.0 caducidad). Sigue ADR-07 «Fallos de los avisos de la visita»: la\n// clasificación de D7, sin rebote ni transición (P-j).\n// Entrada: un ítem por aviso, emparejado con su reserva («Un ítem por aviso») por el pairedItem que pone Execute Workflow\n// (el subflujo corre una vez por ítem); si falta, por la posición. Es el resultado del subflujo,\n// { id_expediente, correo: { estado_envio, id_notificacion }, whatsapp }, o, si falló, { error: \"<mensaje>\" }\n// (Execute Workflow con onError continueRegularOutput, C9).\n//   enviado   <- correo.estado_envio = enviado: el subflujo ya cerró la fila                    -> termina\n//   fallido   <- correo.estado_envio = fallido: rechazo permanente del destinatario             (rechazo_destinatario) -> PATCH fallido\n//             <- error «notificacion-multicanal: entrada inválida…» (400): un defecto           (entrada_invalida)     -> PATCH fallido\n//   pendiente <- error técnico de SMTP, 5xx que no es rechazo, 502, 500 u otro error: resultado desconocido (R22), nunca\n//                se marca fallido -> sin PATCH y registro del fallo; la retoma de cada minuto lo reintenta a los 10 min con\n//                un intento nuevo (una fila por intento, ADR-07)\n// Lo que no se reconoce cae en pendiente.\n// La salida lleva solo la acción, el motivo y los ids del expediente y la notificación. Nunca el asunto ni el cuerpo del\n// aviso ni el mensaje del error del subflujo (C11).\nconst ENTRADA_INVALIDA = 'notificacion-multicanal: entrada inválida';\nconst reservas = $('Un ítem por aviso').all();\n\nconst clasificar = (resultado) => {\n  if (resultado.error !== undefined) {\n    const mensaje = typeof resultado.error === 'string' ? resultado.error : String(resultado.error?.message ?? '');\n    return mensaje.startsWith(ENTRADA_INVALIDA)\n      ? { accion: 'fallido', motivo: 'entrada_invalida' }\n      : { accion: 'pendiente', motivo: 'notificacion_no_disponible' };\n  }\n  switch (resultado.correo?.estado_envio) {\n    case 'enviado':\n      return { accion: 'enviado', motivo: 'enviado' };\n    case 'fallido':\n      return { accion: 'fallido', motivo: 'rechazo_destinatario' };\n    case 'pendiente':\n      return { accion: 'pendiente', motivo: 'smtp_pendiente' };\n    default:\n      return { accion: 'pendiente', motivo: 'resultado_desconocido' };\n  }\n};\n\nreturn $input.all().map((item, indice) => {\n  const reserva = reservas[item.pairedItem?.item ?? indice]?.json ?? {};\n  return {\n    json: {\n      ...clasificar(item.json ?? {}),\n      id_expediente: reserva.id_expediente ?? null,\n      id_notificacion: reserva.id_notificacion ?? null,\n    },\n    pairedItem: { item: indice },\n  };\n});"
+      }
+    },
+    {
+      "id": "bb3dd58a-a62f-4edc-bca5-3d356a15caac",
+      "name": "Según el resultado del aviso",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1920,
+        1100
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "enviado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "dca59d91-7099-4854-a194-d19a1efdc679",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "enviado",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "fallido",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "2f8faf5e-3c8f-448b-b783-1d55c782af52",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "fallido",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "pendiente",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "c99b4151-80bc-4cbc-b2ea-9685e178e98a",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "pendiente",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": 2
+        }
+      }
+    },
+    {
+      "id": "1b5ba6d5-ac9d-4a6d-9df2-56bd64e4742f",
+      "name": "Aviso enviado",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        900
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "f0b67127-e549-4d8e-99ce-e42bc2abb67f",
+      "name": "Marcar aviso fallido",
+      "notes": "onError continueErrorOutput: si el PATCH no llega, el fallo se registra y la retoma reintenta el aviso.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        2160,
+        1100
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/notificaciones/{{ $json.id_notificacion }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ estado_envio: 'fallido' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
+    },
+    {
+      "id": "4c925c53-7c0d-4b45-8ee9-7d91471d08a1",
+      "name": "Según el cierre del aviso",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2400,
+        1100
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "entrada rechazada",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "fd571c35-dcce-412e-bf82-83c6db5cfa73",
+                    "leftValue": "={{ $('Clasificar resultado del aviso').item.json.motivo }}",
+                    "rightValue": "entrada_invalida",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "cerrado",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "or",
+                "conditions": [
+                  {
+                    "id": "4da79421-74c6-4333-8ff0-4d5d02680a1b",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 200,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "da9bab51-62f1-4715-ac23-57f4d43c0b40",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 409,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "cierre fallido"
+        }
+      }
+    },
+    {
+      "id": "88b0f7f9-9c67-496a-b6bd-8b0c7708f880",
+      "name": "Aviso no entregado",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2640,
+        1180
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "f7951b79-2772-43ec-accd-101fe7991b16",
+      "name": "Fallo al reservar seguimiento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        700
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Rama de error de «Reservar seguimiento» en seguimiento-recordatorios (HU0018-1.0 y HU0018-2.0, C2 y C41-4): un expediente que falla no frena a los demás del barrido, y este nodo prepara el registro del fallo. Emite solo los\n// identificadores que admite POST /internal/errores-flujo: el flujo, el nodo y el id de esta ejecución. NO lee el ítem de\n// entrada: trae el mensaje del error, el asunto o el cuerpo del aviso (C11). Un ítem de salida por cada expediente que falló.\nconst id = String($execution?.id ?? '');\nconst id_ejecucion = /^[0-9A-Za-z-]{1,40}$/.test(id) ? id : 'sin-id';\n\nreturn $input.all().map((_item, indice) => ({\n  json: { flujo: 'seguimiento-recordatorios', nodo: 'Reservar seguimiento', id_ejecucion },\n  pairedItem: { item: indice },\n}));"
+      }
+    },
+    {
+      "id": "fb94e970-3797-4c84-8318-effdd3516b79",
+      "name": "Fallo al reservar aviso",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        1500
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Rama de error de «Reservar aviso» en seguimiento-recordatorios (HU0018-1.0 y HU0018-2.0, C2 y C41-4): un expediente que falla no frena a los demás del barrido, y este nodo prepara el registro del fallo. Emite solo los\n// identificadores que admite POST /internal/errores-flujo: el flujo, el nodo y el id de esta ejecución. NO lee el ítem de\n// entrada: trae el mensaje del error, el asunto o el cuerpo del aviso (C11). Un ítem de salida por cada aviso que falló.\nconst id = String($execution?.id ?? '');\nconst id_ejecucion = /^[0-9A-Za-z-]{1,40}$/.test(id) ? id : 'sin-id';\n\nreturn $input.all().map((_item, indice) => ({\n  json: { flujo: 'seguimiento-recordatorios', nodo: 'Reservar aviso', id_ejecucion },\n  pairedItem: { item: indice },\n}));"
+      }
+    },
+    {
+      "id": "a43ac6bf-ed58-43bc-9030-e3885242bdc7",
+      "name": "Fallo al enviar aviso",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        1500
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Rama de error de «Enviar aviso» en seguimiento-recordatorios (HU0018-1.0 y HU0018-2.0, C2 y C41-4): un expediente que falla no frena a los demás del barrido, y este nodo prepara el registro del fallo. Emite solo los\n// identificadores que admite POST /internal/errores-flujo: el flujo, el nodo y el id de esta ejecución. NO lee el ítem de\n// entrada: trae el mensaje del error, el asunto o el cuerpo del aviso (C11). Un ítem de salida por cada aviso que quedó pendiente o no se pudo cerrar.\nconst id = String($execution?.id ?? '');\nconst id_ejecucion = /^[0-9A-Za-z-]{1,40}$/.test(id) ? id : 'sin-id';\n\nreturn $input.all().map((_item, indice) => ({\n  json: { flujo: 'seguimiento-recordatorios', nodo: 'Enviar aviso', id_ejecucion },\n  pairedItem: { item: indice },\n}));"
+      }
+    },
+    {
+      "id": "71907809-6163-47dc-9984-864a7cee7910",
+      "name": "Registrar fallo en la API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        2900,
+        1500
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_INTERNAL_URL }}/internal/errores-flujo",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ flujo: $json.flujo, nodo: $json.nodo, id_ejecucion: $json.id_ejecucion }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "cil-api-interna"
+        }
+      }
     }
   ],
   "connections": {
@@ -709,6 +1485,303 @@
         [
           {
             "node": "Detener: cierre fallido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cada día a las 8": {
+      "main": [
+        [
+          {
+            "node": "Pedir seguimiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revisión manual": {
+      "main": [
+        [
+          {
+            "node": "Pedir seguimiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir seguimiento": {
+      "main": [
+        [
+          {
+            "node": "Un ítem por acción",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Un ítem por acción": {
+      "main": [
+        [
+          {
+            "node": "Reservar seguimiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservar seguimiento": {
+      "main": [
+        [
+          {
+            "node": "Según la reserva del seguimiento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al reservar seguimiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según la reserva del seguimiento": {
+      "main": [
+        [
+          {
+            "node": "Un ítem por aviso",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sin acción del seguimiento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al reservar seguimiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cada minuto (avisos)": {
+      "main": [
+        [
+          {
+            "node": "Pedir avisos pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir avisos pendientes": {
+      "main": [
+        [
+          {
+            "node": "Un ítem por aviso pendiente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Un ítem por aviso pendiente": {
+      "main": [
+        [
+          {
+            "node": "Reservar aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservar aviso": {
+      "main": [
+        [
+          {
+            "node": "Según la reserva del aviso",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al reservar aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según la reserva del aviso": {
+      "main": [
+        [
+          {
+            "node": "Un ítem por aviso",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sin acción del seguimiento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al reservar aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Un ítem por aviso": {
+      "main": [
+        [
+          {
+            "node": "Enviar aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar aviso": {
+      "main": [
+        [
+          {
+            "node": "Clasificar resultado del aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clasificar resultado del aviso": {
+      "main": [
+        [
+          {
+            "node": "Según el resultado del aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según el resultado del aviso": {
+      "main": [
+        [
+          {
+            "node": "Aviso enviado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar aviso fallido",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al enviar aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar aviso fallido": {
+      "main": [
+        [
+          {
+            "node": "Según el cierre del aviso",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al enviar aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según el cierre del aviso": {
+      "main": [
+        [
+          {
+            "node": "Fallo al enviar aviso",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Aviso no entregado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallo al enviar aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallo al reservar seguimiento": {
+      "main": [
+        [
+          {
+            "node": "Registrar fallo en la API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallo al reservar aviso": {
+      "main": [
+        [
+          {
+            "node": "Registrar fallo en la API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallo al enviar aviso": {
+      "main": [
+        [
+          {
+            "node": "Registrar fallo en la API",
             "type": "main",
             "index": 0
           }

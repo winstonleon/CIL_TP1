@@ -109,6 +109,12 @@ services:
       # antigüedad (EXECUTIONS_DATA_PRUNE, EXECUTIONS_DATA_MAX_AGE) sigue con sus valores por defecto (C10).
       EXECUTIONS_DATA_PRUNE_HARD_DELETE_INTERVAL: "1"
       EXECUTIONS_DATA_HARD_DELETE_BUFFER: "0"
+      # HU0018 (D8-A): `n8n execute` dentro de este contenedor (la revisión diaria de seguimiento-recordatorios por su
+      # Manual Trigger, en el E2E o a mano) arranca un segundo proceso de n8n con su propio task broker. El del proceso
+      # principal ya ocupa el puerto por defecto (5679, interno al contenedor), así que la ejecución por CLI usa este otro:
+      #   docker compose ... exec -T n8n sh -c 'N8N_RUNNERS_BROKER_PORT=$N8N_CLI_RUNNERS_BROKER_PORT n8n execute --id=<id>'
+      # No es N8N_RUNNERS_BROKER_PORT: esa movería también el broker del proceso principal y el choque volvería.
+      N8N_CLI_RUNNERS_BROKER_PORT: "5691"
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:
@@ -172,6 +178,11 @@ services:
       MAX_DOCUMENTOS_POR_REQUISITO: ${MAX_DOCUMENTOS_POR_REQUISITO:-20}
       # Horas mínimas para reprogramar una cita de evaluación (HU0009-2.0, ADR-19); sin definir en .env, 24.
       REPROGRAMACION_MIN_HORAS: ${REPROGRAMACION_MIN_HORAS:-24}
+      PLAZO_POSTULACION_DIAS: ${PLAZO_POSTULACION_DIAS:-15}
+      PLAZO_SUBSANACION_DIAS: ${PLAZO_SUBSANACION_DIAS:-7}
+      PLAZO_AGENDAMIENTO_DIAS: ${PLAZO_AGENDAMIENTO_DIAS:-7}
+      PLAZO_REPROGRAMACION_DIAS: ${PLAZO_REPROGRAMACION_DIAS:-7}
+      PLAZO_CUOTA_DIAS: ${PLAZO_CUOTA_DIAS:-7}
       TZ: America/Lima
     volumes:
       - archivos:/var/lib/cil/archivos

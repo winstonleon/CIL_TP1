@@ -27,16 +27,29 @@
 
 ## Tema de login `cil` (`themes/cil/`)
 
-- **G01 (HU0021):** `themes/cil/login/login.ftl` reproduce el acceso del personal del mockup G01. Se asigna
-  **solo al cliente `gestion-interna`** con su atributo `login_theme = cil`. `portal-familias` sigue con el tema por
-  defecto hasta HU0023, que agregará P03, P03b y P03c al mismo tema. Ese día `login.ftl` debe distinguir el
-  cliente (`client.clientId`), como pide ADR-02: hoy reproduce siempre G01 porque solo lo usa `gestion-interna`.
-- Hereda de `keycloak.v2`: solo se sobrescribe `login.ftl`. Las demás páginas (definir la contraseña con el enlace,
-  enlace vencido, errores) son las del tema padre, en español.
+- **Un solo tema que distingue el cliente (ADR-02, HU0023):** los dos clientes tienen `login_theme = cil`.
+  - `login.ftl` incluye `p03.ftl` (P03 y P03c) para `portal-familias` y `g01.ftl` (G01, HU0021) para cualquier otro.
+  - `login-update-password.ftl` incluye `p03b.ftl` (P03b, HU0023-1.0) para `portal-familias`; el personal ve la página
+    de `keycloak.v2` sin cambios, copiada literal en `login-update-password-padre.ftl`. **Al subir la versión de
+    Keycloak hay que volver a copiarla** (FreeMarker no puede incluir la plantilla del padre con el mismo nombre).
+  - El panel azul de P03, P03b y P03c está en `p03-panel.ftl`; el CSS propio, en `resources/css/p03.css` (comparte
+    `g01.css`).
+- **P03c (HU0023-2.0, D6-A):** Keycloak responde a una cuenta bloqueada con la clave
+  `accountTemporarilyDisabledMessage`, cuyo texto por omisión es igual al de credenciales incorrectas.
+  `messages/messages_es.properties` le da un texto propio para que `p03.ftl` muestre P03c; `g01.ftl` lo vuelve a
+  traducir al mensaje genérico, así G01 no revela nada. **Riesgo aceptado (John, 07/11/2026):** quien falle seis veces
+  con un correo sabe que tiene cuenta. P03c aparece en el intento siguiente al quinto fallo.
+- **Recuperación de contraseña (HU0023, D7-A):** `resetPasswordAllowed = true`. El correo con el enlace lo envía
+  Keycloak por su SMTP (segunda excepción de ADR-07: no pasa por n8n ni deja fila en `notificacion`). Vale para
+  familias y personal: el enlace aparece en P03, P03c y G01. Las páginas de la recuperación son las del tema padre,
+  salvo P03b, que en ese flujo no dice que es el primer ingreso.
+- Hereda de `keycloak.v2`: las demás páginas (enlace vencido, errores, recuperación) son las del tema padre, en español.
 - Conserva los ids que esperan Keycloak y las pruebas: `kc-form-login`, `username`, `password` y `kc-login`.
 - Las fuentes (Fraunces y Public Sans, OFL) están en `themes/cil/login/resources/fonts/`: la página no pide nada
   fuera del servidor.
-- «¿Olvidaste tu contraseña?» solo aparece si el realm habilita la recuperación (`resetPasswordAllowed`, HU0023).
+- «¿Olvidaste tu contraseña?» solo aparece si el realm habilita la recuperación (`resetPasswordAllowed`, activa desde HU0023).
+- «Aún no visito el colegio» (P03) lleva a P01 (`/solicitud-informacion`): `theme.properties` expone
+  `portalPublico=${env.FRONTEND_PUBLIC_URL:}`.
 - La campaña de «Colegio Internacional de Lima · Campaña 2027» es la activa (HU0022, C23): el contenedor recibe
   `CAMPANA_ACTIVA` y `theme.properties` la expone como `campanaActiva=${env.CAMPANA_ACTIVA:}`. Si cambia, hay que
   recrear `keycloak` (y `api`) para que la tomen; no hace falta reimportar el realm.
@@ -87,9 +100,9 @@ reactivar (brecha del backlog, C21). Para recuperar el acceso:
 | Espera inicial y su incremento (`waitIncrementSeconds`) | 60 s | **Provisional**: valor por defecto de Keycloak |
 | Espera máxima (`maxFailureWaitSeconds`) | 900 s | **Provisional**: valor por defecto de Keycloak |
 | Reinicio del contador (`maxDeltaTimeSeconds`) | 12 h | **Provisional**: valor por defecto de Keycloak |
-| Política de contraseñas | ninguna | **Provisional**: pendiente con el colegio (P03b) |
+| Política de contraseñas | ninguna | **Provisional**: pendiente con el colegio (P03b muestra los requisitos entre corchetes, C6) |
 
-Fuera de este realm por ahora: las pantallas P03, P03b y P03c del tema y la recuperación de contraseña (HU0023).
+P03c muestra «[tiempo de bloqueo por definir]» hasta que el colegio defina la espera (C6).
 
 ## Reimportar después de cambiar el JSON
 
@@ -102,6 +115,14 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml restart keycloak
 npm run kc:usuarios-prueba
 npm run db:seed   # vuelve a vincular personal con los nuevos keycloak_user_id de los usuarios de prueba
 npm run dev:limpiar-personal-huerfano   # desactiva en personal las cuentas de dev que ya no existen en Keycloak
+npm run dev:firma-ficticia   # sin firma no se emite ninguna carta (ADR-28)
+```
+
+Después, comprobar que la directora de prueba sigue activa y con firma (si no, la carta no se emite):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T postgres psql -U api_admision -d admision -tAc   "SELECT correo, activo, rol, firma_url IS NOT NULL AS firma FROM personal WHERE correo = 'directora.prueba@ejemplo.test'"
+# esperado: directora.prueba@ejemplo.test|t|directora|t
 ```
 
 Las cuentas del personal creadas en dev desde G10, la API o el E2E no se recrean: sus filas en `personal` quedan

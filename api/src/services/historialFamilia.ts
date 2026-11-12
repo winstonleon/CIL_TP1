@@ -25,6 +25,7 @@ const TRANSICIONES: Readonly<Record<string, string>> = {
   lista_espera: "Tu postulante pasó a la lista de espera",
   no_apto: "El proceso de admisión concluyó",
   carta_emitida: "Se emitió la Carta de Vacante",
+  caducado: "Tu postulación caducó por vencimiento del plazo", // HU0018-2.0 (C78): ya se le notificó
 };
 
 const DECISIONES: Readonly<Record<string, Readonly<Record<string, string>>>> = {

@@ -6,7 +6,7 @@
 // - Es irreversible: la bitácora no se borra. Por eso corre en una transacción y `validarDemo` comprueba todo antes del COMMIT;
 //   cualquier inconsistencia revierte y no queda nada.
 // - Semilla y fechas fijas: da las mismas cifras en cada instalación.
-// - Los barridos de n8n de hoy no la toman (lo comprueba `validarDemo`). HU0016 la excluye; HU0018 también debe hacerlo (C72).
+// - Los barridos de n8n de hoy no la toman (lo comprueba `validarDemo`). HU0016 y HU0018 la excluyen (C72).
 import type pg from "pg";
 import { insertarApoderado } from "../src/repositories/apoderado";
 import { listarAvisosPendientes, listarRecordatoriosPendientes } from "../src/repositories/aviso";
@@ -15,9 +15,13 @@ import { listarVerificacionesPendientes } from "../src/repositories/completitud"
 import { insertarConsentimiento } from "../src/repositories/consentimiento";
 import { listarAvisosEvaluacionPendientes } from "../src/repositories/evaluaciones";
 import { listarCarpetasPendientes } from "../src/repositories/notificacion";
+import { listarAvisosSeguimientoPendientes, listarSeguimientoPendiente } from "../src/repositories/seguimiento";
 import { listarObservacionesPendientes } from "../src/repositories/validacion";
 import { TIPO_EVENTO_CARPETA } from "../src/services/captacion";
 import { TRANSICIONES_PERMITIDAS } from "../src/services/expedientes/transicionarExpediente";
+
+// HU0018: el plazo más corto que admite PLAZO_*_DIAS (config.ts), para que ninguna configuración haga caducar la demo.
+const PLAZOS_MINIMOS = { postulacion: 3, subsanacion: 3, agendamiento: 3, reprogramacion: 3, cuota: 3 } as const;
 
 export const TOTAL_DEMO = 60;
 const SEMILLA = 20261105;
@@ -355,6 +359,14 @@ export async function validarDemo(c: pg.PoolClient, campana: string): Promise<vo
     ...(await listarAvisosEvaluacionPendientes(c, opciones)).map((a) => a.id_expediente),
     // HU0016 excluye la campaña DEMO (C72): aquí se comprueba sin la exclusión, con la campaña que se valida.
     ...(await listarCartasPendientes(c, { ...opciones, campanaExcluida: "", tipoEvento: TIPO_CARTA })),
+    // HU0018 (C72): la revisión diaria (caducidad y recordatorio) y la retoma de sus avisos. Los expedientes de la demo sí
+    // cumplen sus condiciones (fechas pasadas a propósito): los protege la exclusión de la campaña DEMO, que aquí se aplica a
+    // la campaña que se valida (en `npm run dev:demo` es DEMO). Con los plazos más cortos que admite la configuración.
+    ...(await (async () => {
+      const r = await listarSeguimientoPendiente(c, PLAZOS_MINIMOS, opciones.limite, campana);
+      return [...r.caducidades, ...r.recordatorios];
+    })()),
+    ...(await listarAvisosSeguimientoPendientes(c, PLAZOS_MINIMOS, { ...opciones, campanaExcluida: campana })).map((a) => a.id_expediente),
   ];
   if (tomados.some((id) => demo.has(id))) fallar("un barrido de n8n tomaría un expediente de la demo");
   const citas = [...(await listarAvisosPendientes(c, opciones)), ...(await listarRecordatoriosPendientes(c, { ...opciones, horas: 24 }))];

@@ -15,6 +15,14 @@ import { registrarErrorFlujo } from "../services/erroresFlujo";
 import { avisosEvaluacionPendientes, contactoDelResponsable, reservarAvisoEvaluacion } from "../services/evaluaciones";
 import { obtenerContactoExpediente, registrarNotificacion } from "../services/notificaciones";
 import { recordatoriosPendientes, reservarRecordatorio } from "../services/recordatorios";
+import { TIPOS_AVISO_SEGUIMIENTO } from "../repositories/seguimiento";
+import {
+  avisosSeguimientoPendientes,
+  caducarExpediente,
+  reservarAvisoSeguimiento,
+  reservarRecordatorioInactividad,
+  seguimientoPendiente,
+} from "../services/seguimiento";
 import { observacionesPendientes, reservarAvisoObservacion } from "../services/validaciones";
 import { validar } from "../validacion";
 
@@ -42,6 +50,9 @@ const cuerpoAvisoEvaluacion = z.union([
   z.object({ id_notificacion: idRuta }).strict(),
   z.object({ tipo_evento: z.enum(TIPOS_AVISO_EVALUACION) }).strict(),
 ]);
+// HU0018: la retoma de cada minuto trae el tipo del aviso (plan del bloque 11).
+const cuerpoAvisoSeguimiento = z.object({ tipo_evento: z.enum(TIPOS_AVISO_SEGUIMIENTO) }).strict();
+const sinCuerpo = z.object({}).strict();
 const consultaContacto = z.object({ id_notificacion: z.coerce.number().int().positive().max(2147483647).optional() }).strict();
 
 // Solo identificadores, sin mensaje (C2): nombres de flujo y de nodo de una línea, para que el log no se pueda partir.
@@ -138,6 +149,39 @@ export function rutasInternas(identidad: IdentidadAdmin, almacenamiento: Almacen
   // GET /internal/recordatorios/pendientes → { citas: [{ id_cita }] }
   rutas.get("/recordatorios/pendientes", async (_req, res) => {
     res.json(await recordatoriosPendientes());
+  });
+
+  // HU0018 (flujo seguimiento-recordatorios, revisión diaria, R20 y R21): GET /internal/seguimiento/pendientes
+  // → { caducidades: [{ id_expediente }], recordatorios: [{ id_expediente }] }
+  rutas.get("/seguimiento/pendientes", async (_req, res) => {
+    res.json(await seguimientoPendiente());
+  });
+
+  // HU0018-2.0: POST /internal/expedientes/:id/caducidad → 201 { id_expediente, avisos: [{ id_expediente,
+  // id_notificacion, tipo_evento, asunto, cuerpo }] } · 409 CADUCIDAD_NO_CORRESPONDE · 404
+  rutas.post("/expedientes/:id/caducidad", async (req, res) => {
+    validar(sinCuerpo, req.body ?? {});
+    res.status(201).json(await caducarExpediente(validar(idRuta, req.params.id)));
+  });
+
+  // HU0018-1.0: POST /internal/expedientes/:id/recordatorio-inactividad → 201 { id_expediente, id_notificacion,
+  // tipo_evento: "recordatorio_48h", asunto, cuerpo } · 409 RECORDATORIO_NO_CORRESPONDE, RECORDATORIO_YA_REGISTRADO o AVISO_AGOTADO · 404
+  rutas.post("/expedientes/:id/recordatorio-inactividad", async (req, res) => {
+    validar(sinCuerpo, req.body ?? {});
+    res.status(201).json(await reservarRecordatorioInactividad(validar(idRuta, req.params.id)));
+  });
+
+  // Retoma de los avisos del seguimiento (cada minuto, ADR-07): GET /internal/seguimiento/avisos-pendientes
+  // → { avisos: [{ id_expediente, tipo_evento }] }
+  rutas.get("/seguimiento/avisos-pendientes", async (_req, res) => {
+    res.json(await avisosSeguimientoPendientes());
+  });
+
+  // POST /internal/expedientes/:id/aviso-seguimiento { tipo_evento } → 201 aviso · 409 AVISO_NO_CORRESPONDE,
+  // RECORDATORIO_YA_REGISTRADO o AVISO_AGOTADO · 404
+  rutas.post("/expedientes/:id/aviso-seguimiento", async (req, res) => {
+    const { tipo_evento } = validar(cuerpoAvisoSeguimiento, req.body ?? {});
+    res.status(201).json(await reservarAvisoSeguimiento(validar(idRuta, req.params.id), tipo_evento));
   });
 
   // HU0017 (flujo verificacion-completitud, ADR-22): POST /internal/expedientes/:id/verificacion-completitud

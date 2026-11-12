@@ -3,6 +3,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { generarDemo, TOTAL_DEMO, validarDemo } from "../scripts/demoGenerador";
 import { cerrarPool, enTransaccion, obtenerPool } from "../src/db/pool";
+import { listarSeguimientoPendiente } from "../src/repositories/seguimiento";
 import { calcularIndicadores } from "../src/services/indicadores";
 import { LINEA_BASE } from "../src/services/lineaBase";
 import { crearPersonal, unico } from "./ayudantes";
@@ -54,6 +55,20 @@ describe("DEMO datos ficticios del tablero", () => {
       expect(n, t).toBe(0);
     }
     await enTransaccion((c) => validarDemo(c, CAMPANA)); // incluye los seis barridos, sin lanzar
+  });
+
+  it("C72 validarDemo incluye la revisión diaria de HU0018: con la exclusión de la campaña ningún expediente de la demo se recuerda ni caduca, y sin ella sí, así que la exclusión es la que los protege", async () => {
+    const plazos = { postulacion: 3, subsanacion: 3, agendamiento: 3, reprogramacion: 3, cuota: 3 };
+    const demo = new Set(
+      (await db().query<{ id_expediente: number }>("SELECT e.id_expediente FROM expediente e JOIN grado g ON g.id_grado = e.id_grado WHERE g.campana_admision = $1", [CAMPANA])).rows.map(
+        (r) => r.id_expediente,
+      ),
+    );
+    const tomados = (r: { caducidades: number[]; recordatorios: number[] }) => [...r.caducidades, ...r.recordatorios].filter((id) => demo.has(id));
+
+    expect(tomados(await listarSeguimientoPendiente(db(), plazos, 100_000, CAMPANA))).toEqual([]);
+    expect(tomados(await listarSeguimientoPendiente(db(), plazos, 100_000, "")).length).toBeGreaterThan(0);
+    await enTransaccion((c) => validarDemo(c, CAMPANA));
   });
 
   it("DEMO el tablero muestra expedientes en todas las etapas, con cartas emitidas y un embudo que no crece", async () => {

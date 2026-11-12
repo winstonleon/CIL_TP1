@@ -5,6 +5,7 @@ import ExcelJS from "exceljs";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { cerrarPool, obtenerPool } from "../src/db/pool";
+import { TIPO_CARTA } from "../src/repositories/carta";
 import { TIPO_FALTANTES } from "../src/repositories/completitud";
 import {
   TIPO_CONFIRMACION_EVALUACIONES,
@@ -19,6 +20,7 @@ import {
   TIPO_REPROGRAMACION_RESPONSABLE,
   TIPO_VACANTE_ASIGNADA,
 } from "../src/repositories/evaluaciones";
+import { TIPO_CADUCADO_ADMISION, TIPO_CADUCADO_FAMILIA, TIPO_RECORDATORIO_INACTIVIDAD } from "../src/repositories/seguimiento";
 import { TIPO_OBSERVACION } from "../src/repositories/validacion";
 import { TIPO_CONFIRMACION, TIPO_CREDENCIALES, TIPO_REPROGRAMACION } from "../src/services/agendamiento";
 import { TIPO_EVENTO_CARPETA } from "../src/services/captacion";
@@ -106,6 +108,7 @@ describe("HU0019-2.0 reporte ejecutivo", () => {
       TIPO_EVENTO_CARPETA, TIPO_CONFIRMACION, TIPO_REPROGRAMACION, TIPO_CREDENCIALES, TIPO_RECORDATORIO, TIPO_FALTANTES, TIPO_OBSERVACION,
       TIPO_HABILITACION, TIPO_CONFIRMACION_EVALUACIONES, TIPO_REPROGRAMACION_FAMILIA, TIPO_REPROGRAMACION_RESPONSABLE, TIPO_LIBERACION_RESPONSABLE,
       TIPO_INASISTENCIA, TIPO_DICTAMEN_OBSERVACION, TIPO_DICTAMEN_NO_APTO, TIPO_VACANTE_ASIGNADA, TIPO_LISTA_ESPERA, TIPO_CUOTA_POR_CONCILIAR,
+      TIPO_RECORDATORIO_INACTIVIDAD, TIPO_CADUCADO_FAMILIA, TIPO_CADUCADO_ADMISION, TIPO_CARTA,
     ];
     expect(tipos.filter((t) => !ETIQUETA_AVISO[t])).toEqual([]);
     expect(Object.keys(ETIQUETA_AVISO)).toHaveLength(tipos.length);

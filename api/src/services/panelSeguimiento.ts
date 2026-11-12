@@ -7,6 +7,8 @@ import { obtenerPool } from "../db/pool";
 import { EVENTOS_HISTORIAL, historialVisible } from "./historialFamilia";
 import { listarHistorial } from "../repositories/auditoria";
 import { leerCarta } from "../repositories/carta";
+import { leerCaducidad, type EtapaSeguimiento } from "../repositories/seguimiento";
+import { ACCION_DE_ETAPA } from "./avisosSeguimiento";
 import type { ExpedienteDeFamilia } from "../repositories/expediente";
 import { fichaEstaCompleta } from "../repositories/postulante";
 import { leerCabecera, observacionesVigentes } from "../repositories/validacion";
@@ -17,7 +19,8 @@ import { modoEvaluaciones } from "./evaluaciones";
 export type EstadoEtapa = "completado" | "en_revision" | "observado" | "pendiente";
 export type EstadoValidacion = "conforme" | "en_revision" | "observado" | "pendiente";
 
-// Hasta qué punto del proceso llegó cada estado (las seis etapas del mockup). Los demás quedan en 0: `caducado` lo revisa HU0018 (C78).
+// Hasta qué punto del proceso llegó cada estado (las seis etapas del mockup). Los demás quedan en 0. Un expediente `caducado`
+// conserva el avance del estado que tenía al caducar (HU0018-2.0, C78, D4-A): sus etapas quedan congeladas.
 const AVANCE: Readonly<Record<string, number>> = {
   portal_habilitado: 1,
   en_postulacion: 1,
@@ -65,7 +68,10 @@ const parentescoDe = (parentesco: string | null) => (parentesco ? ` (${parentesc
 
 export async function leerPanel(e: ExpedienteDeFamilia) {
   const db = obtenerPool();
-  const { id_expediente: id, estado } = e;
+  const { id_expediente: id } = e;
+  const caducidad = e.estado === "caducado" ? await leerCaducidad(db, id) : null;
+  // C78: con el expediente caducado, el panel se lee como en el estado que tenía al caducar, sin acciones pendientes.
+  const estado = caducidad?.estado_anterior ?? e.estado;
   const avance = AVANCE[estado] ?? 0;
   const [cabecera, fichaCompleta, observaciones, verificacion, cuota, modo, carta, eventos] = await Promise.all([
     leerCabecera(db, id),
@@ -123,7 +129,14 @@ export async function leerPanel(e: ExpedienteDeFamilia) {
   return {
     etapas,
     validaciones,
-    acciones,
+    acciones: e.estado === "caducado" ? [] : acciones,
+    caducidad:
+      e.estado === "caducado"
+        ? {
+            fecha: caducidad?.fecha.toISOString() ?? null,
+            accion: caducidad?.etapa ? (ACCION_DE_ETAPA[caducidad.etapa as EtapaSeguimiento] ?? null) : null,
+          }
+        : null,
     historial: historialVisible(eventos),
     carta: { disponible: carta !== null, fecha_emision: carta?.fecha_emision.toISOString() ?? null },
   };

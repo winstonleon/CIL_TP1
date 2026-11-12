@@ -154,6 +154,7 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
 - **[EQUIPO, bloque 8, 05/11/2026] Avisos de la vacante y de la cuota:** siguen esta misma regla (ADR-26).
 - **[EQUIPO, bloque 10, 06/11/2026] Aviso de la Carta de Vacante:** sigue esta misma regla y lleva solo el enlace al portal (ADR-28).
 - **[EQUIPO] Excepción:** el enlace para definir la contraseña del personal lo envía Keycloak (ADR-02) y no se registra en notificacion, porque esa tabla exige un expediente. La evidencia queda en registro_auditoria (gestion_usuario).
+- **[EQUIPO, HU0023, D7-A, 07/11/2026] Segunda excepción:** el correo con el enlace para **recuperar la contraseña** (P03 y P03c, familias y personal) también lo envía Keycloak por su SMTP (`resetPasswordAllowed`, ADR-31). No pasa por n8n ni deja fila en `notificacion` ni en `registro_auditoria`: su única evidencia es el correo (los eventos de Keycloak siguen apagados, C24).
 
 ## ADR-08 Entornos y portabilidad al VPS
 - **[TI 6.2.6]** Los mismos cinco artefactos (build de Vue, código de la API, configuración versionada del realm de Keycloak, JSON de flujos y esquema de BD) se despliegan en dev (Docker Desktop, datos ficticios, sin TLS ni respaldo) y en prod (VPS con NGINX, TLS, red interna y `pg_dump` diario).
@@ -337,7 +338,7 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 | D3 Acceso de la familia (ADR-02) | Contraseña temporal con `UPDATE_PASSWORD`, enviada por `agendamiento` | `api/src/identidad/keycloakAdmin.ts`, `api/src/crypto/contrasenaTemporal.ts` y el realm | Plan de HU | `D3 …` (API y E2E) |
 | D4 Recordatorio de la visita | 24 h antes | `RECORDATORIO_VISITA_HORAS` (`config.ts`) | Editar `.env` y recrear `api` | `HU0003-1.0 … recordatorio …` |
 | D5 WhatsApp (ADR-07) | Desactivado | `WHATSAPP_ENABLED` (`$env` de n8n) | Editar `.env` y recrear `n8n` (con la cuenta, C30) | `HU0002-1.0 [parte: sin WhatsApp] …` |
-| D6 Política de contraseñas (ADR-02) | Ninguna; bloqueo tras 5 intentos | Realm (`infra/keycloak/realm-cil-admision.json` y su `README.md`) | Realm versionado y reimportación (C6; en producción, antes del primer despliegue, C12) | HU0023 (pendiente) |
+| D6 Política de contraseñas (ADR-02) | Ninguna; bloqueo tras 5 intentos | Realm (`infra/keycloak/realm-cil-admision.json` y su `README.md`) | Realm versionado y reimportación (C6; en producción, antes del primer despliegue, C12) | `HU0023-2.0 …` (bloqueo, E2E) y `HU0023-1.0 [parte: cambio obligatorio] …`; la parte «política» sigue pendiente (C6) |
 | Campaña activa (ADR-14) | `2027` | `CAMPANA_ACTIVA` (`config.ts` y `theme.properties`) | Editar `.env` y recrear `api` y `keycloak` | `C23 …` |
 | Carpeta informativa (ADR-18) | URL ficticia en dev | `CARPETA_INFORMATIVA_URL` (opcional, `config.ts`) | Editar `.env` y recrear `api` (C33) | `HU0002-1.0 [parte: correo] los textos del colegio van entre corchetes, y sin CARPETA_INFORMATIVA_URL el cuerpo lo dice` |
 | Lugar de la visita (P02) | Vacío: «[Dirección del colegio]» | `DIRECCION_COLEGIO` (opcional, `config.ts`) | Editar `.env` y recrear `api` (C39) | `HU0003-1.0 … lugar …` |
@@ -356,6 +357,9 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 | Plantilla de la Carta de Vacante (HU0016) | `borrador-1`, entre corchetes y sin logo | `api/src/services/plantillaCarta.ts` | El colegio entrega el texto y el logo, y se sube la versión | `HU0016-1.0 …` |
 | Texto del aviso de la carta (HU0016) | `borrador-1`, entre corchetes | `api/src/services/avisosCarta.ts` | El colegio entrega el texto y se sube la versión | `HU0016-1.0 (D1-A) …` |
 | Firma de la Directora (HU0016) | Imagen ficticia en dev | `Personal.firma_url`, archivo cifrado (ADR-21) | `npm run firma:cargar -- <correo> <ruta>` | `D2 …` |
+| Plazos máximos por etapa (HU0018-2.0, R21) | Postulación 15 días; subsanación, agendamiento, reprogramación y cuota 7 días (D1-A, provisionales) | `PLAZO_POSTULACION_DIAS`, `PLAZO_SUBSANACION_DIAS`, `PLAZO_AGENDAMIENTO_DIAS`, `PLAZO_REPROGRAMACION_DIAS` y `PLAZO_CUOTA_DIAS` (`config.ts`, de 3 a 90; opcionales en `.env`) | El colegio los define (C79); editar `.env` y recrear `api` | `HU0018-2.0 (plazos, ADR-19) …` |
+| Textos de los avisos del seguimiento (HU0018) | `borrador-1`, entre corchetes | `api/src/services/avisosSeguimiento.ts` | El colegio entrega los textos y se sube la versión | `HU0018-1.0 …` y `HU0018-2.0 …` |
+| Hora de la revisión diaria (HU0018) | 08:00 de Lima | Nodo «Cada día a las 8» de `seguimiento-recordatorios` | Editar el JSON del flujo y `npm run n8n:importar` | `HU0018-2.0 (n8n) …` |
 | Línea base del OE3 y meta de optimización (HU0019) | Valores en null, «[Línea base por definir]»; meta 70 % | `api/src/services/lineaBase.ts` (`borrador-1`) | Se mide con el colegio (C66), se registra con su fuente y se sube la versión | `HU0019-1.0 (línea base) …` y `HU0019-2.0 sin línea base …` |
 
 ## ADR-20 Ficha de inscripción y cuestionario de expectativas (HU0005)
@@ -628,6 +632,66 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
   - Una observación lleva en el título el documento y el parentesco, y el motivo aparte, como «Motivo: …». El mockup los pone en una línea.
   - Las acciones que no son una observación van en una tarjeta azul con el botón «Continuar». El mockup no le pone botón a esa tarjeta, y usa el ícono del calendario también para el aviso de la conciliación.
 - **Fuera del bloque:** P04 con un expediente caducado (C78).
+
+## ADR-30 Seguimiento programado: recordatorio por inactividad y caducidad (HU0018)
+- **[EQUIPO, bloque 11, 07/11/2026] Quién decide:** la API, con una sola definición de «acción pendiente de la familia» (`repositories/seguimiento.ts`) para la revisión, la reserva y la caducidad. n8n coordina y envía (ADR-04, ADR-16).
+- **[EQUIPO, D2-B] Etapas con una acción de la familia y su ancla.** El plazo es fijo: no se reinicia porque la familia interactúe, sí con una observación nueva.
+
+| Etapa | Estado y condición | Ancla | Plazo (D1-A) |
+|---|---|---|---|
+| Postulación | `portal_habilitado` o `en_postulacion` | Transición a `portal_habilitado` (o el registro) | 15 días |
+| Subsanación | `en_validacion` con una rama o el derecho observado | Última observación | 7 días |
+| Agendamiento | `en_validacion` con las tres ramas conformes (B1) | El `atencion_fin` con `habilita_agendamiento` | 7 días |
+| Reprogramación | `en_evaluacion` con la última cita académica en `no_asistio` (HU0025-2.0) | La inasistencia | 7 días |
+| Cuota | `vacante_asignada`, cuota > 0, sin Pago o con el Pago observado | La vacante o la última observación de la cuota | 7 días |
+
+  - **No caducan** (la acción no es de la familia): `prospecto`, `contacto_no_entregado`, `visita_agendada`, `en_validacion` sin observaciones, `apto`, `en_observacion` (C59), `lista_espera` (C61), un Pago en conciliación o conforme, y los estados finales. La campaña `DEMO` nunca entra (C72).
+- **[EQUIPO, D3-A] Interacción (R20, 48 h):** la última acción escrita de la familia, sin columnas nuevas:
+  - en la bitácora: `documentos_confirmados`, `subsanacion_registrada`, `cuota_registrada`, `cita_reprogramada` y la transición a `en_postulacion`;
+  - `documento.fecha_carga`;
+  - `cuestionario_expectativas.fecha_actualizacion`, que cubre el autoguardado de P05.
+  - No cuentan abrir el portal (C24) ni el registro del derecho (C49). Las 48 h se cuentan desde la mayor entre el ancla y la última interacción.
+- **Recordatorio `recordatorio_48h` (HU0018-1.0):**
+  - uno por período (la etapa con su ancla: sus intentos son las filas del tipo con `fecha_envio ≥ ancla`), antes del vencimiento;
+  - lleva la acción pendiente, la fecha límite (ancla + plazo, en días de Lima) y el enlace a P04;
+  - «registra el envío en el historial» = la fila `notificacion` (R20); no hay evento nuevo ni línea en P04;
+  - solo correo: WhatsApp espera a C30.
+- **Caducidad (HU0018-2.0, R21),** en una transacción con el expediente bloqueado y la condición recalculada bajo el bloqueo:
+  - la vacante vuelve (`vacantes_disponibles + 1`) con la fila del grado bloqueada, el mismo `FOR UPDATE` de R14, y la identidad de C25 (2) se mantiene. No sale nadie de la lista de espera (C61);
+  - las citas `reservada` pasan a `cancelada` (horarios bloqueados en orden por id); el cupo vuelve solo a los turnos futuros;
+  - `transicion_estado` a `caducado`, con actor Sistema y un `detalle` solo con ids y la etapa (`motivo`, `etapa`, `plazo_dias`, `vence`, `vacante_devuelta`, `citas_canceladas`, `citas_con_cupo_devuelto`, `id_notificacion` e `id_notificacion_admision`);
+  - el primer intento de los avisos `expediente_caducado` (familia) y `expediente_caducado_admision` (buzón `CORREO_ADMISION`, solo con el código y la etapa, C11);
+  - Pagos, documentos y la cuenta de Keycloak no se tocan, y no hay devoluciones (ADR-11). `caducado` es **final** (C79).
+- **Avisos:** siguen ADR-07 (una fila por intento, retoma a los 10 min, tope de 6 y fila de cierre `fallido`).
+- **n8n (`seguimiento-recordatorios`):** el recordatorio de la visita no cambia. Se suman:
+  - la **revisión diaria:** un Schedule a las 08:00 de Lima y el Manual Trigger «Revisión manual», primer nodo del flujo, que el E2E corre con `n8n execute` y otro puerto del task broker (D8-A). Pide `GET /internal/seguimiento/pendientes` (tope 200: el resto queda para el día siguiente) y luego `POST …/caducidad` o `POST …/recordatorio-inactividad`;
+  - la **retoma cada minuto:** `GET /internal/seguimiento/avisos-pendientes` y `POST …/aviso-seguimiento { tipo_evento }`;
+  - un ítem que falla no corta el barrido (C41 4). Sin webhook nuevo, C11 no cambia.
+- **[EQUIPO, D4-A] P04 con `caducado` (C78):**
+  - las etapas quedan como estaban al caducar (el `estado_anterior` de la transición), sin acciones ni «Subsanar»;
+  - un aviso dice cuándo caducó, qué venció y el contacto de Secretaría;
+  - el historial suma «Tu postulación caducó por vencimiento del plazo»;
+  - `GET /familia/expedientes/:id/panel` devuelve `caducidad: { fecha, accion }`: la fecha de la transición a `caducado` y el texto de la acción que venció (o `null` si no caducó). No devuelve la etapa ni el `detalle` de la bitácora;
+  - `GET /familia/expedientes` devuelve `caducado`, porque ya se le notificó. Las rutas de la familia ya rechazan por estado.
+- **Fuera del bloque:** reactivar un caducado, los plazos en G09 y WhatsApp (C79, C30).
+
+## ADR-31 Acceso de la familia: tema P03, P03b y P03c (HU0023)
+- **[EQUIPO, bloque 11, D5-A] Un solo tema que distingue el cliente** (`infra/keycloak/themes/cil/`, ADR-02). Los dos clientes tienen `login_theme = cil`:
+  - `login.ftl` incluye `p03.ftl` (P03 y P03c) para `portal-familias` y `g01.ftl` (G01, sin cambios) para los demás;
+  - `login-update-password.ftl` incluye `p03b.ftl` para `portal-familias` y, para el personal, una copia literal de la plantilla de `keycloak.v2` 26.8.0, que se vuelve a copiar al subir la versión.
+- **HU0023-1.0:** el primer ingreso con la contraseña temporal exige crear otra (`UPDATE_PASSWORD`, D3). **La política sigue provisional y vacía (C6):** P03b muestra los requisitos entre corchetes, y la matriz verifica HU0023-1.0 por partes («cambio obligatorio» y «política»).
+- **[EQUIPO, D6-A] HU0023-2.0, P03c:** el bloqueo es el del realm (5 intentos, temporal; la espera es provisional, C6).
+  - Keycloak responde a la cuenta bloqueada con la clave `accountTemporarilyDisabledMessage`, cuyo texto por omisión es igual al de credenciales incorrectas.
+  - El tema le da un texto propio (`messages/messages_es.properties`) para mostrar P03c, y G01 lo vuelve a traducir al genérico.
+  - **Riesgo aceptado (John):** quien falle seis veces con un correo sabe que tiene cuenta.
+  - P03c aparece en el intento siguiente al quinto fallo.
+- **[EQUIPO, D7-A] Recuperación de la contraseña:** `resetPasswordAllowed = true`, y el enlace lo envía Keycloak (segunda excepción de ADR-07). Aparece también en G01, porque es del realm.
+- **Desvíos de los mockups:**
+  - sin logo;
+  - P03 dice «Si es tu primer ingreso, …», porque el tema no puede saberlo;
+  - «Aún no visito el colegio» lleva a P01, porque P02 exige el enlace de la carpeta;
+  - en la recuperación, P03b no dice que es el primer ingreso.
+- **E2E:** cada prueba crea su cuenta por la Admin API y, al terminar, la desbloquea (`DELETE /attack-detection/brute-force/users/:id`) y la borra.
 
 ## Orden recomendado de implementación
 0. **Sprint 0, base técnica** (no es una HU; se documenta como habilitador):

@@ -57,6 +57,14 @@ const esquema = z.object({
   // Evaluaciones (HU0009-2.0, ADR-19): horas mínimas de anticipación, respecto de la cita actual, para reprogramarla
   // («con al menos 24 horas de anticipación»). Opcional en .env.
   REPROGRAMACION_MIN_HORAS: z.coerce.number().int().min(1).max(168).default(24),
+  // Seguimiento (HU0018-2.0, R21, ADR-19): plazo máximo de cada etapa con una acción pendiente de la familia, en días
+  // corridos desde el ancla de la etapa. Ninguna fuente los fija: valores provisionales (D1-A de John, 07/11/2026) hasta
+  // que el colegio los defina. Opcionales en .env.
+  PLAZO_POSTULACION_DIAS: z.coerce.number().int().min(3).max(90).default(15),
+  PLAZO_SUBSANACION_DIAS: z.coerce.number().int().min(3).max(90).default(7),
+  PLAZO_AGENDAMIENTO_DIAS: z.coerce.number().int().min(3).max(90).default(7),
+  PLAZO_REPROGRAMACION_DIAS: z.coerce.number().int().min(3).max(90).default(7),
+  PLAZO_CUOTA_DIAS: z.coerce.number().int().min(3).max(90).default(7),
   // Cifrado de los archivos en reposo (ADR-03). La anterior solo se define durante una rotación (C47).
   ARCHIVOS_ENCRYPTION_KEY: clave32,
   ARCHIVOS_ENCRYPTION_KEY_ANTERIOR: z.preprocess((v) => (v === "" ? undefined : v), clave32.optional()),

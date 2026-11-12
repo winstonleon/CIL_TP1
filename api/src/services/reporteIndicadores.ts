@@ -31,6 +31,10 @@ export const ETIQUETA_AVISO: Readonly<Record<string, string>> = {
   vacante_asignada: "Vacante otorgada",
   lista_espera: "Lista de espera",
   cuota_por_conciliar: "Cuota por conciliar (Tesorería)",
+  carta_emitida: "Carta de Vacante emitida",
+  recordatorio_48h: "Recordatorio por inactividad",
+  expediente_caducado: "Postulación caducada (familia)",
+  expediente_caducado_admision: "Postulación caducada (Admisión)",
 };
 
 export const TIPO_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";

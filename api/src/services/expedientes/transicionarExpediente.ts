@@ -29,6 +29,12 @@ export const TRANSICIONES_PERMITIDAS: TransicionesPermitidas = {
     ["apto", "vacante_asignada"], // HU0012-1.0: «Aprobar y asignar vacante» con cupo en el grado
     ["apto", "lista_espera"], // HU0012-2.0: el grado llegó a cero; la salida de la lista de espera no tiene HU (C61)
     ["vacante_asignada", "carta_emitida"], // HU0016-1.0: la carta se emite con la cuota conciliada o con cuota 0 (R18, C62)
+    // HU0018-2.0 (R21): venció el plazo de la etapa con una acción pendiente de la familia; caducado es final (D2-B).
+    ["portal_habilitado", "caducado"], // HU0018-2.0: postulación (ficha, documentos y derecho)
+    ["en_postulacion", "caducado"], // HU0018-2.0: postulación
+    ["en_validacion", "caducado"], // HU0018-2.0: subsanación o agendamiento de las evaluaciones
+    ["en_evaluacion", "caducado"], // HU0018-2.0: reprogramación de la evaluación académica a la que no asistió
+    ["vacante_asignada", "caducado"], // HU0018-2.0: cuota de ingreso (devuelve la vacante)
   ],
   // R9: cada rama tiene su propio ciclo de observación y subsanación (HU0008 y HU0011, plan del bloque 5).
   estado_documental: [

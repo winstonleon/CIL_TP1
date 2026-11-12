@@ -3,15 +3,19 @@
      Desvíos del mockup:
      - La descarga de la Carta de Vacante no está dibujada: va en «Acciones pendientes» (HU0016-1.0).
      - Una línea con las tres validaciones de R9, porque HU0020-1.0 pide el estado de cada una y el mockup junta dos en una etapa.
-     - Sin «Completaste la ficha y el cuestionario» en el historial: no hay evento ni fecha de eso (C77). -->
+     - Sin «Completaste la ficha y el cuestionario» en el historial: no hay evento ni fecha de eso (C77).
+     - Postulación caducada (HU0018-2.0, C78, D4-A): ningún mockup la dibuja. Un aviso en «Acciones pendientes» con la fecha y
+       el contacto de Secretaría; las etapas quedan como estaban al caducar y no hay acciones. -->
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { descargarCarta, leerPanel, type EstadoEtapa, type EstadoValidacion, type PanelSeguimiento } from "../../api/panel";
 import { mensajeDe } from "../../api/respuesta";
-import { fechaHistorial } from "../../portal/formato";
+import { fechaCorta, fechaHistorial } from "../../portal/formato";
 import { useExpedienteStore } from "../../stores/expediente";
 import { useSesionStore } from "../../stores/sesion";
 
+// El mismo texto de «¿Necesitas ayuda?» del portal, hasta que el colegio entregue el contacto (C42).
+const CONTACTO = "[Teléfono y correo de admisión]";
 const ETIQUETA_ETAPA: Record<EstadoEtapa, string> = { completado: "Completado", en_revision: "En revisión", observado: "Observado", pendiente: "Pendiente" };
 const ETIQUETA_VALIDACION: Record<EstadoValidacion, string> = { conforme: "Conforme", en_revision: "En revisión", observado: "Observado", pendiente: "Pendiente" };
 
@@ -112,6 +116,12 @@ onMounted(cargar);
       <div class="columnas">
         <section class="tarjeta acciones" aria-labelledby="p04-acciones">
           <h2 id="p04-acciones" class="con-icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5" /><path d="M12 16.5v.5" /><path d="M10.3 3.9L2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /></svg>Acciones pendientes</h2>
+          <div v-if="panel.caducidad" class="accion observado" role="alert" data-testid="caducidad">
+            <div class="accion-texto">
+              <strong>Tu postulación caducó<template v-if="panel.caducidad.fecha"> el {{ fechaCorta(panel.caducidad.fecha) }}</template>.</strong>
+              <span>Venció el plazo para {{ panel.caducidad.accion ?? "completar la etapa" }}. Comunícate con Secretaría de Admisión · {{ CONTACTO }}</span>
+            </div>
+          </div>
           <div v-if="panel.carta.disponible" class="accion conforme" data-testid="carta">
             <div class="accion-texto"><strong>Tu Carta de Vacante está emitida.</strong></div>
             <button type="button" class="boton primario" :disabled="descargando" data-testid="descargar-carta" @click="descargar">Descargar Carta de Vacante</button>
@@ -134,7 +144,7 @@ onMounted(cargar);
             </div>
             <RouterLink v-if="a.destino" :to="a.destino" class="boton primario" data-testid="ir-accion">{{ a.tipo === "subsanar" ? "Subsanar" : "Continuar" }}</RouterLink>
           </div>
-          <p v-if="!panel.carta.disponible && panel.acciones.length === 0" class="suave" role="status" data-testid="sin-acciones">No tienes acciones pendientes.</p>
+          <p v-if="!panel.caducidad && !panel.carta.disponible && panel.acciones.length === 0" class="suave" role="status" data-testid="sin-acciones">No tienes acciones pendientes.</p>
         </section>
 
         <section class="tarjeta historial" aria-labelledby="p04-historial">

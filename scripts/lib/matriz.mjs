@@ -31,6 +31,11 @@ export const ESCENARIOS_POR_PARTES = {
   "HU0014-2.0": { compromiso: "C63", partes: ["formato", "calidad"] },
   // La conciliación deja el dato; la generación de la carta es de HU0016, que la toma desde los datos (C62).
   "HU0015-1.0": { compromiso: "C62", partes: ["conciliación", "carta"] },
+  // WhatsApp Cloud API todavía no existe (C30): el recordatorio por inactividad va solo por correo (bloque 11).
+  "HU0018-1.0": { compromiso: "C30", partes: ["correo", "WhatsApp"] },
+  // La política de contraseñas sigue provisional y vacía (C6, ADR-02 PENDIENTE): se verifica el cambio obligatorio de la
+  // contraseña temporal; que la nueva «cumpla la política de seguridad» espera a que el colegio la defina.
+  "HU0023-1.0": { compromiso: "C6", partes: ["cambio obligatorio", "política"] },
 };
 export const SUITES_QUE_VERIFICAN = ["API", "E2E"];
 

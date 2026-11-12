@@ -12,6 +12,7 @@
 //   avisos son los de toda reprogramación (ADR-24).
 // P08 es de la familia: no registra atencion_* (ADR-05).
 import { obtenerConfig } from "../config";
+import { TIPO_CADUCADO_ADMISION } from "../repositories/seguimiento";
 import { enTransaccion, obtenerPool, type Consultable } from "../db/pool";
 import { ErrorApi } from "../errores";
 import { leerCuotaDeExpediente } from "../repositories/adjudicacion";
@@ -451,6 +452,8 @@ export async function contactoDelResponsable(idExpediente: number, idNotificacio
   const tipo = await tipoDeNotificacion(db, idNotificacion, idExpediente);
   if (tipo === TIPO_DICTAMEN_OBSERVACION) return { id_expediente: idExpediente, correo: obtenerConfig().CORREO_ADMISION, autoriza_whatsapp: false };
   if (tipo === TIPO_CUOTA_POR_CONCILIAR) return { id_expediente: idExpediente, correo: obtenerConfig().CORREO_TESORERIA, autoriza_whatsapp: false };
+  // HU0018-2.0: el aviso de la caducidad al personal de admisión va al mismo buzón (CORREO_ADMISION).
+  if (tipo === TIPO_CADUCADO_ADMISION) return { id_expediente: idExpediente, correo: obtenerConfig().CORREO_ADMISION, autoriza_whatsapp: false };
   if (tipo === null || !TIPOS_AL_RESPONSABLE.includes(tipo)) return null;
   const sinContacto = () => new ErrorApi(404, "CONTACTO_NO_ENCONTRADO", "El aviso no tiene un responsable con correo");
   const fuente = await fuenteDeIntento(db, idExpediente, tipo, idNotificacion);

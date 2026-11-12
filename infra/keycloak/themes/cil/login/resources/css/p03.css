@@ -1,0 +1,142 @@
+/* P03, P03b y P03c · Portal de Postulación (mockups docs/ui/P03-Acceso, P03b-NuevaContrasena y P03c-CuentaBloqueada).
+   Comparten la estructura de G01 (g01.css: panel azul, tarjeta, campos y botón); aquí solo lo propio de las familias. */
+:root {
+  --observado-fondo: #fcebd6;
+  --politica-fondo: #fbfaf6;
+}
+
+#kc-passwd-update-form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+a.g01-boton {
+  text-decoration: none;
+}
+
+a.g01-boton:hover {
+  color: #ffffff;
+}
+
+.p03-boton-secundario,
+a.p03-boton-secundario:hover {
+  background: var(--superficie);
+  color: var(--cil-azul);
+}
+
+.p03-boton-secundario:hover {
+  background: var(--aviso-fondo);
+}
+
+.p03-enlaces {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.p03-enlaces a {
+  font-weight: 600;
+  color: var(--cil-azul);
+}
+
+.p03-enlaces a:hover {
+  color: var(--cil-azul-hover);
+}
+
+.p03-error-campo {
+  margin: 4px 0 0;
+}
+
+/* Requisitos de la política (P03b): por definir con el colegio (C6). */
+.p03-politica {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: var(--politica-fondo);
+  border: 1px solid var(--borde);
+}
+
+.p03-politica-titulo {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+.p03-politica ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.p03-politica li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--texto);
+}
+
+.p03-politica svg {
+  flex-shrink: 0;
+  color: var(--texto-suave);
+}
+
+.p03-politica-nota {
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+/* Cuenta bloqueada (P03c) */
+.p03-candado {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--observado-fondo);
+  color: var(--observado);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.g01-cabecera .p03-detalle {
+  line-height: 1.6;
+}
+
+.p03-detalle strong {
+  color: var(--texto);
+}
+
+.p03-alerta {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: var(--observado-fondo);
+  color: var(--observado);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.p03-alerta svg {
+  flex-shrink: 0;
+}
+
+.p03-alerta p {
+  margin: 0;
+}
+
+.p03-ayuda {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--texto-suave);
+  text-align: center;
+}

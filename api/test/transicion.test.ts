@@ -48,6 +48,11 @@ describe("S0-B5 transicionarExpediente", () => {
         ["apto", "vacante_asignada"], // HU0012-1.0
         ["apto", "lista_espera"], // HU0012-2.0
         ["vacante_asignada", "carta_emitida"], // HU0016-1.0
+        ["portal_habilitado", "caducado"], // HU0018-2.0
+        ["en_postulacion", "caducado"], // HU0018-2.0
+        ["en_validacion", "caducado"], // HU0018-2.0
+        ["en_evaluacion", "caducado"], // HU0018-2.0
+        ["vacante_asignada", "caducado"], // HU0018-2.0
       ],
       estado_documental: [
         ["pendiente", "observado"], // HU0008-2.0

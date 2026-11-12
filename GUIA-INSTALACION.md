@@ -275,3 +275,16 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
   - Si tu contenedor de `n8n` es anterior, recréalo: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d n8n`.
 - **Barridos en dev:** `agendamiento` y `seguimiento-recordatorios` revisan cada minuto las citas de dev. Envían correos reales a Mailpit y, en las credenciales, fijan contraseñas temporales en el Keycloak de dev.
 - **E2E:** `e2e/visita-guiada.spec.ts` tarda unos 12 minutos. Espera el recordatorio y dos ciclos del barrido, y detiene y arranca `mailpit`. Correrlo dos veces en menos de 10 minutos da 429, por el límite de reservas de P02 por IP (ADR-17).
+
+### Seguimiento programado y acceso de las familias (HU0018 y HU0023)
+
+- **Revisión diaria (R20 y R21, ADR-30):** `seguimiento-recordatorios` revisa cada día a las 08:00 de Lima los expedientes con una acción pendiente de la familia: envía el recordatorio por inactividad y caduca los que vencieron su plazo. En dev también toma los expedientes viejos de otras corridas del E2E (C16).
+- **Plazos:** son provisionales y opcionales en `.env` (`PLAZO_POSTULACION_DIAS` y los demás de `.env.example`, de 3 a 90 días). Para cambiarlos, edita `.env` y recrea `api`.
+- **Correrla a mano** (la usa el E2E, D8-A), sin esperar a las 08:00:
+  1. Busca el id del flujo: `docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T n8n n8n list:workflow`.
+  2. Córrelo por su Manual Trigger «Revisión manual»:
+     `docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T n8n sh -c 'N8N_RUNNERS_BROKER_PORT=$N8N_CLI_RUNNERS_BROKER_PORT n8n execute --id=<id>'`
+  - `N8N_CLI_RUNNERS_BROKER_PORT` está en `docker-compose.yml` (no en `.env`): `n8n execute` arranca un segundo proceso de n8n, y el puerto por defecto de su task broker ya lo usa el n8n principal. Si tu contenedor de `n8n` es anterior al bloque 11, recréalo: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d n8n`.
+  - La salida de `n8n execute` trae los asuntos y cuerpos de los avisos (datos ficticios en dev): no la compartas como evidencia.
+- **Tema de login (ADR-31):** P03, P03b y P03c se ven en `portal-familias` y G01 en `gestion-interna`. Un cambio en el realm (`login_theme`, `resetPasswordAllowed`) exige reimportarlo (`infra/keycloak/README.md`); un cambio en las plantillas se ve al recargar la página.
+- **Cuenta bloqueada en dev:** tras 5 intentos fallidos, una cuenta queda bloqueada por un tiempo (provisional, C6). Para desbloquearla sin esperar: consola de Keycloak → realm `cil-admision` → **Users** → la cuenta → **Details** → desactivar el bloqueo temporal, o `DELETE /admin/realms/cil-admision/attack-detection/brute-force/users/<id>` por la Admin API (lo hace el E2E al terminar).

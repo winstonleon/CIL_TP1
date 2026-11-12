@@ -514,9 +514,9 @@ Cada regla indica dónde debe aplicarse: en la **BD** (restricción, trigger o C
 ### 4.5 Seguimiento programado (flujo diario de n8n)
 | # | Regla | Dónde |
 |---|---|---|
-| R20 | Cada día se revisan los expedientes con una acción pendiente de la familia. Si no hubo interacción en **48 horas**, se envía un recordatorio por correo y, solo si la familia lo autorizó y el canal está activo, por WhatsApp (se inserta en `Notificacion` con `tipo_evento = 'recordatorio_48h'`). | n8n |
-| R21 | Si venció el **plazo máximo** de la etapa, el expediente pasa a `caducado`, se liberan los cupos o la vacante que tenía reservados y se notifica a la familia. | n8n |
-| R22 | Toda comunicación enviada se registra en `Notificacion`, también los envíos fallidos (`estado_envio = 'fallido'`). Si WhatsApp no está autorizado o el canal está desactivado, no se crea fila para ese canal. Un rebote del correo de la carpeta informativa pasa el expediente a `contacto_no_entregado` (HU0002-2.0). **Excepción:** el enlace para definir la contraseña del personal lo envía Keycloak (ADR-02) y no se registra en `Notificacion`, porque esa tabla exige un expediente; la evidencia queda en `registro_auditoria` (`gestion_usuario`). | n8n (excepción: Keycloak y API) |
+| R20 | Cada día se revisan los expedientes con una acción pendiente de la familia. Si no hubo interacción en **48 horas**, se envía un recordatorio por correo y, solo si la familia lo autorizó y el canal está activo, por WhatsApp (se inserta en `Notificacion` con `tipo_evento = 'recordatorio_48h'`). Un recordatorio por etapa. Las etapas, su ancla y qué cuenta como interacción están en ADR-30 (bloque 11): la interacción es la última acción escrita de la familia (sus eventos en la bitácora, la carga de un documento y el guardado del cuestionario). | API decide; n8n revisa y envía |
+| R21 | Si venció el **plazo máximo** de la etapa, el expediente pasa a `caducado`, se liberan los cupos o la vacante que tenía reservados y se notifica a la familia y al personal de admisión (HU0018-2.0; buzón `CORREO_ADMISION`). La vacante se devuelve con la fila del grado bloqueada, como R14 (C25); las citas reservadas pasan a `cancelada` y el cupo vuelve solo a los turnos futuros. `caducado` es final. Los plazos son provisionales (ADR-30, ADR-19). | API decide; n8n revisa y envía |
+| R22 | Toda comunicación enviada se registra en `Notificacion`, también los envíos fallidos (`estado_envio = 'fallido'`). Si WhatsApp no está autorizado o el canal está desactivado, no se crea fila para ese canal. Un rebote del correo de la carpeta informativa pasa el expediente a `contacto_no_entregado` (HU0002-2.0). **Excepciones:** el enlace para definir la contraseña del personal lo envía Keycloak (ADR-02) y no se registra en `Notificacion`, porque esa tabla exige un expediente; la evidencia queda en `registro_auditoria` (`gestion_usuario`). El enlace para recuperar la contraseña (familias y personal, HU0023) también lo envía Keycloak y no deja fila (ADR-07, D7-A). | n8n (excepción: Keycloak y API) |
 
 ### 4.6 Permisos por rol (resumen)
 | Rol | Puede |
@@ -577,7 +577,7 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 | F4 Agendamiento | Webhook: evento de la API con `{ id_cita }` tras la reserva en P02 (HU0003) y el registro de la asistencia en G04 (HU0004), o con `{ id_expediente, id_notificacion }` tras «Confirmar citas» y la reprogramación en P08 (HU0009), la inasistencia en G11 (HU0025) y el dictamen En observación o No apto en G06 (HU0010), la adjudicación en G07 (HU0012) y el comprobante de la cuota en P07 (HU0014), más un barrido cada minuto de los avisos pendientes, también el de la habilitación del agendamiento (C52) (ADR-16) | Horario_Disponible, Cita, Cuenta_Acceso, Notificacion, Registro_Auditoria (lectura, a través de la API) |
 | F5 Generación de carta | Webhook: evento de la API con `{ id_expediente }` al conciliar la primera fracción o el pago único (R18), más un barrido cada minuto, que también toma la vacante con cuota 0 (C62). La API decide con los datos, genera el PDF y hace la transición; n8n envía el aviso (ADR-16, ADR-28) | Pago, Carta_Vacante, Expediente, Notificacion, Registro_Auditoria (a través de la API) |
 | F6 Notificación multicanal | Invocado por los demás flujos | Notificacion |
-| F7 Seguimiento y recordatorios | Programado diario (R20 y R21, HU0018), más un Schedule cada minuto para el recordatorio de la visita (HU0003, D4) | Expediente, Cita, Notificacion, Registro_Auditoria |
+| F7 Seguimiento y recordatorios | Programado diario a las 08:00 (R20 y R21, HU0018; también un Manual Trigger para el E2E), un Schedule cada minuto que retoma sus avisos (ADR-07), más un Schedule cada minuto para el recordatorio de la visita (HU0003, D4) | Expediente, Cita, Notificacion, Registro_Auditoria |
 
 ---
 
@@ -587,7 +587,7 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
 - **Por definir con el colegio:**
   - `Grado.max_fracciones` y el calendario de las fracciones.
   - La escala de `Resultado_Evaluacion.resultado` para la evaluación académica.
-  - El plazo máximo por etapa (R21).
+  - El plazo máximo por etapa (R21). Hoy rigen valores provisionales (ADR-30: 15 días la postulación y 7 días las demás etapas).
   - Los horarios de visitas y evaluaciones.
   - El número de vacantes por grado.
 - **Fuera de alcance (no modelar):**
@@ -596,7 +596,7 @@ La entrevista a los padres aplica a todos los grados, por lo que no tiene una co
   - El cálculo de devoluciones de la cuota.
   - El registro del admitido en SIEWEB o SIAGIE (el sistema académico existente no se integra ni se modifica).
 - **Almacenamiento de archivos:** las columnas `*_url` guardan la clave del archivo en el adaptador de almacenamiento (`STORAGE_DRIVER`: `local` en dev; ADR-12 y ADR-21). La BD guarda la referencia, no el archivo. Los archivos se guardan cifrados (ADR-03).
-- **Por definir con el colegio (v1.1):** la política de contraseñas y el tiempo de bloqueo en Keycloak (P03b, P03c).
+- **Por definir con el colegio (v1.1):** la política de contraseñas y el tiempo de bloqueo en Keycloak (P03b, P03c). HU0023 los muestra entre corchetes (C6).
 - **Datos derivados, sin columna propia:** el código de la constancia de P07b (`CONST-<código del expediente>-<id_pago>`) y la fecha de validación de un pago (P07) se obtienen de `Registro_Auditoria`.
 - **Vínculo de un aviso con su cita (HU0003 y HU0004, ADR-16):** `Notificacion` no tiene `id_cita`.
   - El ancla de cada aviso es la `fecha_hora` de la `transicion_estado` de esa cita (`detalle.id_cita`). Una notificación del tipo con `fecha_envio ≥ ancla` pertenece a esa cita.

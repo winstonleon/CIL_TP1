@@ -25,6 +25,8 @@ export interface PanelSeguimiento {
   acciones: AccionPendiente[];
   historial: { fecha: string; texto: string }[];
   carta: { disponible: boolean; fecha_emision: string | null };
+  // HU0018-2.0 (C78): la postulación caducó por vencimiento del plazo; null si no.
+  caducidad?: { fecha: string | null; accion: string | null } | null;
 }
 
 export async function leerPanel(id: number): Promise<PanelSeguimiento> {

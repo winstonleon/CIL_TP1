@@ -4,6 +4,7 @@
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": false,
+  "resetPasswordAllowed": true,
   "bruteForceProtected": true,
   "permanentLockout": false,
   "failureFactor": 5,
@@ -50,7 +51,8 @@
       "webOrigins": ["${FRONTEND_PUBLIC_URL}"],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "${FRONTEND_PUBLIC_URL}/*"
+        "post.logout.redirect.uris": "${FRONTEND_PUBLIC_URL}/*",
+        "login_theme": "cil"
       },
       "protocolMappers": [
         {

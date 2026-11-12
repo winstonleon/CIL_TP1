@@ -45,8 +45,8 @@ test.describe("HU0021 G01 · acceso del personal", () => {
       "Evaluación académica: resultados",
       "Dirección: vacantes, indicadores y usuarios",
     ]);
-    // La recuperación de contraseña llega con HU0023 (realm.resetPasswordAllowed sigue en false).
-    await expect(page.getByText("¿Olvidaste tu contraseña?")).toHaveCount(0);
+    // La recuperación de contraseña llegó con HU0023 (realm.resetPasswordAllowed en true).
+    await expect(page.getByRole("link", { name: "¿Olvidaste tu contraseña?" })).toBeVisible();
 
     // Fuentes alojadas en el tema (plan HU0021, P9): cargan sin pedir nada fuera del entorno local.
     await page.evaluate(() => document.fonts.ready);
