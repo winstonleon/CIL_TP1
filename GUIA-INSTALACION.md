@@ -165,8 +165,17 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
   2. `npm run kc:usuarios-prueba`: usuarios ficticios de Keycloak.
   3. `npm run db:migrate` y luego `npm run db:seed`: esquema y datos ficticios de `admision`.
   4. `npm run dev:firma-ficticia`: firma ficticia de la directora de prueba. Va después del seed, porque necesita su fila en `personal`.
-  5. `npm run n8n:credenciales` y luego `npm run n8n:importar`: credenciales y flujos de n8n (sección 3).
-  6. `npx --workspace e2e playwright install chromium`: navegador para el E2E.
+  5. `npm run dev:agenda`: horarios de la demo en G09, para que P02 y P08 tengan fechas. Va después del seed, porque usa las cuentas de prueba de `personal`.
+  6. `npm run n8n:credenciales` y luego `npm run n8n:importar`: credenciales y flujos de n8n (sección 3).
+  7. `npx --workspace e2e playwright install chromium`: navegador para el E2E.
+- **Horarios de la demo (`npm run dev:agenda`, solo dev).** Crea los horarios de la campaña activa desde hoy hasta el 31/03/2027, de lunes a viernes y de 8:00 a 13:00 (hora de Lima):
+  - visita (directora de prueba) y evaluación académica (evaluador de prueba): de lunes a viernes, turnos de 1 h con 1 cupo;
+  - psicóloga de prueba: jornada de observación los lunes y miércoles (un bloque de 8:00 a 13:00 con 6 cupos), evaluación psicológica los martes y jueves y entrevista a los padres los viernes (turnos de 1 h con 1 cupo).
+  - Usa el mismo servicio de G09: valida el responsable y la superposición, y cada alta queda en la bitácora (`cambio_configuracion`, con la secretaria de prueba como actor).
+  - Es seguro repetirlo: salta los horarios que ya existen y los que se cruzan con otro del mismo responsable (p. ej., los de 5 min que deja el E2E), sin tocarlos. Al final imprime cuántos creó por tipo y cuántos días saltó por feriado.
+  - Los feriados están en `api/scripts/feriados.json`, que se edita y se versiona. Los de 2027 se confirman cuando se publique el calendario oficial; los días no laborables del sector público no se incluyen, salvo que el colegio cierre.
+  - Tiene la misma guarda que `dev:demo`: no corre con `NODE_ENV=production`, con otra base que `admision` ni con URLs que no sean locales.
+  - Los valores (duraciones, cupos y reparto de la psicóloga) son provisionales (C83). En producción, los horarios los crea Secretaría en G09 (C82).
 - **Después de traer cambios (`git pull`) o de cambiar de rama, corre `npm run db:migrate`.** `npm run test:e2e` y `npm run evidencias:matriz` (sin `--sin-e2e`) ya lo corren solos antes del E2E.
   - Las migraciones nuevas de `db/migrations/` no se aplican solas a la base de dev. Sin ellas, las pantallas o rutas que dependen de un cambio de esquema pueden responder 500. Por ejemplo, el bloque de HU0006 y HU0007 agregó dos migraciones (R19 por banco y el evento `documentos_confirmados`).
   - Es seguro repetirlo: aplica solo las pendientes, con el rol de migración. Las pruebas de la API (`npm run test:api`) usan `admision_test`, que recrean solas.

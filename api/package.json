@@ -13,7 +13,8 @@
     "limpiar-personal-huerfano": "tsx scripts/limpiar-personal-huerfano.ts",
     "demo": "tsx scripts/demo.ts",
     "firma:cargar": "tsx scripts/cargarFirma.ts",
-    "firma:ficticia": "tsx scripts/cargarFirma.ts --ficticia"
+    "firma:ficticia": "tsx scripts/cargarFirma.ts --ficticia",
+    "agenda": "tsx scripts/agenda.ts"
   },
   "dependencies": {
     "busboy": "1.6.0",

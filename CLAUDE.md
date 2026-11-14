@@ -105,6 +105,7 @@ Todos se ejecutan desde la raíz del repo. No inventes otros scripts: si hace fa
 - Solo dev, después de reimportar el realm de Keycloak: `npm run dev:limpiar-personal-huerfano` (desactiva en `personal` las cuentas `@ejemplo.test` que ya no existen en Keycloak)
 - Cargar la firma escaneada de la Directora (PNG o JPG, hasta 1 MB): `npm run firma:cargar -- <correo> <ruta>`
 - Solo dev, datos ficticios del tablero G08: `npm run dev:demo` (60 expedientes en la campaña `DEMO`; es irreversible y se niega a correr dos veces)
+- Solo dev, horarios de G09 para la demo (campaña activa, hasta el 31/03/2027, lunes a viernes sin feriados; en la instalación desde cero va después de `dev:firma-ficticia`): `npm run dev:agenda` (idempotente; feriados en `api/scripts/feriados.json`)
 - Importar workflows a n8n: `npm run n8n:importar` (crea o actualiza por nombre, verifica las credenciales de cada nodo y exporta de vuelta al repo)
 - Crear o actualizar las credenciales de n8n desde `.env`: `npm run n8n:credenciales`
 

@@ -1,0 +1,11 @@
+{
+  "nota": "Feriados en que el colegio no atiende; npm run dev:agenda no crea horarios en estas fechas. Los de 2027 se confirman cuando se publique el calendario oficial. Los días no laborables del sector público no se incluyen, salvo que el colegio cierre.",
+  "feriados": [
+    { "fecha": "2026-12-08", "nombre": "Inmaculada Concepción" },
+    { "fecha": "2026-12-09", "nombre": "Batalla de Ayacucho" },
+    { "fecha": "2026-12-25", "nombre": "Navidad" },
+    { "fecha": "2027-01-01", "nombre": "Año Nuevo" },
+    { "fecha": "2027-03-25", "nombre": "Jueves Santo" },
+    { "fecha": "2027-03-26", "nombre": "Viernes Santo" }
+  ]
+}
