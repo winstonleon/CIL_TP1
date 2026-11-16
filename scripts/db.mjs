@@ -1,6 +1,10 @@
-// Ejecuta dbmate contra la base admision (o admision_test con --test) desde el host,
-// construyendo la URL con las variables de .env. No imprime la contraseña.
+// Ejecuta dbmate contra la base admision (o admision_test con --test), construyendo la URL con las variables de
+// entorno. No imprime la contraseña.
 // Las migraciones las aplica el rol de migración, dueño del esquema (S0-B9), no el usuario de la API.
+// Desde dónde se llega a Postgres (ADR-08): MIGRACIONES_DB_HOST y MIGRACIONES_DB_PORT.
+//   - dev: corre en el host. Sin definirlas, 127.0.0.1 y el puerto publicado (POSTGRES_HOST_PORT).
+//   - producción: corre en el contenedor `admin`, dentro de la red interna (docker-compose.prod.yml las fija en
+//     postgres:5432). Postgres no publica ningún puerto.
 // Uso: node scripts/db.mjs <comando dbmate> [--test]     p. ej.: node scripts/db.mjs up
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
@@ -21,8 +25,9 @@ const baseAdmision = requerida("ADMISION_DB").replace(/_test$/, "");
 const base = esPrueba ? `${baseAdmision}_test` : baseAdmision;
 const usuario = encodeURIComponent(requerida("ADMISION_MIGRATOR_USER"));
 const clave = encodeURIComponent(requerida("ADMISION_MIGRATOR_PASSWORD"));
-const puerto = process.env.POSTGRES_HOST_PORT || "55432";
-const url = `postgres://${usuario}:${clave}@127.0.0.1:${puerto}/${base}?sslmode=disable`;
+const host = process.env.MIGRACIONES_DB_HOST || "127.0.0.1";
+const puerto = process.env.MIGRACIONES_DB_PORT || process.env.POSTGRES_HOST_PORT || "55432";
+const url = `postgres://${usuario}:${clave}@${host}:${puerto}/${base}?sslmode=disable`;
 
 const require = createRequire(import.meta.url);
 const cli = resolve(dirname(require.resolve("dbmate/package.json")), "dist/cli.js");

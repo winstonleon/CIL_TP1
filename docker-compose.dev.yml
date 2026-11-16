@@ -5,6 +5,9 @@
 
 services:
   postgres:
+    environment:
+      # Solo dev (C14): en un volumen nuevo, 01-crear-bases.sh crea también admision_test (pruebas de la API).
+      CREAR_BD_PRUEBA: "true"
     ports:
       - "127.0.0.1:${POSTGRES_HOST_PORT:-55432}:5432"
 
@@ -14,6 +17,10 @@ services:
       - "127.0.0.1:${KEYCLOAK_HOST_PORT:-8080}:8080"
 
   n8n:
+    environment:
+      # En dev van como variables; en prod, como secretos de Docker (C5, docker-compose.prod.yml).
+      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
     ports:
       - "127.0.0.1:${N8N_HOST_PORT:-5679}:5678"
 
