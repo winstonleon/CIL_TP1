@@ -3,14 +3,17 @@
 // contenido. Funciones puras: no leen archivos ni el entorno.
 import { createHash } from "node:crypto";
 import ExcelJS from "exceljs";
-import { GRUPOS, type Texto } from "./textosColegioCatalogo";
+import { POLITICA_PRIVACIDAD } from "../src/services/politicaPrivacidad";
+import { type Aprobacion, GRUPOS, type Texto } from "./textosColegioCatalogo";
 
 export interface Meta {
   version: number;
   generado: string; // «17 de noviembre de 2026, 14:35»
   commit: string; // «a1b2c3d», con la marca de cambios sin confirmar si el árbol no estaba limpio
+  plazo?: string; // «viernes 20 de noviembre de 2026»: hasta cuándo responde el colegio (DIAS_PLAZO días hábiles desde la fecha del documento)
 }
 
+export const DIAS_PLAZO = 3;
 export const POR_COMPLETAR = "Por completar";
 export const OPCIONES_DECISION = ["Aprobado", "Corregir"] as const;
 export const HOJAS = { instrucciones: "Instrucciones", textos: "Textos", campana: "Campaña", aprobacion: "Aprobación" } as const;
@@ -18,12 +21,44 @@ export const HOJAS = { instrucciones: "Instrucciones", textos: "Textos", campana
 const AZUL = "FF10326E";
 const AMARILLO = "FFFFF4C2";
 const NARANJA = "FFFDE3CF";
+const ROJO = "FF9C0006";
+
+// Lo que dice cada fila de la hoja Textos, en «Qué se pide», sobre qué pasa si el colegio no responde en el plazo.
+const CONSECUENCIA: Record<Aprobacion, string> = {
+  por_defecto: "Sin decisión al vencer el plazo, se toma como aprobado.",
+  respuesta: "No se aprueba por defecto.",
+  firma: "Aprobación explícita y firma en la hoja «Aprobación». No se aprueba por defecto.",
+};
 
 // ------------------------------------------------------------------ huella
 
 // Cambia sola con cualquier texto del catálogo: la versión (número) la sube a mano quien envía una ronda nueva.
 export function huellaDelContenido(catalogo: Texto[]): string {
   return createHash("sha256").update(JSON.stringify(catalogo)).digest("hex").slice(0, 8);
+}
+
+// ------------------------------------------------------------------ plazo
+
+const DIA_MS = 86_400_000;
+const aFecha = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+
+// Suma días hábiles (de lunes a viernes, sin los feriados dados) a una fecha de calendario «AAAA-MM-DD». El día de partida no cuenta.
+export function sumarDiasHabiles(desde: string, dias: number, feriados: ReadonlySet<string> = new Set()): string {
+  let ms = Date.parse(`${desde}T00:00:00Z`);
+  let faltan = dias;
+  while (faltan > 0) {
+    ms += DIA_MS;
+    const diaDeSemana = new Date(ms).getUTCDay();
+    if (diaDeSemana !== 0 && diaDeSemana !== 6 && !feriados.has(aFecha(ms))) faltan--;
+  }
+  return aFecha(ms);
+}
+
+// «2026-11-20» → «viernes 20 de noviembre de 2026»
+export function fechaLarga(fecha: string): string {
+  const partes = new Intl.DateTimeFormat("es-PE", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long", year: "numeric" }).formatToParts(new Date(`${fecha}T12:00:00Z`));
+  const parte = (tipo: string) => partes.find((p) => p.type === tipo)!.value;
+  return `${parte("weekday")} ${parte("day")} de ${parte("month")} de ${parte("year")}`;
 }
 
 // ------------------------------------------------------------------ campaña (JSON de C26 → tabla legible)
@@ -156,6 +191,8 @@ function hojaInstrucciones(libro: ExcelJS.Workbook, catalogo: Texto[], meta: Met
   const hoja = libro.addWorksheet(HOJAS.instrucciones);
   hoja.getColumn(1).width = 120;
   const bloquean = catalogo.filter((t) => t.familia).length;
+  const cuenta = (tipo: Aprobacion) => catalogo.filter((t) => t.aprobacion === tipo).length;
+  const carta = catalogo.filter((t) => t.grupo === GRUPOS.carta).map((t) => t.id);
   const lineas: { texto: string; estilo?: "titulo" | "seccion" | "destacado" }[] = [
     { texto: "Textos y datos del Colegio Internacional de Lima para el sistema de admisión", estilo: "titulo" },
     { texto: `Versión ${meta.version} · ${meta.generado} (hora de Lima)` },
@@ -173,11 +210,37 @@ function hojaInstrucciones(libro: ExcelJS.Workbook, catalogo: Texto[], meta: Met
         "Lo que está entre corchetes todavía no existe y lo debe redactar el colegio.",
     },
     { texto: "" },
+    { texto: "Plazo para responder", estilo: "seccion" },
+    {
+      texto:
+        `Plazo: ${DIAS_PLAZO} días hábiles desde la fecha de este documento (no cuentan sábados, domingos ni feriados)${meta.plazo ? `, es decir, hasta el ${meta.plazo}` : ""}. ` +
+        "Mientras el colegio no responda lo que exige respuesta, el sistema no se abre a las familias.",
+      estilo: "destacado",
+    },
+    { texto: "" },
     { texto: "Cómo responder", estilo: "seccion" },
     { texto: "1. En «Decisión del colegio» elija Aprobado o Corregir." },
     { texto: "2. Si elige Corregir, o si el texto está entre corchetes, escriba el texto completo en «Texto corregido o comentario»." },
     { texto: "3. Si el colegio debe entregar un archivo (logo, firma de la Directora), la fila lo dice en «Qué se pide»: entréguelo aparte y anote en la fila que lo entregó." },
-    { texto: "4. Al terminar, complete la hoja «Aprobación» y devuelva este mismo archivo. El equipo incorpora cada texto al sistema y conserva este archivo como constancia." },
+    { texto: "4. Al terminar, complete la hoja «Aprobación» (hay una firma para cada pieza que exige aprobación explícita) y devuelva este mismo archivo antes de que venza el plazo. El equipo incorpora cada texto al sistema y conserva este archivo como constancia." },
+    { texto: "" },
+    { texto: "Si el colegio no responde en el plazo", estilo: "seccion" },
+    {
+      texto:
+        `Se toman como aprobadas, tal como están en «Texto actual», las ${cuenta("por_defecto")} filas que lo dicen en la columna «Qué se pide» («se toma como aprobado»): mensajes de pantalla ya redactados y de bajo riesgo. ` +
+        "Así basta con marcar «Corregir» en lo que el colegio quiera cambiar.",
+    },
+    {
+      texto:
+        `NO se aprueban en silencio, y exigen una decisión explícita en la fila y la firma en la hoja «Aprobación»: (1) la política de privacidad (fila PRI-01), (2) la Carta de Vacante (filas ${carta.at(0)} a ${carta.at(-1)} y el PDF de ejemplo) ` +
+        "y (3) la campaña (hoja «Campaña»: vacantes, cuotas, fracciones y requisitos). Lo que compromete al colegio con las familias (su consentimiento, sus cuotas y sus vacantes) necesita una aprobación con nombre y firma.",
+      estilo: "destacado",
+    },
+    {
+      texto:
+        `Tampoco se aprueban en silencio las otras ${cuenta("respuesta")} filas: su texto está entre corchetes (entre ellas, el cuerpo de los ${catalogo.filter((t) => t.grupo === GRUPOS.correos).length} correos a las familias) ` +
+        "o son datos y decisiones que solo el colegio puede dar (contacto, dirección, bancos, cuenta, plazos, requisitos de la contraseña). No hay nada que aprobar hasta que el colegio los entregue.",
+    },
     { texto: "" },
     { texto: "Revisión legal de la política de privacidad", estilo: "seccion" },
     {
@@ -186,10 +249,15 @@ function hojaInstrucciones(libro: ExcelJS.Workbook, catalogo: Texto[], meta: Met
         "Los consentimientos que una familia acepte con un texto provisional no valen como evidencia.",
       estilo: "destacado",
     },
+    {
+      texto:
+        `La versión que el sistema registra hoy con cada consentimiento es «${POLITICA_PRIVACIDAD.version}» y su texto es solo un marcador: ` +
+        "el texto definitivo y su número de versión los entrega el colegio, y esa versión es la que se aprueba y se firma.",
+    },
     { texto: "" },
     { texto: "Qué más incluye", estilo: "seccion" },
     { texto: "Hoja «Campaña»: los grados, las vacantes, las cuotas y los requisitos con los que se abrirá la campaña. El colegio la revisa, completa lo que falta y la firma." },
-    { texto: "Hoja «Aprobación»: nombre, firma y fecha de quien aprueba los textos y del abogado que revisa la política." },
+    { texto: "Hoja «Aprobación»: nombre, firma y fecha de quien aprueba los textos, y la firma explícita de la política de privacidad (con la revisión de su abogado), de la Carta de Vacante y de la campaña." },
     { texto: "Archivo aparte: ejemplo de la Carta de Vacante (PDF), con datos ficticios, para ver cómo queda el documento que recibe la familia." },
     { texto: "" },
     { texto: "Qué pasa si un texto cambia", estilo: "seccion" },
@@ -202,7 +270,7 @@ function hojaInstrucciones(libro: ExcelJS.Workbook, catalogo: Texto[], meta: Met
     if (estilo === "titulo") celda.font = { bold: true, size: 16, color: { argb: AZUL } };
     if (estilo === "seccion") celda.font = { bold: true, size: 12, color: { argb: AZUL } };
     if (estilo === "destacado") {
-      celda.font = { bold: true, color: { argb: "FF9C0006" } };
+      celda.font = { bold: true, color: { argb: ROJO } };
       celda.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFDE9E7" } };
     }
   });
@@ -215,7 +283,7 @@ function hojaTextos(libro: ExcelJS.Workbook, catalogo: Texto[], meta: Meta): voi
     { header: "N.º", key: "id", width: 9 },
     { header: "Grupo", key: "grupo", width: 20 },
     { header: "Dónde se ve y quién lo recibe", key: "donde", width: 42 },
-    { header: "Qué se pide", key: "pide", width: 28 },
+    { header: "Qué se pide", key: "pide", width: 36 },
     { header: "Texto actual", key: "texto", width: 80 },
     { header: "¿Bloquea abrir a las familias?", key: "bloquea", width: 15 },
     { header: "Decisión del colegio", key: "decision", width: 16 },
@@ -231,7 +299,7 @@ function hojaTextos(libro: ExcelJS.Workbook, catalogo: Texto[], meta: Meta): voi
       id: t.id,
       grupo: t.grupo,
       donde: `${t.donde}\nLo recibe o lo ve: ${t.quien}`,
-      pide: t.pide,
+      pide: `${t.pide}\n${CONSECUENCIA[t.aprobacion]}`,
       texto: t.texto,
       bloquea: t.familia ? "Sí" : "No",
       decision: null,
@@ -244,6 +312,7 @@ function hojaTextos(libro: ExcelJS.Workbook, catalogo: Texto[], meta: Meta): voi
       celda.border = BORDE;
     });
     fila.getCell("id").font = { bold: true };
+    if (t.aprobacion === "firma") fila.getCell("pide").font = { bold: true, color: { argb: ROJO } };
     fila.getCell("bloquea").alignment = { horizontal: "center", vertical: "top" };
     if (t.familia) fila.getCell("bloquea").font = { bold: true };
     if (/\[[^\]]+\]/.test(t.texto)) fila.getCell("texto").fill = { type: "pattern", pattern: "solid", fgColor: { argb: NARANJA } };
@@ -257,7 +326,7 @@ function hojaTextos(libro: ExcelJS.Workbook, catalogo: Texto[], meta: Meta): voi
       errorTitle: "Decisión del colegio",
       error: `Elija ${OPCIONES_DECISION.join(" o ")}.`,
     };
-    if (t.nota?.startsWith("REVISIÓN LEGAL")) fila.getCell("nota").font = { bold: true, color: { argb: "FF9C0006" } };
+    if (t.nota?.startsWith("REVISIÓN LEGAL")) fila.getCell("nota").font = { bold: true, color: { argb: ROJO } };
   });
   hoja.views = [{ state: "frozen", xSplit: 1, ySplit: 1 }];
   hoja.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 10 } };
@@ -296,7 +365,7 @@ function hojaCampana(libro: ExcelJS.Workbook, campana: CampanaVista, meta: Meta)
   hoja.addRow([`Archivo: ${campana.archivo} · huella SHA-256: ${campana.sha256.slice(0, 16)}`]);
   hoja.addRow([campana.completa ? "Estado: completa." : "Estado: PLANTILLA SIN COMPLETAR. Las celdas amarillas «Por completar» las debe entregar el colegio."]).getCell(1).font = {
     bold: true,
-    color: { argb: campana.completa ? "FF006100" : "FF9C0006" },
+    color: { argb: campana.completa ? "FF006100" : ROJO },
   };
   hoja.addRow(["El colegio revisa esta hoja y la firma. Después de la firma no se cambia ni una coma sin repetir la simulación de la carga. Lo que se carga es exactamente lo que dice el archivo indicado arriba."]);
   hoja.addRow([]);
@@ -329,20 +398,38 @@ function hojaCampana(libro: ExcelJS.Workbook, campana: CampanaVista, meta: Meta)
   pie(hoja, meta);
 }
 
-function hojaAprobacion(libro: ExcelJS.Workbook, meta: Meta, huella: string): void {
+function hojaAprobacion(libro: ExcelJS.Workbook, catalogo: Texto[], campana: CampanaVista, meta: Meta, huella: string): void {
   const hoja = libro.addWorksheet(HOJAS.aprobacion);
   hoja.getColumn(1).width = 46;
   hoja.getColumn(2).width = 70;
   hoja.addRow(["Aprobación de los textos"]).getCell(1).font = { bold: true, size: 14, color: { argb: AZUL } };
   hoja.addRow([`Versión ${meta.version} · ${meta.generado} · huella del contenido ${huella}`]);
-  hoja.addRow(["Los textos marcados «Aprobado» en la hoja Textos pueden enviarse a las familias del Colegio Internacional de Lima tal como están. Los marcados «Corregir» se incorporan con el texto que el colegio escribió."]).getCell(1).alignment = {
+  hoja.addRow([
+    "Los textos marcados «Aprobado» en la hoja Textos pueden enviarse a las familias del Colegio Internacional de Lima tal como están. Los marcados «Corregir» se incorporan con el texto que el colegio escribió. " +
+      "Las filas cuyo «Qué se pide» dice «se toma como aprobado» valen como aprobadas si no hay decisión al vencer el plazo; la política de privacidad, la Carta de Vacante y la campaña no: se firman más abajo.",
+  ]).getCell(1).alignment = {
     wrapText: true,
   };
   hoja.mergeCells("A3:B3");
-  hoja.getRow(3).height = 48;
+  hoja.getRow(3).height = 78;
   hoja.addRow([]);
-  bloqueDeFirma(hoja, "Quien aprueba por el colegio", ["Nombre y cargo", "Firma", "Fecha"]);
+  const nombreYFirma = ["Nombre y cargo", "Firma", "Fecha"];
+  const carta = catalogo.filter((t) => t.grupo === GRUPOS.carta).map((t) => t.id);
+  bloqueDeFirma(hoja, "Quien aprueba por el colegio", nombreYFirma);
+  hoja.addRow(["Aprobación explícita: no vale por defecto"]).getCell(1).font = { bold: true, size: 13, color: { argb: ROJO } };
+  const aviso = hoja.addRow(["Estas tres piezas comprometen al colegio con las familias: cada una se aprueba con nombre y firma, aunque lo demás se haya tomado como aprobado por defecto."]);
+  aviso.getCell(1).alignment = { wrapText: true, vertical: "top" };
+  hoja.mergeCells(`A${aviso.number}:B${aviso.number}`);
+  aviso.height = 32;
+  hoja.addRow([]);
+  bloqueDeFirma(hoja, `1. Política de privacidad (fila PRI-01) · versión ${POLITICA_PRIVACIDAD.version}`, nombreYFirma);
   bloqueDeFirma(hoja, "Revisión legal de la política de privacidad (Ley N.° 29733)", ["Nombre del abogado", "Firma", "Fecha"]);
+  bloqueDeFirma(hoja, `2. Carta de Vacante (filas ${carta.at(0)} a ${carta.at(-1)} y carta-de-vacante-ejemplo-v${meta.version}.pdf)`, nombreYFirma);
+  bloqueDeFirma(
+    hoja,
+    `3. Campaña ${campana.campana} (hoja «Campaña»: vacantes, cuotas, fracciones y requisitos) · ${campana.archivo} · huella ${campana.sha256.slice(0, 16)}`,
+    nombreYFirma,
+  );
   pie(hoja, meta);
 }
 
@@ -354,6 +441,6 @@ export async function construirLibro(catalogo: Texto[], campana: CampanaVista, m
   hojaInstrucciones(libro, catalogo, meta, huella);
   hojaTextos(libro, catalogo, meta);
   hojaCampana(libro, campana, meta);
-  hojaAprobacion(libro, meta, huella);
+  hojaAprobacion(libro, catalogo, campana, meta, huella);
   return Buffer.from(await libro.xlsx.writeBuffer());
 }

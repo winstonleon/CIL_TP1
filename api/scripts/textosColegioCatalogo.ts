@@ -46,6 +46,12 @@ export interface Fuente {
   fragmento: string;
 }
 
+// Qué pasa con una fila si el colegio no responde en el plazo de la hoja «Instrucciones»:
+// - por_defecto: se toma como aprobada, tal como está (aviso de bajo riesgo ya redactado);
+// - respuesta: no se aprueba en silencio: su texto está entre corchetes o es un dato o una decisión que solo el colegio puede dar;
+// - firma: aprobación explícita y firma en la hoja «Aprobación» (la política de privacidad y la Carta de Vacante).
+export type Aprobacion = "por_defecto" | "respuesta" | "firma";
+
 export interface Texto {
   id: string;
   grupo: string;
@@ -55,6 +61,7 @@ export interface Texto {
   ref: string;
   familia: boolean; // lo lee o lo recibe la familia: bloquea abrir el sistema (C85)
   pide: string;
+  aprobacion: Aprobacion;
   nota?: string;
   fuentes?: Fuente[];
 }
@@ -80,8 +87,21 @@ const SIN_COMPROMISO = "C85";
 const REDACTAR = "Redactar lo que está entre corchetes y revisar el resto";
 const REVISAR = "Revisar y aprobar";
 
-type Datos = Omit<Texto, "pide"> & { pide?: string };
-const fila = (d: Datos): Texto => ({ ...d, pide: d.pide ?? (/\[[^\]]+\]/.test(d.texto) ? REDACTAR : REVISAR) });
+const CON_CORCHETES = /\[[^\]]+\]/;
+const GRUPOS_POR_DEFECTO: readonly string[] = [GRUPOS.correos, GRUPOS.pantallas, GRUPOS.ingreso, GRUPOS.personal];
+
+// Lo que está entre corchetes todavía no existe: sin la respuesta del colegio no hay nada que aprobar en silencio.
+function aprobacionDe(d: Datos): Aprobacion {
+  if (d.grupo === GRUPOS.carta) return "firma";
+  return GRUPOS_POR_DEFECTO.includes(d.grupo) && !CON_CORCHETES.test(d.texto) ? "por_defecto" : "respuesta";
+}
+
+type Datos = Omit<Texto, "pide" | "aprobacion"> & { pide?: string; aprobacion?: Aprobacion };
+const fila = (d: Datos): Texto => ({
+  ...d,
+  pide: d.pide ?? (CON_CORCHETES.test(d.texto) ? REDACTAR : REVISAR),
+  aprobacion: d.aprobacion ?? aprobacionDe(d),
+});
 
 // ------------------------------------------------------------------ datos ficticios de los ejemplos
 
@@ -307,11 +327,12 @@ function datos(): Texto[] {
       grupo: g,
       donde: "P01 · Formulario de solicitud de información: la familia la lee y la acepta al enviarlo",
       quien: FAMILIA,
-      texto: POLITICA_PRIVACIDAD.texto,
+      texto: `Versión que el sistema registra con cada consentimiento: ${POLITICA_PRIVACIDAD.version}\n\n${POLITICA_PRIVACIDAD.texto}`,
       ref: "C29",
       familia: true,
+      aprobacion: "firma",
       pide: "Entregar el texto y su versión. El abogado del colegio debe revisarlo antes de aprobarlo",
-      nota: "REVISIÓN LEGAL: el abogado del colegio debe revisar esta política conforme a la Ley N.° 29733 (Ley de Protección de Datos Personales). Los consentimientos registrados con el texto provisional no valen como evidencia en producción.",
+      nota: "REVISIÓN LEGAL: el abogado del colegio debe revisar esta política conforme a la Ley N.° 29733 (Ley de Protección de Datos Personales). Los consentimientos registrados con el texto provisional no valen como evidencia en producción. El texto de arriba es solo un marcador: el texto definitivo y su número de versión los entrega el colegio.",
     }),
     ...PREGUNTAS.map((p, i) =>
       fila({
@@ -513,6 +534,7 @@ function pantallas(): Texto[] {
       texto: "Pago único para alumnos ingresantes por primera vez · Inicial y Primaria",
       ref: "C65",
       familia: true,
+      aprobacion: "respuesta",
       pide: "Decir si esta condición existe y si debe mostrarse (ninguna fuente la define)",
     }),
     pantalla("PAN-21", "C76", "P04 · Panel de seguimiento · mientras carga", "Cargando tu postulación…", panel),

@@ -4,6 +4,7 @@
 //   npm run colegio:textos -- <archivo.json>    → la hoja «Campaña» muestra ese archivo (el que el colegio firma)
 // Escribe en docs/colegio/: textos-para-el-colegio-v<N>.xlsx y carta-de-vacante-ejemplo-v<N>.pdf. Sube VERSION_DOCUMENTO (en
 // textosColegioCatalogo.ts) cuando se envíe una ronda nueva; el archivo de una versión anterior queda como constancia.
+// El plazo de respuesta del colegio se cuenta desde el día en que se genera: si el documento se envía otro día, vuelve a generarlo ese día.
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -49,7 +50,8 @@ Object.assign(process.env, {
 
 const { generarPdfCarta } = await import("../src/services/plantillaCarta");
 const { construirCatalogo, VERSION_DOCUMENTO } = await import("./textosColegioCatalogo");
-const { construirLibro, huellaDelContenido, leerCampanaParaVista } = await import("./textosColegioLibro");
+const { construirLibro, DIAS_PLAZO, fechaLarga, huellaDelContenido, leerCampanaParaVista, sumarDiasHabiles } = await import("./textosColegioLibro");
+const { ahoraEnLima, leerFeriados } = await import("./agendaGenerador");
 
 function versionDelCodigo(): string {
   try {
@@ -67,7 +69,9 @@ const generado = new Intl.DateTimeFormat("es-PE", { timeZone: "America/Lima", da
 const rutaCampana = process.argv[2] ? resolve(process.env.INIT_CWD ?? process.cwd(), process.argv[2]) : join(RAIZ, "db", "campanas", "plantilla-2027.json");
 const campana = leerCampanaParaVista(readFileSync(rutaCampana, "utf8"), basename(rutaCampana));
 const catalogo = construirCatalogo();
-const libro = await construirLibro(catalogo, campana, { version: VERSION_DOCUMENTO, generado, commit: versionDelCodigo() });
+// Los días hábiles se cuentan desde hoy (hora de Lima) sin los feriados de api/scripts/feriados.json, los mismos de dev:agenda.
+const plazo = fechaLarga(sumarDiasHabiles(ahoraEnLima().fecha, DIAS_PLAZO, leerFeriados()));
+const libro = await construirLibro(catalogo, campana, { version: VERSION_DOCUMENTO, generado, commit: versionDelCodigo(), plazo });
 
 // La carta de ejemplo: la misma plantilla que emite el sistema, con datos y firma ficticios.
 const carta = await generarPdfCarta({
@@ -89,7 +93,9 @@ writeFileSync(archivoLibro, libro);
 writeFileSync(archivoCarta, carta);
 
 const bloquean = catalogo.filter((t) => t.familia).length;
+const cuenta = (tipo: string) => catalogo.filter((t) => t.aprobacion === tipo).length;
 console.log(`Versión ${VERSION_DOCUMENTO} · huella ${huellaDelContenido(catalogo)} · ${catalogo.length} textos (${bloquean} bloquean abrir a las familias).`);
+console.log(`Plazo de respuesta: hasta el ${plazo} (${DIAS_PLAZO} días hábiles). Sin respuesta: ${cuenta("por_defecto")} filas se toman como aprobadas, ${cuenta("respuesta")} no, y ${cuenta("firma")} exigen firma (más la campaña).`);
 console.log(`Campaña: ${campana.campana}, ${campana.grados.length} grados, ${campana.requisitos.length} requisitos (${campana.completa ? "completa" : "con datos por completar"}).`);
 console.log(`Escrito: ${archivoLibro}`);
 console.log(`Escrito: ${archivoCarta}`);
