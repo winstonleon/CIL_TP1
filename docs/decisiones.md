@@ -160,6 +160,7 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
 - **[TI 6.2.6]** Los mismos cinco artefactos (build de Vue, código de la API, configuración versionada del realm de Keycloak, JSON de flujos y esquema de BD) se despliegan en dev (Docker Desktop, datos ficticios, sin TLS ni respaldo) y en prod (VPS con NGINX, TLS, red interna y `pg_dump` diario).
 - **[PROPUESTA]** `docker-compose.yml` como base, más `docker-compose.dev.yml` y `docker-compose.prod.yml`. Toda URL, puerto y secreto sale de `.env`, sin `localhost` fijo en el código.
 - **[PROPUESTA]** Keycloak en dev corre en modo de desarrollo. En prod corre detrás de NGINX bajo `/auth`, con `KC_HOSTNAME` configurado. En prod solo NGINX publica los puertos 80 y 443.
+- El detalle del despliegue de producción (imágenes, NGINX, administración y certificado) está en ADR-32.
 
 ## ADR-09 Pruebas y evidencia ABET
 - **[EQUIPO]** Pruebas automatizadas como evidencia.
@@ -692,6 +693,16 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
   - «Aún no visito el colegio» lleva a P01, porque P02 exige el enlace de la carpeta;
   - en la recuperación, P03b no dice que es el primer ingreso.
 - **E2E:** cada prueba crea su cuenta por la Admin API y, al terminar, la desbloquea (`DELETE /attack-detection/brute-force/users/:id`) y la borra.
+
+## ADR-32 Despliegue de producción: imágenes, NGINX y administración (tramo A)
+- **[EQUIPO, Brayan 16/11/2026]** La API corre en producción con `tsx` (dependencia de producción, con versión fija), sin compilar a JavaScript: `node --import tsx`, `NODE_ENV=production` y usuario `node`. Como `tsx` no revisa los tipos, la imagen `prod` solo se construye si pasa `tsc --noEmit` (etapa `tipos` de `api/Dockerfile`, con `api/tsconfig.prod.json`). Limitación aceptada: arranca más lento y usa algo más de memoria que con JavaScript compilado.
+- **[EQUIPO, Brayan 16/11/2026]** En producción no se publica ningún puerto de Postgres, Keycloak ni n8n, tampoco en `127.0.0.1` (ADR-08). El servidor se administra desde dentro de la red interna, con el contenedor de un solo uso `admin` (`--profile tools`): `db:migrate`, `n8n:credenciales` y `n8n:importar`. Esos scripts toman del entorno desde dónde llegan a Postgres (`MIGRACIONES_DB_HOST` y `MIGRACIONES_DB_PORT`; sin definirlas, el puerto publicado de dev) y leen los secretos de variables `*_FILE` (C5). El editor de n8n no se publica: los flujos cambian en el repo y se aplican con `n8n:importar` (ADR-06).
+- **[PROPUESTA]** NGINX (`infra/nginx/cil.conf.template`) es el único punto de entrada: `/api/*` va a la API sin el prefijo, `/auth/realms` y `/auth/resources` van a Keycloak y lo demás es el build de Vue. No publica `/api/internal/*` (C19), n8n (C11), ni la consola, la Admin API, la salud o las métricas de Keycloak, que se administra con `kcadm.sh` dentro de su contenedor. Fija `X-Forwarded-For` con la IP del cliente, y su registro de acceso no guarda la consulta ni el `Referer`.
+- **[EQUIPO, Brayan 16/11/2026]** HTTPS es obligatorio: el ingreso con PKCE solo funciona en un contexto seguro del navegador. NGINX lee el certificado de una carpeta del servidor (`TLS_CERT_DIR`). Lo emite y lo renueva `certbot`, instalado en el servidor (validación por `ACME_WEBROOT_DIR`), con un `--deploy-hook` que copia el certificado y recarga NGINX. Sin dominio solo cabe un certificado autofirmado, para ensayar.
+- **[EQUIPO, Brayan 16/11/2026]** Eventos de Keycloak (C24): el realm guarda solo `LOGIN_ERROR` y `USER_DISABLED_BY_TEMPORARY_LOCKOUT`, con el usuario y la IP, durante 90 días. Es la evidencia de HU0023-2.0. **[PENDIENTE]** La retención definitiva la fija el colegio.
+- **[PROPUESTA]** Keycloak va bajo `/auth` (`KC_HTTP_RELATIVE_PATH`), así que en producción `KEYCLOAK_INTERNAL_URL` es `http://keycloak:8080/auth`. Al compilar el frontend, `VITE_API_URL` es `/api` y `VITE_OIDC_AUTHORITY` se deriva de `KEYCLOAK_PUBLIC_URL` y `KEYCLOAK_REALM`.
+- **[PROPUESTA]** `admision_test` solo se crea con `CREAR_BD_PRUEBA=true`, que fija el overlay de dev (C14). n8n recibe la contraseña de su base y su clave de cifrado como secretos de Docker (C5).
+- **Verificación:** `npm run prod:verificar` (`GUIA-INSTALACION.md`, sección 10). Ensayado en local el 16/11/2026 con un certificado autofirmado; todavía no en un VPS.
 
 ## Orden recomendado de implementación
 0. **Sprint 0, base técnica** (no es una HU; se documenta como habilitador):
