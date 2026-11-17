@@ -1,17 +1,17 @@
 # Matriz de trazabilidad (HU → escenario → prueba → resultado)
 
-> Generada con `npm run evidencias:matriz` el 17/11/26, 1:08 a. m. (America/Lima) sobre el commit `eeaac46` **con cambios sin commit**. No se edita a mano.
+> Generada con `npm run evidencias:matriz` el 17/11/26, 5:09 a. m. (America/Lima) sobre el commit `8b985a8` **con cambios sin commit**. No se edita a mano.
 
 ## Resumen
 
 | Suite | Pruebas | Pasan | Fallan | Omitidas o no ejecutadas |
 |---|---|---|---|---|
-| API | 669 | 669 | 0 | 0 |
+| API | 686 | 686 | 0 | 0 |
 | Frontend | 211 | 211 | 0 | 0 |
 | E2E | 97 | 97 | 0 | 0 |
 
 - Escenarios del backlog: **55** en 25 HU; con al menos una prueba: **55**.
-- Estados: cubierto: 48 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · verificado: correo; pendiente: WhatsApp (C30): 2 · verificado: formato; pendiente: calidad (C63): 1 · verificado: cambio obligatorio; pendiente: política (C6): 1.
+- Estados: cubierto: 48 · verificado: correo, sin WhatsApp; pendiente: WhatsApp autorizado (C30): 1 · verificado: rechazo síncrono (solo en dev con Mailpit); pendiente: rebote asíncrono del proveedor (C34): 1 · verificado: borrador, segundo apoderado parcial; pendiente: segundo apoderado conservado (C43): 1 · verificado: correo; pendiente: WhatsApp (C30): 2 · verificado: formato; pendiente: calidad (C63): 1 · verificado: cambio obligatorio; pendiente: política (C6): 1.
 - Las pruebas del Sprint 0 (`S0-*`) y las de soporte (`G10`, `G01`, `C19`…) cuentan en los totales, pero no se asignan a escenarios.
 - «mecanismo probado; verificación en ruta real pendiente (C17)»: todas las pruebas del escenario llevan la marca `[política, ruta de prueba]` (compromiso C17).
 - «verificado: …; pendiente: … (Cnn)»: escenarios que se verifican por partes (HU0022-1.0, C25; HU0022-2.0, C25; HU0002-1.0, C30; HU0002-2.0, C34; HU0005-2.0, C43; HU0017-1.0, C51; HU0008-2.0, C30; HU0010-1.0, C58; HU0014-2.0, C63; HU0015-1.0, C62; HU0018-1.0, C30; HU0023-1.0, C6). Cada prueba declara su `[parte: …]`; una parte se verifica solo con pruebas de API o E2E que pasan (las de frontend usan la API simulada). Las partes pendientes las verifica la HU o la etapa que fija su compromiso.
@@ -51,7 +51,7 @@
 |  |  | API | `api/test/captacion.test.ts` | HU0002-1.0 [parte: correo] marcar enviado o fallido cierra la notificación; repetirlo es idempotente y cambiar un estado cerrado da 409 | pasó |
 |  |  | E2E | `e2e/captacion.spec.ts` | HU0002-1.0 [parte: correo] desde P01, el correo con la carpeta y el enlace llega a Mailpit en menos de un minuto y queda enviado | pasó |
 |  |  | E2E | `e2e/captacion.spec.ts` | HU0002-1.0 [parte: sin WhatsApp] con la casilla marcada y el canal desactivado, o sin marcarla, no hay fila de WhatsApp y el flujo termina bien | pasó |
-| HU0002-2.0 — Falla en el despacho por rebote de correo electrónico | verificado: rechazo síncrono; pendiente: rebote asíncrono del proveedor (C34) | API | `api/test/captacion.test.ts` | HU0002-2.0 [parte: rechazo síncrono] el rebote deja la notificación fallida, audita notificacion_rebotada y pasa el expediente a contacto_no_entregado en una transacción | pasó |
+| HU0002-2.0 — Falla en el despacho por rebote de correo electrónico | verificado: rechazo síncrono (solo en dev con Mailpit); pendiente: rebote asíncrono del proveedor (C34) | API | `api/test/captacion.test.ts` | HU0002-2.0 [parte: rechazo síncrono] el rebote deja la notificación fallida, audita notificacion_rebotada y pasa el expediente a contacto_no_entregado en una transacción | pasó |
 |  |  | API | `api/test/captacion.test.ts` | HU0002-2.0 [parte: rechazo síncrono] repetir el rebote no duplica eventos; fuera de prospecto se registra sin transición | pasó |
 |  |  | API | `api/test/captacionTransaccion.test.ts` | HU0002-2.0 [parte: rechazo síncrono] si la transición falla, el rebote no deja nada: la notificación no cambia ni queda notificacion_rebotada | pasó |
 |  |  | API | `api/test/prospectos.test.ts` | HU0002-2.0 [parte: rechazo síncrono] G04: la secretaria recibe los prospectos con contacto no entregado (nombre, grado, correo, teléfono y fecha), sin DNI | pasó |
@@ -266,11 +266,11 @@
 |  |  | API | `api/test/validaciones.test.ts` | HU0008-2.0 [parte: correo] (aviso) si la familia ya subsanó todo antes del envío, el aviso no corresponde y el barrido no lo retoma | pasó |
 |  |  | Frontend | `frontend/src/gestion/validacion.test.ts` | HU0008-2.0 [parte: correo] la rama observada se muestra «Observado» y la que volvió a revisión tras una subsanación, «Subsanado» | pasó |
 |  |  | Frontend | `frontend/src/gestion/validacion.test.ts` | HU0008-2.0 [parte: correo] el motivo es obligatorio y de hasta 500 caracteres | pasó |
+|  |  | Frontend | `frontend/src/views/portal/Subsanacion.test.ts` | HU0008-2.0 [parte: correo] (subsanación) P06 muestra el motivo y ofrece «Reemplazar» solo en el documento observado; envía el reemplazo de ese documento | pasó |
+|  |  | Frontend | `frontend/src/views/portal/Subsanacion.test.ts` | HU0008-2.0 [parte: correo] (subsanación) un documento ya reemplazado que espera revisión muestra su motivo como «Motivo anterior» | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/BandejaExpedientes.test.ts` | HU0008-2.0 [parte: correo] (subsanación) el expediente que volvió a revisión muestra «Subsanado» con el motivo anterior | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/DetalleExpediente.test.ts` | HU0008-2.0 [parte: correo] «Observar» abre el panel con el texto de ayuda; sin motivo no envía y con motivo «Solicitar subsanación» lo envía | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/DetalleExpediente.test.ts` | HU0008-2.0 [parte: correo] (subsanación) un documento que volvió a revisión muestra su motivo como «Motivo anterior», no como observación vigente | pasó |
-|  |  | Frontend | `frontend/src/views/portal/Subsanacion.test.ts` | HU0008-2.0 [parte: correo] (subsanación) P06 muestra el motivo y ofrece «Reemplazar» solo en el documento observado; envía el reemplazo de ese documento | pasó |
-|  |  | Frontend | `frontend/src/views/portal/Subsanacion.test.ts` | HU0008-2.0 [parte: correo] (subsanación) un documento ya reemplazado que espera revisión muestra su motivo como «Motivo anterior» | pasó |
 |  |  | E2E | `e2e/validaciones.spec.ts` | HU0008-2.0 [parte: correo] Secretaría observa un documento con su motivo, la familia recibe el correo con el enlace, reemplaza solo ese documento y G02 lo muestra como Subsanado | pasó |
 
 ### HU0009 — Seleccionar los turnos de las evaluaciones que exige el grado del menor (jornada de observación, evaluación psicológica, evaluación académica y entrevista a los padres, según corresponda) dentro de los horarios disponibles
@@ -426,17 +426,17 @@
 |  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-1.0 [parte: conciliación] una fracción posterior conforme no lleva la marca, porque solo la primera acredita la cuota | pasó |
 |  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-1.0 [parte: conciliación] (dos personas) una segunda decisión responde 409 PAGO_YA_VALIDADO, y otro rol recibe 403 auditado | pasó |
 |  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-1.0 [parte: conciliación] (derecho) el comprobante del derecho sigue exigiendo en_validacion: en otro estado responde 409 y G05 no lo abre | pasó |
+|  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0015-1.0 [parte: conciliación] P07 muestra «Cuota acreditada» con la fecha de validación | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/ConciliacionCuota.test.ts` | HU0015-1.0 [parte: conciliación] G05 la pestaña «Cuota de ingreso» se habilita con su conteo, pide su vista y lista con los textos del mockup | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/ConciliacionCuota.test.ts` | HU0015-1.0 [parte: conciliación] G05 muestra el abono junto al monto que corresponde y «Conciliar y aprobar pago» envía la conformidad | pasó |
-|  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0015-1.0 [parte: conciliación] P07 muestra «Cuota acreditada» con la fecha de validación | pasó |
 |  |  | E2E | `e2e/carta-vacante.spec.ts` | HU0015-1.0 [parte: carta] P07 sigue mostrando la cuota acreditada con la carta emitida, y G07 ya no ofrece emitirla | pasó |
 |  |  | E2E | `e2e/vacante-cuota.spec.ts` | HU0015-1.0 [parte: conciliación] Tesorería contrasta el abono en la pestaña «Cuota de ingreso» de G05 y concilia: la familia ve «Cuota acreditada» | pasó |
 | HU0015-2.0 — Rechazo por inconsistencia en el monto o número de operación | cubierto | API | `api/test/cuotaIngreso.test.ts` | HU0015-2.0 Tesorería rechaza el comprobante con el motivo: queda «Cuota observada», la familia recibe el detalle y el enlace, y regulariza en la misma fila | pasó |
 |  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-2.0 (aviso) un aviso sin cerrar se retoma por el barrido de observaciones a los 10 min | pasó |
 |  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-2.0 (subsanación) solo se reemplaza un comprobante observado: en conciliación responde 409 CUOTA_NO_SUBSANABLE | pasó |
 |  |  | API | `api/test/cuotaIngreso.test.ts` | HU0015-2.0 (validación) el motivo es obligatorio | pasó |
-|  |  | Frontend | `frontend/src/views/gestion/ConciliacionCuota.test.ts` | HU0015-2.0 G05 «Rechazar comprobante» exige el motivo del desajuste y lo envía | pasó |
 |  |  | Frontend | `frontend/src/views/portal/PagosAdmision.test.ts` | HU0015-2.0 P07 muestra «Cuota observada» con el motivo y regulariza con PUT en la misma fila; después el motivo es el anterior | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/ConciliacionCuota.test.ts` | HU0015-2.0 G05 «Rechazar comprobante» exige el motivo del desajuste y lo envía | pasó |
 
 ### HU0016 — Emitir automáticamente la Carta de Vacante en formato PDF con la firma escaneada de la Directora
 
@@ -833,9 +833,9 @@
 |  |  | API | `api/test/validaciones.test.ts` | HU0024-2.0 «Observar comprobante» con el motivo marca el derecho observado sin detener las demás validaciones y notifica el motivo con el enlace para regularizar el pago | pasó |
 |  |  | API | `api/test/validaciones.test.ts` | HU0024-2.0 abrir un comprobante observado no abre un ítem de atención: espera a la familia | pasó |
 |  |  | API | `api/test/validaciones.test.ts` | HU0024-2.0 (subsanación) la familia registra el comprobante nuevo en la misma fila: vuelve a pendiente, el anterior queda en subsanacion_registrada y su archivo no se borra | pasó |
+|  |  | Frontend | `frontend/src/views/portal/Subsanacion.test.ts` | HU0024-2.0 (subsanación) P07b muestra el motivo de la observación y «Regularizar el pago» envía el comprobante nuevo con PUT; después el motivo queda como anterior | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/ValidacionesTesoreria.test.ts` | HU0024-2.0 «Observar comprobante» exige el motivo, muestra el texto de ayuda y lo envía | pasó |
 |  |  | Frontend | `frontend/src/views/gestion/ValidacionesTesoreria.test.ts` | HU0024-2.0 (subsanación) el comprobante regularizado muestra «Subsanado» y su motivo como «Motivo anterior» | pasó |
-|  |  | Frontend | `frontend/src/views/portal/Subsanacion.test.ts` | HU0024-2.0 (subsanación) P07b muestra el motivo de la observación y «Regularizar el pago» envía el comprobante nuevo con PUT; después el motivo queda como anterior | pasó |
 
 ### HU0025 — Registrar el resultado de la evaluación académica del postulante o su inasistencia
 
@@ -859,8 +859,8 @@
 |  |  | API | `api/test/dictamen.test.ts` | HU0025-2.0 (orden) con la entrevista a menos de 24 h la excepción también aplica; con la entrevista movible, el orden se sigue exigiendo con 422 ORDEN_DE_CITAS | pasó |
 |  |  | API | `api/test/dictamen.test.ts` | HU0025-2.0 (aviso) el aviso de la inasistencia sigue ADR-07: si el intento queda pendiente más de 10 min, el barrido de agendamiento lo retoma con una fila nueva | pasó |
 |  |  | API | `api/test/n8nEvaluaciones.test.ts` | HU0025-2.0 el barrido de evaluaciones también saca los avisos de la inasistencia y del dictamen (En observación y No apto, HU0010-2.0 y 3.0), solo con ids (ADR-25, C11) | pasó |
-|  |  | Frontend | `frontend/src/views/gestion/EvaluacionAcademica.test.ts` | HU0025-2.0 G11 «Marcar “No asistió”» pide confirmación; cancelar no envía nada y confirmar registra la inasistencia | pasó |
 |  |  | Frontend | `frontend/src/views/portal/EvaluacionesAgenda.test.ts` | HU0025-2.0 una evaluación académica a la que no se asistió muestra «No asististe» y «Elegir nuevo horario», y reprograma esa cita (D2-A) | pasó |
+|  |  | Frontend | `frontend/src/views/gestion/EvaluacionAcademica.test.ts` | HU0025-2.0 G11 «Marcar “No asistió”» pide confirmación; cancelar no envía nada y confirmar registra la inasistencia | pasó |
 
 ## HU sin pruebas
 
