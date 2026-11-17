@@ -1,4 +1,4 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["src", "scripts/cargarFirma.ts"]
+  "include": ["src", "scripts/cargarFirma.ts", "scripts/crearDirectora.ts", "scripts/cargarCampana.ts"]
 }

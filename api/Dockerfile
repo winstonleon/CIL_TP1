@@ -20,7 +20,7 @@ CMD ["npm", "run", "dev", "--workspace", "api"]
 # --- Chequeo de tipos: puerta de la imagen de producción ---
 # En producción la API corre con tsx, que ejecuta TypeScript sin revisar los tipos. Por eso `prod` copia el testigo de
 # esta etapa: si `tsc --noEmit` falla, la imagen de producción no se construye.
-# tsconfig.prod.json revisa lo que entra a esa imagen (src y cargarFirma.ts). Las pruebas y los scripts de dev importan
+# tsconfig.prod.json revisa lo que entra a esa imagen (src y los scripts de producción). Las pruebas y los scripts de dev importan
 # archivos de fuera de api/, que aquí no están: los revisa `npm run typecheck --workspace api` en el host.
 FROM dev AS tipos
 RUN cd api && ../node_modules/.bin/tsc --noEmit -p tsconfig.prod.json && touch /tmp/tipos-ok
@@ -37,8 +37,9 @@ RUN npm ci --workspace api --include-workspace-root=false --omit=dev && npm cach
 COPY --from=tipos /tmp/tipos-ok /tmp/tipos-ok
 COPY api/tsconfig.json api/
 COPY api/src api/src
-# Único script que corre en producción: carga la firma de la Directora dentro de este contenedor (HU0016, C18).
-COPY api/scripts/cargarFirma.ts api/scripts/
+# Scripts que corren en producción, dentro de este contenedor: cargar la firma de la Directora (HU0016, C18), crear su cuenta
+# inicial (C18) y cargar los grados y requisitos de una campaña (C26). Ninguno importa archivos de fuera de api/.
+COPY api/scripts/cargarFirma.ts api/scripts/crearDirectora.ts api/scripts/cargarCampana.ts api/scripts/
 RUN mkdir -p /var/lib/cil/archivos && chown node:node /var/lib/cil/archivos
 # El directorio de trabajo es la raíz, como en dev: `npm run firma:cargar --workspace api` (scripts/firma-cargar.mjs)
 # solo encuentra el workspace desde aquí. tsx toma el tsconfig de la API de esta variable.

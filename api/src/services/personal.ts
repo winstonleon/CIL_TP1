@@ -37,9 +37,10 @@ export interface CambiosPersonal {
 
 const correoDuplicado = () => new ErrorApi(409, "CORREO_DUPLICADO", "Ya existe una cuenta con ese correo");
 
-// Quién actúa es la directora (services/actor.ts).
-async function registrarGestion(db: Consultable, keycloakUserIdActor: string, detalle: Record<string, unknown>) {
-  const a = await actor(db, keycloakUserIdActor);
+// Quién actúa es la directora (services/actor.ts). Sin actor (el comando de la cuenta inicial, C18) no hay fila de personal:
+// el detalle dice el origen.
+async function registrarGestion(db: Consultable, keycloakUserIdActor: string | null, detalle: Record<string, unknown>) {
+  const a = keycloakUserIdActor === null ? { idPersonal: null, detalle: { origen: "comando_directora_inicial" } } : await actor(db, keycloakUserIdActor);
   await insertarEvento(db, { tipoEvento: "gestion_usuario", idPersonal: a.idPersonal, detalle: { ...detalle, ...a.detalle } });
 }
 
@@ -61,7 +62,13 @@ export async function listarPersonal(): Promise<FilaPersonal[]> {
 }
 
 // HU0021-1.0: crea la cuenta con su rol y Keycloak envía el enlace para definir la contraseña (72 h).
-export async function crearPersonal(identidad: IdentidadAdmin, keycloakUserIdActor: string, datos: DatosAlta): Promise<FilaPersonal> {
+export const crearPersonal = (identidad: IdentidadAdmin, keycloakUserIdActor: string, datos: DatosAlta): Promise<FilaPersonal> =>
+  altaPersonal(identidad, keycloakUserIdActor, datos);
+
+// C18: la cuenta inicial de la Directora no tiene quién la cree. Solo la llama el comando directora:crear, ninguna ruta.
+export const crearPersonalInicial = (identidad: IdentidadAdmin, datos: DatosAlta): Promise<FilaPersonal> => altaPersonal(identidad, null, datos);
+
+async function altaPersonal(identidad: IdentidadAdmin, keycloakUserIdActor: string | null, datos: DatosAlta): Promise<FilaPersonal> {
   let idIdentidad: string | null = null; // usuario de Keycloak que esta alta creó o adoptó
   let paso = "crear_usuario";
   try {
