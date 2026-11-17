@@ -16,7 +16,7 @@ export const EVENTOS_HISTORIAL = [
   "cuota_registrada",
 ] as const;
 
-const TRANSICIONES: Readonly<Record<string, string>> = {
+export const TRANSICIONES: Readonly<Record<string, string>> = {
   portal_habilitado: "Se habilitó tu acceso al portal",
   en_postulacion: "Iniciaste la ficha de inscripción",
   en_validacion: "Expediente completo: pasó a revisión de secretaría",
@@ -28,7 +28,7 @@ const TRANSICIONES: Readonly<Record<string, string>> = {
   caducado: "Tu postulación caducó por vencimiento del plazo", // HU0018-2.0 (C78): ya se le notificó
 };
 
-const DECISIONES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+export const DECISIONES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   validacion_documental: { conforme: "Secretaría dio conformidad a tus documentos", observado: "Secretaría observó un documento" },
   documentacion_financiera: { conforme: "Tesorería validó la documentación financiera", observado: "Tesorería observó la documentación financiera" },
   derecho_admision: {

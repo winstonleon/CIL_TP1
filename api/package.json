@@ -16,6 +16,7 @@
     "firma:ficticia": "tsx scripts/cargarFirma.ts --ficticia",
     "directora:crear": "tsx scripts/crearDirectora.ts",
     "campana:cargar": "tsx scripts/cargarCampana.ts",
+    "colegio:textos": "tsx scripts/textosColegio.ts",
     "agenda": "tsx scripts/agenda.ts"
   },
   "dependencies": {
