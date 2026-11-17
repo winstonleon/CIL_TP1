@@ -591,13 +591,26 @@ npm run colegio:textos -- <archivo.json>    # la hoja «Campaña» muestra ese a
 - **Una fila por texto**, con la columna «Decisión del colegio» (Aprobado o Corregir) y otra para el texto corregido. Los
   correos salen completos, compuestos con las mismas funciones del sistema y datos ficticios. «¿Bloquea abrir a las
   familias?» dice Sí para todo lo que ellas leen o reciben y No para los avisos al personal.
+- **Plazo y regla de aprobación (criterio del revisor, 17/11/2026):** la hoja «Instrucciones» fija un plazo de 3 días hábiles
+  desde el día en que se genera el documento, sin sábados, domingos ni feriados (`api/scripts/feriados.json`, el mismo de
+  `dev:agenda`): si lo envías otro día, vuelve a generarlo ese día. La columna «Qué se pide» dice en cada fila qué pasa si
+  el colegio no responde:
+  - «Sin decisión al vencer el plazo, se toma como aprobado»: solo los avisos de bajo riesgo ya redactados, hoy los mensajes
+    de pantalla del portal y del ingreso (69 filas en la versión 1).
+  - «No se aprueba por defecto»: lo que está entre corchetes, entre ello el cuerpo de los 17 correos, y los datos y
+    decisiones que solo el colegio puede dar (40 filas en la versión 1).
+  - «Aprobación explícita y firma»: la política de privacidad (PRI-01) y la Carta de Vacante (CAR-01 a CAR-06); con la campaña
+    (hoja «Campaña»), cada una se firma en la hoja «Aprobación» y nunca vale por defecto (7 filas y la campaña en la
+    versión 1).
 - **La política de privacidad (fila PRI-01) la debe revisar el abogado del colegio**, conforme a la Ley N.° 29733; la hoja
-  «Aprobación» tiene su espacio para el nombre, la firma y la fecha.
+  «Aprobación» tiene su espacio para el nombre, la firma y la fecha. La fila muestra la versión que el sistema registra con
+  cada consentimiento (hoy `borrador-1`, solo un marcador: el texto definitivo y su versión los entrega el colegio, C29).
 - La prueba `api/test/textosColegio.test.ts` falla si aparece en los servicios un texto entre corchetes sin su fila, o si
   un texto de pantalla del catálogo cambió de lugar en el código (los de las pantallas no se pueden importar: llevan el
   archivo y el fragmento donde viven). Un texto de pantalla nuevo se agrega a mano a `api/scripts/textosColegioCatalogo.ts`.
 - Cuando el colegio devuelva el archivo, incorpora cada texto al código (sube la versión del texto que cambie, como pide
   cada compromiso) y guarda el archivo devuelto junto al generado.
+
 ### El contenedor `admin`
 
 Las migraciones, las credenciales y los flujos de n8n se administran desde dentro de la red interna, con un contenedor
