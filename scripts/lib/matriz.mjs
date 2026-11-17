@@ -15,8 +15,13 @@ export const ESCENARIOS_POR_PARTES = {
   "HU0022-2.0": { compromiso: "C25", partes: ["regla", "adjudicación real"] },
   // WhatsApp Cloud API todavía no existe (C30): se verifica que no se envía sin autorización o con el canal apagado.
   "HU0002-1.0": { compromiso: "C30", partes: ["correo", "sin WhatsApp", "WhatsApp autorizado"] },
-  // D1 cubre solo el rechazo síncrono del servidor SMTP; el rebote asíncrono del proveedor queda antes del VPS (C34).
-  "HU0002-2.0": { compromiso: "C34", partes: ["rechazo síncrono", "rebote asíncrono del proveedor"] },
+  // D1 cubre solo el rechazo síncrono del servidor SMTP; el rebote asíncrono del proveedor sigue pendiente (C34: revisión manual con
+  // las primeras familias). Con SMTP real no hay otra verificación que la de dev con Mailpit: la nota lo dice en la matriz.
+  "HU0002-2.0": {
+    compromiso: "C34",
+    partes: ["rechazo síncrono", "rebote asíncrono del proveedor"],
+    notas: { "rechazo síncrono": "solo en dev con Mailpit" },
+  },
   // Un segundo apoderado a medias no se guarda en el servidor y se pierde al recargar (C43): la parte «conservado» no tiene
   // prueba a propósito y sigue pendiente hasta que el compromiso se cumpla.
   "HU0005-2.0": { compromiso: "C43", partes: ["borrador", "segundo apoderado parcial", "segundo apoderado conservado"] },
@@ -80,7 +85,9 @@ export function estadoDe(esc, config = ESCENARIOS_POR_PARTES) {
   if (config[esc.id]) {
     const { verificadas, pendientes, compromiso } = partesDe(esc, config);
     if (!pendientes.length) return "cubierto";
-    return `verificado: ${verificadas.join(", ") || "ninguna parte"}; pendiente: ${pendientes.join(", ")} (${compromiso})`;
+    const notas = config[esc.id].notas ?? {};
+    const conNota = verificadas.map((parte) => (notas[parte] ? `${parte} (${notas[parte]})` : parte));
+    return `verificado: ${conNota.join(", ") || "ninguna parte"}; pendiente: ${pendientes.join(", ")} (${compromiso})`;
   }
   if (ejecutadas.every((p) => p.titulo.includes(MARCA_C17))) return ESTADO_C17;
   return "cubierto";

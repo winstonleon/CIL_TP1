@@ -89,3 +89,18 @@ describe("matriz: escenarios del bloque 8 que se verifican por partes", () => {
     assert.equal(estadoDe(formato, ESCENARIOS_POR_PARTES), "verificado: formato; pendiente: calidad (C63)");
   });
 });
+
+describe("matriz: HU0002-2.0 y el SMTP real (C34)", () => {
+  it("C34 el rechazo síncrono figura verificado solo en dev con Mailpit mientras falte el rebote del proveedor", () => {
+    const esc = { id: "HU0002-2.0", pruebas: [prueba("API", "HU0002-2.0 [parte: rechazo síncrono] a"), prueba("E2E", "HU0002-2.0 [parte: rechazo síncrono] b")] };
+    assert.equal(
+      estadoDe(esc, ESCENARIOS_POR_PARTES),
+      "verificado: rechazo síncrono (solo en dev con Mailpit); pendiente: rebote asíncrono del proveedor (C34)",
+    );
+  });
+
+  it("C34 la nota acompaña solo a las partes verificadas: con pruebas de frontend no hay nada que anotar", () => {
+    const esc = { id: "HU0002-2.0", pruebas: [prueba("Frontend", "HU0002-2.0 [parte: rechazo síncrono] a")] };
+    assert.equal(estadoDe(esc, ESCENARIOS_POR_PARTES), "verificado: ninguna parte; pendiente: rechazo síncrono, rebote asíncrono del proveedor (C34)");
+  });
+});
