@@ -320,16 +320,23 @@ proveedor de correo o de un servidor Linux está escrito, pero sin probar, y lle
 - **Correo:** elegir el proveedor SMTP y probar por separado sus dos caminos, el de n8n y el de Keycloak (C84). Hasta
   ahora solo se probó con Mailpit. El sistema tampoco detecta los rebotes que el proveedor avisa después (C34):
   confirma el correo de cada familia por otro canal.
-- **Textos y datos reales del colegio:** la política de privacidad (C29, con revisión legal por la Ley 29733), la
-  carpeta informativa (C33), los avisos y la dirección (C39), el cuestionario (C42), los bancos (C48), las pautas de
-  las evaluaciones (C55), la Carta de Vacante (C75) y los plazos del seguimiento (C79). Hoy van entre corchetes.
-  Qué bloquea cada etapa: C85.
+- **Textos y datos reales del colegio (C85):** bloquea abrir el sistema a las familias todo texto que ellas lean o
+  reciban dentro de la ventana de validación. Como el OE3 exige que lleguen hasta la Carta de Vacante para medir el
+  lead time, en la práctica bloquean casi todos: la política de privacidad (C29, con revisión de su abogado por la
+  Ley 29733), la carpeta informativa (C33), los avisos y la dirección (C39), el cuestionario y el contacto (C42), los
+  bancos (C48), las pautas y los avisos de las evaluaciones (C55), los avisos de documentos, observaciones, vacante y
+  lista de espera, la Carta de Vacante completa (C75: texto institucional, logo y firma real), los plazos y los avisos
+  del seguimiento (C79), los textos de pantalla de las familias que no están en los mockups (C65, C76 y los de C39 y
+  C55) y los del ingreso al portal (C6 y C81). Hoy van entre corchetes o son provisionales. No bloquean los que lee solo
+  el personal (avisos a Admisión, Tesorería y evaluadores; G05, G07 y G08) ni la línea base del OE3 (C66). El colegio
+  los aprueba en un Excel que genera el sistema: «Documento para el colegio», más abajo.
 - **Datos de la campaña:** vacantes, fracciones y requisitos de cada grado, en el JSON que el colegio firma (más abajo).
 - **Respaldo (C35):** la copia fuera del servidor y el simulacro de restauración en un servidor nuevo. El respaldo
   diario cifrado en el propio servidor ya está (más abajo).
-- **Código pendiente antes del VPS (orden del 17/11/2026):** reenvío de credenciales (C32), «No desea postular» (C38) y
-  los tiempos de espera del SMTP de n8n (C41). Mientras falte el reenvío, el respaldo es «Si una familia no recibió sus
-  credenciales», en «Operación».
+- **Código pendiente antes del VPS (orden del 17/11/2026: C41, luego C32 y luego C38):** los cinco puntos de C41
+  (reintentos y tiempos de espera de los flujos con el SMTP real; va primero porque afecta a todo correo y es previo a
+  probar el reenvío), el reenvío de credenciales (C32) y «No desea postular» (C38). Mientras falte el reenvío, el
+  respaldo es «Si una familia no recibió sus credenciales», en «Operación».
 
 ### Qué cambia respecto de dev
 
@@ -537,9 +544,15 @@ fracciones y la lista de requisitos documentales.
    los requisitos y restricciones de la base) dentro de una transacción que se deshace, lista juntos todos los problemas
    y, si no hay ninguno, informa cuántos grados y requisitos crearía. No escribe nada.
 3. **El colegio firma ese mismo JSON** (impreso o en PDF): cada grado con su nombre, nivel, vacantes, cuota, fracciones,
-   evaluaciones y requisitos. Después de la firma no se cambia ni una coma sin repetir la simulación.
-4. **Carga real:** `npm run campana:cargar -- <archivo.json>`. Una sola transacción: queda todo o nada. Cada fila deja un
-   evento `cambio_configuracion` (origen `carga_campana`, sin actor).
+   evaluaciones y requisitos. Para que lo lea sin ver JSON, `npm run colegio:textos -- <archivo.json>` arma la hoja
+   «Campaña» del documento para el colegio con ese archivo, con su huella SHA-256 (los primeros 16 caracteres):
+   comprueba con `Get-FileHash <archivo> -Algorithm SHA256` (PowerShell) o `sha256sum <archivo>` (Linux) que sea la
+   misma que la que firmó. Después de la firma no se cambia ni una coma sin repetir la simulación.
+4. **Carga real:** `npm run campana:cargar -- <archivo.json> --responsable "<nombre y apellido>"`. Una sola
+   transacción: queda todo o nada. Cada fila deja un evento `cambio_configuracion` (origen `carga_campana`, sin actor).
+   Como no hay quien actúe en el sistema, **el nombre de quien corre el comando queda en el `detalle.responsable` de cada
+   evento**: `--responsable` es obligatorio en la carga real (400 `RESPONSABLE_REQUERIDO`), de 3 a 100 caracteres y sin
+   saltos de línea (400 `RESPONSABLE_INVALIDO`); con `--simular` es opcional. Usa tu nombre, no un seudónimo.
 5. `CAMPANA_ACTIVA` en `.env` debe ser la campaña cargada (sección 9). Revisa en G09 que todo esté como en el JSON firmado.
 
 **Casi no hay vuelta atrás.** El comando se niega con 409 `CAMPANA_YA_CARGADA` si la campaña ya tiene grados: no se puede
@@ -552,6 +565,32 @@ repetir ni completar. Qué se corrige después:
 
 El derecho de admisión (S/ 300, R16) no va en el archivo: es una constante de la API (sección 9).
 
+### Documento para el colegio (C85)
+
+El colegio aprueba los textos que sus familias leen o reciben, y entrega los datos que faltan, en un Excel que genera el
+sistema desde el código (así no se desfasa de lo que la familia recibe):
+
+```bash
+npm run colegio:textos                      # usa db/campanas/plantilla-2027.json
+npm run colegio:textos -- <archivo.json>    # la hoja «Campaña» muestra ese archivo (el que el colegio firma)
+```
+
+- Escribe en `docs/colegio/`: `textos-para-el-colegio-v<N>.xlsx` y `carta-de-vacante-ejemplo-v<N>.pdf` (la carta con
+  datos y firma ficticios). Corre en el host, sin base de datos ni `.env`: usa un entorno ficticio.
+- **Versión y fecha:** la hoja «Instrucciones» y el pie de cada hoja traen el número de versión, la fecha (hora de Lima),
+  el commit del código y una huella del contenido que cambia sola con cualquier texto. El número de versión lo sube a mano
+  quien envía una ronda nueva (`VERSION_DOCUMENTO`, en `api/scripts/textosColegioCatalogo.ts`): conserva el archivo de la
+  versión anterior como constancia.
+- **Una fila por texto**, con la columna «Decisión del colegio» (Aprobado o Corregir) y otra para el texto corregido. Los
+  correos salen completos, compuestos con las mismas funciones del sistema y datos ficticios. «¿Bloquea abrir a las
+  familias?» dice Sí para todo lo que ellas leen o reciben y No para los avisos al personal.
+- **La política de privacidad (fila PRI-01) la debe revisar el abogado del colegio**, conforme a la Ley N.° 29733; la hoja
+  «Aprobación» tiene su espacio para el nombre, la firma y la fecha.
+- La prueba `api/test/textosColegio.test.ts` falla si aparece en los servicios un texto entre corchetes sin su fila, o si
+  un texto de pantalla del catálogo cambió de lugar en el código (los de las pantallas no se pueden importar: llevan el
+  archivo y el fragmento donde viven). Un texto de pantalla nuevo se agrega a mano a `api/scripts/textosColegioCatalogo.ts`.
+- Cuando el colegio devuelva el archivo, incorpora cada texto al código (sube la versión del texto que cambie, como pide
+  cada compromiso) y guarda el archivo devuelto junto al generado.
 ### El contenedor `admin`
 
 Las migraciones, las credenciales y los flujos de n8n se administran desde dentro de la red interna, con un contenedor
