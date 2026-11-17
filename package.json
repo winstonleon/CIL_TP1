@@ -24,7 +24,7 @@
     "test:api": "npm run test --workspace api",
     "test:front": "npm run test --workspace frontend",
     "test:e2e": "npm run db:migrate && npm run test --workspace e2e --",
-    "test:scripts": "node --test scripts/lib/matriz.test.mjs scripts/lib/entornoLocal.test.mjs scripts/lib/keycloak.test.mjs",
+    "test:scripts": "node --test scripts/lib/matriz.test.mjs scripts/lib/entornoLocal.test.mjs scripts/lib/keycloak.test.mjs scripts/lib/smtp.test.mjs",
     "prod:verificar": "node scripts/verificar-prod.mjs",
     "evidencias:matriz": "npm run test:scripts && node scripts/matriz-trazabilidad.mjs",
     "n8n:importar": "node scripts/importar-workflows.mjs",

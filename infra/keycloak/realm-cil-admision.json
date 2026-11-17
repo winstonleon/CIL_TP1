@@ -24,9 +24,11 @@
     "port": "${SMTP_PORT}",
     "from": "${KEYCLOAK_SMTP_FROM}",
     "fromDisplayName": "Admisión CIL",
-    "auth": "false",
-    "ssl": "false",
-    "starttls": "false"
+    "auth": "${SMTP_AUTH}",
+    "user": "${SMTP_USER}",
+    "password": "${SMTP_PASSWORD}",
+    "ssl": "${SMTP_SSL}",
+    "starttls": "${SMTP_STARTTLS}"
   },
   "roles": {
     "realm": [

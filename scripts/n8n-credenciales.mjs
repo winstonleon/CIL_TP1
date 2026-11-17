@@ -9,6 +9,7 @@
 // el contenedor `admin`, que llega a n8n por la red interna: los secretos no salen de ella).
 // Uso: npm run n8n:credenciales
 import { cargarEntorno, leerVariable, requerida } from "./lib/keycloak.mjs";
+import { advertenciasSmtp, datosCredencialSmtp, smtpDesdeEntorno } from "./lib/smtp.mjs";
 
 cargarEntorno();
 const URL_N8N = process.env.N8N_CIL_API_URL?.replace(/\/$/, "");
@@ -20,25 +21,24 @@ if (!URL_N8N || !CLAVE) {
 
 const secretoWebhook = requerida("N8N_WEBHOOK_SECRET");
 const tokenApi = requerida("INTERNAL_API_TOKEN");
-const SECRETOS = [secretoWebhook, tokenApi];
+// SMTP (C12): host, puerto, autenticación y TLS salen de .env; sin las variables nuevas rige Mailpit (dev).
+let smtp;
+try {
+  smtp = smtpDesdeEntorno();
+} catch (e) {
+  console.error(`✘ cil-smtp: ${e.message} (GUIA-INSTALACION.md, sección 10, «Correo real»).`);
+  process.exit(2);
+}
+for (const aviso of advertenciasSmtp(smtp)) console.warn(`⚠ cil-smtp: ${aviso}.`);
+// Un error de n8n puede traer el secreto tal cual o escapado como JSON (comillas, barras): se tapan las dos formas.
+const SECRETOS = [secretoWebhook, tokenApi, ...(smtp.password ? [smtp.password] : [])].flatMap((s) => [s, JSON.stringify(s).slice(1, -1)]);
 const tapar = (texto) => SECRETOS.reduce((t, s) => t.split(s).join("***"), texto);
 
 // La credencial de la API interna solo puede enviarse al host de la API (Allowed HTTP Request Domains).
 const hostApi = new URL(requerida("API_INTERNAL_URL")).hostname;
 
 const DESEADAS = [
-  {
-    name: "cil-smtp",
-    type: "smtp",
-    data: {
-      user: "",
-      password: "",
-      host: requerida("SMTP_HOST"),
-      port: Number(requerida("SMTP_PORT")),
-      secure: false,
-      disableStartTls: true, // Mailpit (dev) no ofrece TLS
-    },
-  },
+  { name: "cil-smtp", type: "smtp", data: datosCredencialSmtp(smtp) },
   {
     name: "cil-webhook-secret",
     type: "httpHeaderAuth",

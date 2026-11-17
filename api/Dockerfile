@@ -59,7 +59,7 @@ WORKDIR /app
 # dbmate es dependencia de la raíz del repo: aquí se instala junto con las de la API.
 RUN npm ci --workspace api --include-workspace-root --omit=dev && npm cache clean --force
 COPY scripts/db.mjs scripts/n8n-credenciales.mjs scripts/importar-workflows.mjs scripts/
-COPY scripts/lib/keycloak.mjs scripts/lib/
+COPY scripts/lib/keycloak.mjs scripts/lib/smtp.mjs scripts/lib/
 COPY db/migrations db/migrations
 # n8n:importar reescribe los JSON con el estado de la instancia: dentro del contenedor esa copia se descarta.
 COPY --chown=node:node n8n/workflows n8n/workflows
