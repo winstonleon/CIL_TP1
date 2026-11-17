@@ -8,7 +8,7 @@ import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { crearApp } from "../src/app";
 import { cerrarPool, obtenerPool } from "../src/db/pool";
-import { cargarCampana } from "../src/services/cargaCampana";
+import { cargarCampana, validarResponsable } from "../src/services/cargaCampana";
 import { crearFirmante, crearPersonal, unico } from "./ayudantes";
 import { crearIdentidadFalsa } from "./identidadFalsa";
 
@@ -215,5 +215,58 @@ describe("C26 carga de una campaña nueva", () => {
     expect(error).toMatchObject({ status: 422, codigo: "CARGA_INVALIDA" });
     expect(error.message).toContain("grados[0].vacantes_autorizadas: por definir con el colegio");
     expect(error.message).toContain("grados[13].max_fracciones: por definir con el colegio");
+  });
+});
+
+// Los eventos de la carga no tienen actor (id_personal nulo): el responsable queda en `detalle`, para que alguien responda por la carga (§4.7).
+describe("C26 responsable de la carga", () => {
+  const falla = (f: () => unknown) => {
+    try {
+      f();
+    } catch (e) {
+      return e;
+    }
+    return undefined;
+  };
+
+  it("C26 el responsable queda, sin espacios de más, en el detalle de cada evento de alta de la carga, junto con su origen y sin id_personal", async () => {
+    const c = codigoNuevo();
+
+    await cargarCampana(JSON.stringify(campana(c)), { simular: false, responsable: "  Brayan Denis (Scrum Master)  " });
+
+    const { rows } = await db().query(
+      "SELECT id_personal, detalle FROM registro_auditoria WHERE tipo_evento = 'cambio_configuracion' AND detalle->>'campana' = $1",
+      [c],
+    );
+    expect(rows).toHaveLength(7); // 2 grados + 5 requisitos
+    for (const e of rows) {
+      expect(e.id_personal).toBeNull();
+      expect(e.detalle).toMatchObject({ accion: "alta", origen: "carga_campana", responsable: "Brayan Denis (Scrum Master)" });
+    }
+  });
+
+  it("C26 la carga real exige un responsable (400 RESPONSABLE_REQUERIDO) y --simular no", () => {
+    for (const vacio of [undefined, "", "   "]) {
+      expect(falla(() => validarResponsable(vacio, true))).toMatchObject({ status: 400, codigo: "RESPONSABLE_REQUERIDO" });
+    }
+    expect(validarResponsable(undefined, false)).toBeUndefined();
+    expect(validarResponsable("Ana Prueba", false)).toBe("Ana Prueba");
+    expect(validarResponsable(" Ana Prueba ", true)).toBe("Ana Prueba");
+  });
+
+  it("C26 un responsable de menos de 3 caracteres, de más de 100 o con saltos de línea se rechaza (400 RESPONSABLE_INVALIDO), también con --simular", () => {
+    for (const malo of ["ab", "x".repeat(101), "Ana\nPrueba", "Ana\u0000Prueba"]) {
+      expect(falla(() => validarResponsable(malo, true))).toMatchObject({ status: 400, codigo: "RESPONSABLE_INVALIDO" });
+      expect(falla(() => validarResponsable(malo, false))).toMatchObject({ status: 400, codigo: "RESPONSABLE_INVALIDO" });
+    }
+    expect(validarResponsable("x".repeat(100), true)).toHaveLength(100);
+  });
+
+  it("C26 con --simular y responsable no queda ningún evento", async () => {
+    const c = codigoNuevo();
+
+    await cargarCampana(JSON.stringify(campana(c)), { simular: true, responsable: "Ana Prueba" });
+
+    expect(await eventosDe(c)).toBe(0);
   });
 });

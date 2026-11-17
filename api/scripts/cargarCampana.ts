@@ -1,9 +1,10 @@
 // Crea los grados y los requisitos documentales de una campaña nueva (C26, punto 1). Corre DENTRO del contenedor `api` (acceso a
-// la base): `npm run campana:cargar -- <archivo.json> [--simular]` (raíz del repo) le pasa el archivo por la entrada estándar.
+// la base): `npm run campana:cargar -- <archivo.json> [--simular] [--responsable "<nombre>"]` (raíz del repo) le pasa el archivo por la
+// entrada estándar y el responsable por CIL_RESPONSABLE (la carga real lo exige: sus eventos no tienen actor).
 // Una sola transacción: queda todo o no queda nada; con --simular valida y deshace. Imprime solo conteos.
 import { cerrarPool } from "../src/db/pool";
 import { ErrorApi } from "../src/errores";
-import { cargarCampana } from "../src/services/cargaCampana";
+import { cargarCampana, validarResponsable } from "../src/services/cargaCampana";
 
 async function entradaEstandar(): Promise<string> {
   const partes: Buffer[] = [];
@@ -13,7 +14,8 @@ async function entradaEstandar(): Promise<string> {
 
 try {
   const simular = process.argv.slice(2).includes("--simular");
-  const r = await cargarCampana(await entradaEstandar(), { simular });
+  const responsable = validarResponsable(process.env.CIL_RESPONSABLE, !simular);
+  const r = await cargarCampana(await entradaEstandar(), { simular, responsable });
   console.log(
     simular
       ? `Simulación de la campaña ${r.campana}: se crearían ${r.grados} grados y ${r.requisitos} requisitos. No se escribió nada.`

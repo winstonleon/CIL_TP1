@@ -167,14 +167,36 @@ const CAMPOS_REQUISITO = ["tipo_documento", "categoria", "condicion_aplicacion",
 const cambiosDeAlta = (fila: object, campos: readonly string[]) =>
   Object.fromEntries(campos.map((c) => [c, { anterior: null, nuevo: (fila as Record<string, unknown>)[c] ?? null }]));
 
-async function registrarAlta(db: Consultable, detalle: Record<string, unknown>) {
-  await insertarEvento(db, { tipoEvento: "cambio_configuracion", idPersonal: null, detalle: { ...detalle, accion: "alta", origen: ORIGEN } });
+async function registrarAlta(db: Consultable, detalle: Record<string, unknown>, responsable?: string) {
+  await insertarEvento(db, {
+    tipoEvento: "cambio_configuracion",
+    idPersonal: null,
+    detalle: { ...detalle, accion: "alta", origen: ORIGEN, ...(responsable ? { responsable } : {}) },
+  });
+}
+
+const RESPONSABLE_MINIMO = 3;
+const RESPONSABLE_MAXIMO = 100;
+
+// Quien corre el comando. Los eventos de la carga no tienen actor (id_personal nulo): el responsable queda en `detalle` (§4.7). La carga
+// real lo exige; con --simular solo se valida si viene.
+export function validarResponsable(valor: string | undefined, obligatorio: boolean): string | undefined {
+  const responsable = valor?.trim();
+  if (!responsable) {
+    if (obligatorio) throw new ErrorApi(400, "RESPONSABLE_REQUERIDO", 'Indica quién corre el comando: --responsable "<nombre>"');
+    return undefined;
+  }
+  if (responsable.length < RESPONSABLE_MINIMO || responsable.length > RESPONSABLE_MAXIMO || /[\u0000-\u001f\u007f]/.test(responsable)) {
+    throw new ErrorApi(400, "RESPONSABLE_INVALIDO", `El responsable debe tener de ${RESPONSABLE_MINIMO} a ${RESPONSABLE_MAXIMO} caracteres, sin saltos de línea`);
+  }
+  return responsable;
 }
 
 class Simulacion extends Error {}
 
 // Con `simular` valida todo y hace todo dentro de la transacción, pero la deshace: informa lo que crearía sin escribir nada.
-export async function cargarCampana(contenido: string, { simular }: { simular: boolean }): Promise<ResultadoCarga> {
+export async function cargarCampana(contenido: string, { simular, responsable }: { simular: boolean; responsable?: string }): Promise<ResultadoCarga> {
+  const quien = validarResponsable(responsable, false);
   const datos = leerArchivoCampana(contenido);
   const { campana } = datos;
   if (campana === CAMPANA_DEMO) {
@@ -191,17 +213,21 @@ export async function cargarCampana(contenido: string, { simular }: { simular: b
       for (const g of datos.grados) {
         const { requisitos, ...valores } = g;
         const fila = await insertarGrado(c, campana, valores);
-        await registrarAlta(c, { entidad: "grado", id_grado: fila.id_grado, campana, cambios: cambiosDeAlta(fila, CAMPOS_GRADO) });
+        await registrarAlta(c, { entidad: "grado", id_grado: fila.id_grado, campana, cambios: cambiosDeAlta(fila, CAMPOS_GRADO) }, quien);
         resultado.grados++;
         for (const r of [...datos.requisitos_comunes, ...requisitos]) {
           const creado = await insertarRequisito(c, fila.id_grado, r);
-          await registrarAlta(c, {
-            entidad: "requisito_documental",
-            id_requisito: creado.id_requisito,
-            id_grado: fila.id_grado,
-            campana,
-            cambios: cambiosDeAlta(creado, CAMPOS_REQUISITO),
-          });
+          await registrarAlta(
+            c,
+            {
+              entidad: "requisito_documental",
+              id_requisito: creado.id_requisito,
+              id_grado: fila.id_grado,
+              campana,
+              cambios: cambiosDeAlta(creado, CAMPOS_REQUISITO),
+            },
+            quien,
+          );
           resultado.requisitos++;
         }
       }
