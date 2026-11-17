@@ -100,7 +100,7 @@ Todos se ejecutan desde la raíz del repo. No inventes otros scripts: si hace fa
 - Pruebas frontend (Vitest + Vue Test Utils): `npm run test:front`
 - E2E (Playwright, contra el entorno dev levantado): `npm run test:e2e`
 - Verificación de la infraestructura (S0-A1..A7): `npm run infra:verificar`
-- Pruebas de las reglas de la matriz (`scripts/lib/matriz.mjs`, con `node --test`): `npm run test:scripts`
+- Pruebas de los scripts (`scripts/lib/*.test.mjs`, con `node --test`: reglas de la matriz, guardas de dev y lectura del entorno): `npm run test:scripts`
 - Matriz de trazabilidad HU → escenario → prueba → resultado (corre primero `test:scripts`, y si pasa, las tres suites, y escribe `docs/evidencias/matriz-trazabilidad.md`; con `-- --sin-e2e` omite el E2E): `npm run evidencias:matriz`
 - Solo dev, después de reimportar el realm de Keycloak: `npm run dev:limpiar-personal-huerfano` (desactiva en `personal` las cuentas `@ejemplo.test` que ya no existen en Keycloak)
 - Cargar la firma escaneada de la Directora (PNG o JPG, hasta 1 MB): `npm run firma:cargar -- <correo> <ruta>`
@@ -108,6 +108,7 @@ Todos se ejecutan desde la raíz del repo. No inventes otros scripts: si hace fa
 - Solo dev, horarios de G09 para la demo (campaña activa, hasta el 31/03/2027, lunes a viernes sin feriados; en la instalación desde cero va después de `dev:firma-ficticia`): `npm run dev:agenda` (idempotente; feriados en `api/scripts/feriados.json`)
 - Importar workflows a n8n: `npm run n8n:importar` (crea o actualiza por nombre, verifica las credenciales de cada nodo y exporta de vuelta al repo)
 - Crear o actualizar las credenciales de n8n desde `.env`: `npm run n8n:credenciales`
+- Solo producción (ADR-32; `GUIA-INSTALACION.md`, sección 10). Administración desde la red interna: `docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile tools run --rm admin <db:migrate|n8n:credenciales|n8n:importar>`. Verificación del despliegue, en el servidor: `npm run prod:verificar` (con `-- --certificado-autofirmado` mientras el certificado sea provisional)
 
 ## Seguridad y datos
 
