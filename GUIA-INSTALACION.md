@@ -760,6 +760,10 @@ ni descifra un DNI.
   `$C logs --since 24h api | grep "Fallo en n8n"`. Cada línea es un fallo que n8n registró en `/internal/errores-flujo`, solo
   con el flujo, el nodo y el id de la ejecución (C2). Una carpeta que falla con 400 deja al prospecto sin carpeta y fuera de G04
   (queda fuera de C41): esa línea es la única señal.
+- **«No me llegó» (lo más probable con familias reales):** el servidor SMTP acepta el correo y la bandeja de la familia
+  lo manda a spam. G04 lo muestra como enviado y el reenvío de C32 no lo cubrirá, porque solo se ofrecerá con el aviso
+  `fallido`. Llama a la familia: que revise spam y no deseados, y confirma el correo con que se registró. Si no aparece,
+  restablece su contraseña con una temporal, como se explica en el punto siguiente, y entrégala por otro canal.
 - **Si una familia no recibió sus credenciales** (el reenvío todavía no existe, C32): restablece su contraseña con una
   temporal y entrégala por otro canal, nunca por correo. Keycloak la obliga a cambiarla al entrar. Genérala con
   `openssl rand -base64 12` y abre antes la sesión de administración (primer comando de «Keycloak sin consola
