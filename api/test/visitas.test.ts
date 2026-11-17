@@ -186,6 +186,16 @@ describe("HU0004-1.0 registro de visita conforme y apertura de postulación", ()
     expect((await semana(e, "2026-02-30")).status).toBe(400);
   });
 
+  it("HU0004-1.0 (C73) GET /visitas responde 400 VALIDACION, y no 500, con un mes o un día imposible", async () => {
+    const e = await entornoVisita(db(), firmante);
+    for (const fecha of ["2026-13-01", "2026-00-10", "2026-11-32", "2026-02-30"]) {
+      const res = await semana(e, fecha);
+      expect(res.status, fecha).toBe(400);
+      expect(res.body.error.codigo, fecha).toBe("VALIDACION");
+    }
+    expect((await semana(e, "2026-11-16")).status).toBe(200);
+  });
+
   it("HU0004-1.0 (P-c) GET /visitas incluye en sin_registrar las visitas reservadas de semanas anteriores", async () => {
     const e = await entornoVisita(db(), firmante);
     const vieja = await citaHace(db(), e.campana, { estado: "reservada", minutos: 60 * 24 * 10, dias: -10 });

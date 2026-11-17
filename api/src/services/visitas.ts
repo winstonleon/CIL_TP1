@@ -36,8 +36,6 @@ export interface Visita {
   aviso: { tipo_evento: string; estado_envio: string } | null;
 }
 
-const FECHA = /^\d{4}-\d{2}-\d{2}$/;
-
 // Hoy en Lima, como «AAAA-MM-DD».
 function hoyEnLima(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -54,10 +52,6 @@ export function semanaDe(fecha: string): { desde: string; hasta: string } {
   const dia = new Date(`${fecha}T00:00:00Z`).getUTCDay(); // 0 = domingo
   const desde = sumarDias(fecha, -((dia + 6) % 7));
   return { desde, hasta: sumarDias(desde, 6) };
-}
-
-export function fechaValida(fecha: string): boolean {
-  return FECHA.test(fecha) && new Date(`${fecha}T00:00:00Z`).toISOString().slice(0, 10) === fecha;
 }
 
 async function conAviso(db: Consultable, filas: FilaVisita[]): Promise<Visita[]> {
