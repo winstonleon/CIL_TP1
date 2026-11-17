@@ -305,8 +305,9 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
 está escrito, pero sin probar, y lleva la marca **[sin probar]**.
 
 **No abrir a familias reales todavía.** Faltan, entre otros compromisos de «Antes del despliegue al VPS»
-(`docs/compromisos.md`): el SMTP real (C12; sin él no sale ningún correo), la cuenta inicial de la Directora (C18) y el
-respaldo de la base y de los archivos (ADR-08, C35).
+(`docs/compromisos.md`): el SMTP real (C12; sin él no sale ningún correo), la cuenta inicial de la Directora (C18) y,
+del respaldo (C35), la copia fuera del servidor y el simulacro de restauración en un servidor nuevo. El respaldo diario
+cifrado en el propio servidor ya está (más abajo).
 
 ### Qué cambia respecto de dev
 
@@ -341,7 +342,8 @@ C="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
 ```
 
 1. **`.env`:** `cp .env.example .env`, reemplaza en él las variables de `.env.prod.example` (el dominio, `TLS_CERT_DIR`,
-   `ACME_WEBROOT_DIR` y `N8N_CIL_API_KEY` vacía) y completa los datos del colegio. Después:
+   `ACME_WEBROOT_DIR`, `RESPALDO_DIR`, `RESPALDO_CLAVE_PUBLICA` y `N8N_CIL_API_KEY` vacía) y completa los datos del
+   colegio. La clave del respaldo se genera **fuera** del servidor (ver «Respaldo diario»). Después:
    ```bash
    node scripts/generar-secretos.js
    chmod 600 .env
@@ -353,6 +355,7 @@ C="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
    advertencia: sirve para ensayar con el equipo, no para las familias.
    ```bash
    sudo mkdir -p /etc/cil/tls /var/www/cil-acme
+   sudo install -d -m 700 /var/backups/cil      # RESPALDO_DIR
    sudo openssl req -x509 -newkey rsa:2048 -nodes -days 30 -subj "/CN=<dominio>" \
      -keyout /etc/cil/tls/privkey.pem -out /etc/cil/tls/fullchain.pem
    ```
@@ -406,7 +409,7 @@ $C --profile tools run --rm admin <script>      # db:migrate · n8n:credenciales
 Se corre en el servidor. Comprueba, entre otras cosas: que solo NGINX publique puertos, la redirección a HTTPS, el
 certificado, que `/api/internal` y sus variantes no lleguen a la API (C19), que los webhooks no se publiquen (C11), el
 tope de 11 MB de las cargas (C46), Keycloak bajo `/auth`, el registro de acceso sin consultas, los secretos de n8n (C5)
-y que no exista `admision_test` (C14).
+y que no exista `admision_test` (C14), y que el último respaldo haya terminado bien hace menos de 26 h (C35).
 
 - `--certificado-autofirmado`: mientras el certificado sea el provisional.
 - `--limite-por-ip`: comprueba además que `X-Forwarded-For` no esquiva el límite por IP. Deja la IP desde la que se
@@ -458,6 +461,69 @@ El primero abre la sesión de administración; los otros listan los eventos, bus
   temporales (`USER_DISABLED_BY_TEMPORARY_LOCKOUT`), con el usuario y la IP, durante 90 días. Los ingresos correctos no
   se guardan. Es la evidencia de HU0023-2.0. La retención es provisional: la fija el colegio.
 - El realm de producción se importa una sola vez. Un cambio posterior en `realm-cil-admision.json` no se aplica solo.
+
+### Respaldo diario (C35)
+
+El servicio `respaldo` (`infra/respaldo/respaldar.sh`) respalda cada día a las 02:00 de Lima. Además, mientras el
+último respaldo no sea bueno y de menos de 26 h (porque falló o porque el contenedor estuvo detenido), reintenta al
+arrancar y cada hora. Con el servicio funcionando se pierden como máximo unas 27 h de datos. Deja en `RESPALDO_DIR` una carpeta `AAAAMMDD-HHMMSS` con las tres bases
+(`pg_dump`), los roles (`pg_dumpall --globals-only`), el volumen `archivos` y su manifiesto, **todo cifrado con age**.
+Conserva 14 días y nunca menos de los 7 últimos; la poda corre solo después de un respaldo exitoso.
+
+- **Qué no protege todavía:** la pérdida del servidor. El respaldo vive en el mismo disco que la base hasta que exista
+  la copia fuera del VPS (C35, pendiente: el destino lo decide el colegio). No se afirma recuperación ante la pérdida del
+  servidor mientras tanto.
+- **n8n sin ejecuciones:** de la base `n8n` no se respaldan los datos de `execution*` (correos, cuerpos de avisos y
+  `X-Webhook-Secret`, C10 y C11). Sí van los flujos, las credenciales cifradas, los usuarios y la clave de API.
+- **Retención y borrado:** un dato que una familia pida borrar sigue en los respaldos hasta que estos venzan: 14 días si
+  los respaldos funcionan. Si fallan varios días seguidos, los 7 últimos buenos no se borran hasta que vuelva a haber
+  uno exitoso, así que ese plazo se alarga lo mismo que dure la falla.
+
+**Claves: tres cosas distintas, ninguna junto al respaldo.**
+
+1. **Clave privada de age** (`AGE-SECRET-KEY-…`): descifra los respaldos. Se genera en la máquina del responsable, no en
+   el servidor; en el `.env` del servidor va solo la línea pública:
+   ```bash
+   age-keygen -o clave-respaldo-cil.txt      # imprime «Public key: age1…» → RESPALDO_CLAVE_PUBLICA
+   ```
+2. **El `.env` del servidor:** `ARCHIVOS_ENCRYPTION_KEY`, `DATA_ENCRYPTION_KEY` y `DATA_HMAC_KEY` (sin ellas los DNI y
+   los archivos restaurados no se leen, C47), `N8N_ENCRYPTION_KEY` y las contraseñas de las bases. El respaldo no lo
+   incluye.
+3. **Propuesta, por confirmar con John y el colegio:** dos copias de cada una, en dos lugares distintos, con un
+   responsable nombrado y una revisión de que siguen legibles. Hoy no hay responsable ni lugares definidos.
+
+**Revisión diaria** durante la validación con familias: `npm run prod:verificar` (o `$C exec respaldo respaldar.sh
+comprobar`). Sin clave privada en el servidor, solo puede comprobar que terminó, que es reciente, que cuadra con su
+manifiesto y que está cifrado; que se pueda restaurar se prueba con el simulacro.
+
+**Respaldo a mano**, por ejemplo antes de actualizar: `$C exec respaldo respaldar.sh una-vez`.
+
+**Simulacro de restauración en un servidor nuevo [sin probar: requiere un segundo servidor].** Es la única prueba de
+que el respaldo sirve si se pierde el servidor. Se hace en un host limpio, con las claves tomadas de sus copias aparte,
+y se mide cuánto tarda:
+
+1. Clonar el repo en el host nuevo y copiar el `.env` **desde su copia guardada aparte**, no desde el servidor original.
+2. Copiar a `RESPALDO_DIR` la carpeta `AAAAMMDD-HHMMSS` del respaldo y construir: `$C --profile tools build`, `$C build`.
+3. Levantar **solo** Postgres, que crea las bases vacías y los roles con el `.env` (`infra/postgres/init/`). **No** correr
+   `db:migrate`: el respaldo ya trae el esquema.
+   ```bash
+   $C up -d postgres
+   $C run --rm -v /ruta/clave-respaldo-cil.txt:/clave:ro -v cil-admision_archivos:/respaldo/restaurar \
+     respaldo restaurar.sh --prueba <AAAAMMDD-HHMMSS> /clave     # bases temporales y conteo de filas
+   $C run --rm -v /ruta/clave-respaldo-cil.txt:/clave:ro -v cil-admision_archivos:/respaldo/restaurar \
+     respaldo restaurar.sh <AAAAMMDD-HHMMSS> /clave              # restauración real
+   $C up -d
+   ```
+   Si la restauración real falla a mitad, las bases ya restauradas quedan con datos y `restaurar.sh` se negará a
+   repetirlas: hay que borrar el volumen `pgdata` (y `archivos`) y volver a empezar desde `$C up -d postgres`.
+4. Comprobar con datos reales: entrar al portal con una cuenta de familia, ver en su ficha (P05) el DNI del postulante
+   (prueba `DATA_ENCRYPTION_KEY`) y abrir uno de sus documentos (prueba `ARCHIVOS_ENCRYPTION_KEY`). Después,
+   `npm run prod:verificar`.
+5. Anotar la fecha, cuánto tardó y quién lo hizo.
+
+La prueba automática del respaldo y la restauración, con contenedores y datos ficticios desechables, se corre en
+cualquier PC con Docker: `bash infra/respaldo/probar.sh`. No reemplaza el simulacro: no usa el `.env` guardado aparte
+ni descifra un DNI.
 
 ### Operación
 

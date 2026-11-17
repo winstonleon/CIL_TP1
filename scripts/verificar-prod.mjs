@@ -1,4 +1,4 @@
-// Verificación del despliegue de producción (ADR-08; C5, C11, C14, C19 y C46) contra un entorno levantado con
+// Verificación del despliegue de producción (ADR-08; C5, C11, C14, C19, C35 y C46) contra un entorno levantado con
 //   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 // Se corre en el servidor, desde la raíz del repo: lee .env y consulta a Docker. No imprime valores de variables,
 // contraseñas ni tokens. Las rutas se piden tal cual, sin normalizar, con node:http y node:https.
@@ -123,6 +123,21 @@ await prueba(
     }
     const deNginx = new Set(publicados(contenedores.find((s) => s.Service === "nginx")).map((p) => p.TargetPort));
     afirmar(deNginx.has(80) && deNginx.has(443), "NGINX no publica el 80 y el 443 del contenedor");
+  },
+  sinDocker,
+);
+
+// C35: sin la clave privada (que no está en el servidor) no se puede descifrar; se comprueba lo que sí: que terminó,
+// que es reciente, que cuadra con su manifiesto y que cada archivo está cifrado con age. La restauración se prueba aparte.
+await prueba(
+  "C35",
+  "el último respaldo cifrado terminó bien, tiene menos de 26 h y cuadra con su manifiesto",
+  async () => {
+    try {
+      return docker(["exec", "-T", "respaldo", "respaldar.sh", "comprobar"]).trim();
+    } catch (e) {
+      throw new Error(String(e.stdout || e.message).trim());
+    }
   },
   sinDocker,
 );

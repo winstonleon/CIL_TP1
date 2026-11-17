@@ -71,6 +71,35 @@ services:
     networks: [interna]
     restart: unless-stopped
 
+  # Respaldo diario cifrado (ADR-08; C35 y C47): infra/respaldo/respaldar.sh, a las 02:00 de Lima. Sin puertos. Lee las
+  # tres bases como superusuario (pg_dumpall --globals-only lo exige) y el volumen `archivos` en solo lectura. Cifra con
+  # la clave PÚBLICA de age: la privada no está en el servidor. Restauración: GUIA-INSTALACION.md, §10.
+  respaldo:
+    build:
+      context: infra/respaldo
+    # El bucle es un script de shell: como PID 1 ignoraría SIGTERM y `docker stop` esperaría 10 s para matarlo.
+    init: true
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ${POSTGRES_SUPERUSER}
+      ADMISION_DB: ${ADMISION_DB}
+      N8N_DB: ${N8N_DB}
+      KEYCLOAK_DB: ${KEYCLOAK_DB}
+      RESPALDO_CLAVE_PUBLICA: ${RESPALDO_CLAVE_PUBLICA:?falta RESPALDO_CLAVE_PUBLICA en .env}
+      TZ: America/Lima
+    secrets:
+      - postgres_superpassword
+    volumes:
+      - archivos:/respaldo/origen/archivos:ro
+      # Carpeta del servidor, fuera del repo. No protege contra la pérdida del servidor: la copia fuera del VPS es C35.
+      - ${RESPALDO_DIR:?falta RESPALDO_DIR en .env}:/respaldo/destino
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [interna]
+    restart: unless-stopped
+
   # Administración del servidor desde dentro de la red interna (ADR-08). No arranca con `up`: se usa con
   #   docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile tools run --rm admin <script>
   # donde <script> es db:migrate, n8n:credenciales o n8n:importar. Recibe solo las variables que esos scripts
@@ -122,3 +151,5 @@ secrets:
     environment: N8N_WEBHOOK_SECRET
   internal_api_token:
     environment: INTERNAL_API_TOKEN
+  postgres_superpassword:
+    environment: POSTGRES_SUPERPASSWORD
