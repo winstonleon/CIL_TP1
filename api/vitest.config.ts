@@ -48,5 +48,7 @@ export default defineConfig({
     globalSetup: ["test/globalSetup.ts"],
     // Una sola BD compartida: los archivos se ejecutan en serie.
     fileParallelism: false,
+    // Los 5 s por defecto no alcanzan para generar la demo (60 expedientes) con la PC cargada (demo.test.ts, 17/11/2026).
+    testTimeout: 30_000,
   },
 });
