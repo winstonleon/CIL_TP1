@@ -635,6 +635,7 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 
 ## ADR-29 Panel de seguimiento de la familia (HU0020, P04)
 - **[EQUIPO, bloque 10, 06/11/2026] Sin reglas nuevas:** `GET /familia/expedientes/:id/panel` solo compone lo que ya existe (ramas de R9, observaciones vigentes, verificación de completitud, P07 y P08). «En revisión» se deriva: rama `pendiente` con el expediente en `en_validacion`; `en_revision` sigue sin uso (ADR-23).
+- **Las seis etapas de P04 (registro del 16/11/2026; no es una decisión nueva):** son las del mockup `docs/ui/P04-Panel.dc.html`, en este orden: (1) Ficha y cuestionario; (2) Documentos; (3) Pagos y doc. financiera; (4) Evaluaciones; (5) Resultado; (6) Cuota y carta. Son solo una lectura de los estados que ya existen, sin tabla ni columna propia: las compone `api/src/services/panelSeguimiento.ts`.
 - **[EQUIPO, D4] Historial por lista blanca:** cada evento visible de la bitácora se traduce a un texto fijo, y lo que no está en la lista se omite. `detalle` nunca llega al cliente: la respuesta es solo fecha y texto. Los actores van por área («Tesorería»), nunca por nombre.
   - **Nunca se muestran:** `atencion_inicio`, `acceso_denegado`, `notificacion_rebotada`, los `atencion_fin` de citas, dictamen y adjudicación, ni las transiciones de las ramas, que ya salen por su `atencion_fin`.
   - El motivo de una observación va solo en «Acciones pendientes». Nunca aparecen conclusiones, observaciones de las evaluaciones, nombres del personal ni datos de otras familias.
