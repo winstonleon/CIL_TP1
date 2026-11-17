@@ -31,6 +31,7 @@ import { transicionarExpediente } from "./expedientes/transicionarExpediente";
 import { codigoExpediente } from "./fichaInscripcion";
 import { CAMPANA_DEMO } from "./indicadores";
 import { generarPdfCarta } from "./plantillaCarta";
+import { validarResponsable } from "./responsable";
 
 const ESTADO_CARTA = "vacante_asignada";
 export const MAXIMO_BYTES_FIRMA = 1024 * 1024;
@@ -193,7 +194,8 @@ export async function abrirCarta(almacenamiento: Almacenamiento, idExpediente: n
 
 // npm run firma:cargar (D2-A): solo PNG o JPG, por sus bytes, hasta 1 MB, y una imagen que el PDF pueda incrustar. Sin ruta
 // HTTP: la firma nunca sale de la API. La anterior se borra después del COMMIT, porque las cartas emitidas ya la llevan.
-export async function cargarFirma(almacenamiento: Almacenamiento, correo: string, imagen: Buffer): Promise<{ id_personal: number }> {
+export async function cargarFirma(almacenamiento: Almacenamiento, correo: string, imagen: Buffer, responsable?: string): Promise<{ id_personal: number }> {
+  const quien = validarResponsable(responsable, false);
   const formato = formatoPorFirma(imagen);
   if (formato !== "png" && formato !== "jpg") throw new ErrorApi(415, "FORMATO_NO_ADMITIDO", "La firma debe ser una imagen PNG o JPG");
   if (imagen.length > MAXIMO_BYTES_FIRMA) throw new ErrorApi(413, "ARCHIVO_DEMASIADO_GRANDE", "La firma pesa más de 1 MB");
@@ -209,7 +211,10 @@ export async function cargarFirma(almacenamiento: Almacenamiento, correo: string
       if (!directora) throw new ErrorApi(404, "DIRECTORA_NO_ENCONTRADA", "No hay una cuenta de directora activa con ese correo");
       anterior = directora.firma_url;
       await fijarFirma(c, directora.id_personal, clave);
-      await insertarEvento(c, { tipoEvento: "gestion_usuario", detalle: { accion: "firma_cargada", id_personal_afectado: directora.id_personal } });
+      await insertarEvento(c, {
+        tipoEvento: "gestion_usuario",
+        detalle: { accion: "firma_cargada", id_personal_afectado: directora.id_personal, ...(quien ? { responsable: quien } : {}) },
+      });
       return directora.id_personal;
     });
     if (anterior) await quitarArchivo(almacenamiento, anterior);

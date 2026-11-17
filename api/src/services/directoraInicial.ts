@@ -10,6 +10,7 @@ import type { IdentidadAdmin } from "../identidad/keycloakAdmin";
 import { existeDirectoraActiva, type FilaPersonal } from "../repositories/personal";
 import { validar } from "../validacion";
 import { crearPersonalInicial } from "./personal";
+import { validarResponsable } from "./responsable";
 
 const texto = (max: number) => z.string().trim().min(1).max(max);
 
@@ -22,10 +23,11 @@ const datosDirectora = z
   })
   .strict();
 
-export async function crearDirectoraInicial(identidad: IdentidadAdmin, entrada: unknown): Promise<FilaPersonal> {
+export async function crearDirectoraInicial(identidad: IdentidadAdmin, entrada: unknown, responsable?: string): Promise<FilaPersonal> {
+  const quien = validarResponsable(responsable, false);
   const datos = validar(datosDirectora, entrada);
   if (await existeDirectoraActiva(obtenerPool())) {
     throw new ErrorApi(409, "DIRECTORA_YA_EXISTE", "Ya hay una directora activa: las demás cuentas se crean en G10");
   }
-  return crearPersonalInicial(identidad, { ...datos, rol: "directora" });
+  return crearPersonalInicial(identidad, { ...datos, rol: "directora" }, quien);
 }

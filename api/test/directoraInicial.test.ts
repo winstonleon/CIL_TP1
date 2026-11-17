@@ -116,4 +116,37 @@ describe("C18 cuenta inicial de la directora", () => {
     falsa.reparar();
     expect((await crearDirectoraInicial(falsa.identidad, d)).activo).toBe(true);
   });
+
+  it("C18 (responsable) el nombre de quien corre el comando queda, sin espacios de más, en el detalle del alta, junto con su origen y sin id_personal", async () => {
+    const d = datos();
+
+    const fila = await crearDirectoraInicial(falsa.identidad, d, "  Brayan Denis (técnico)  ");
+
+    const { rows } = await db().query(
+      "SELECT id_personal, detalle FROM registro_auditoria WHERE tipo_evento = 'gestion_usuario' AND (detalle->>'id_personal_afectado')::int = $1",
+      [fila.id_personal],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id_personal).toBeNull();
+    expect(rows[0].detalle).toMatchObject({ accion: "alta", origen: "comando_directora_inicial", responsable: "Brayan Denis (técnico)" });
+  });
+
+  it("C18 (responsable) sin responsable el detalle no lleva la clave: el servicio no inventa uno", async () => {
+    const fila = await crearDirectoraInicial(falsa.identidad, datos());
+
+    const { rows } = await db().query(
+      "SELECT detalle FROM registro_auditoria WHERE tipo_evento = 'gestion_usuario' AND (detalle->>'id_personal_afectado')::int = $1",
+      [fila.id_personal],
+    );
+    expect(rows[0].detalle).not.toHaveProperty("responsable");
+  });
+
+  it("C18 (responsable) uno de menos de 3 caracteres, de más de 100 o con saltos de línea responde 400 RESPONSABLE_INVALIDO antes de llamar a Keycloak", async () => {
+    const d = datos();
+    for (const invalido of ["ab", "x".repeat(101), "Brayan\nDenis"]) {
+      await expect(crearDirectoraInicial(falsa.identidad, d, invalido)).rejects.toMatchObject({ status: 400, codigo: "RESPONSABLE_INVALIDO" });
+    }
+    expect(falsa.llamadas).toEqual([]);
+    expect(await filasDe(d.correo)).toBe(0);
+  });
 });

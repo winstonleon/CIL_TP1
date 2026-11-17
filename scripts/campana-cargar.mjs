@@ -5,18 +5,12 @@
 // línea de comandos de npm. La plantilla está en db/campanas/plantilla-2027.json.
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { entornoDelResponsable, sacarResponsable } from "./lib/responsable.mjs";
 
-let simular = false;
-let responsable;
-const posicionales = [];
-const argumentos = process.argv.slice(2);
-for (let k = 0; k < argumentos.length; k++) {
-  if (argumentos[k] === "--simular") simular = true;
-  else if (argumentos[k] === "--responsable") responsable = argumentos[++k];
-  else posicionales.push(argumentos[k]);
-}
-const [ruta] = posicionales;
-if (!ruta || (!simular && !responsable?.trim())) {
+const { responsable, resto } = sacarResponsable(process.argv.slice(2));
+const simular = resto.includes("--simular");
+const [ruta] = resto.filter((a) => a !== "--simular");
+if (!ruta || (!simular && !responsable)) {
   console.error('Uso: npm run campana:cargar -- <archivo.json> [--simular] [--responsable "<nombre>"]  (la carga real exige --responsable)');
   process.exit(1);
 }
@@ -29,10 +23,9 @@ try {
   process.exit(1);
 }
 
-const entorno = responsable?.trim() ? ["-e", `CIL_RESPONSABLE=${responsable.trim()}`] : [];
 const r = spawnSync(
   "docker",
-  ["compose", "exec", "-T", ...entorno, "api", "npm", "run", "--silent", "campana:cargar", "--workspace", "api", ...(simular ? ["--", "--simular"] : [])],
+  ["compose", "exec", "-T", ...entornoDelResponsable(responsable), "api", "npm", "run", "--silent", "campana:cargar", "--workspace", "api", ...(simular ? ["--", "--simular"] : [])],
   { input: datos, stdio: ["pipe", "inherit", "inherit"] },
 );
 process.exit(r.status ?? 1);

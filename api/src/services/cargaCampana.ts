@@ -12,6 +12,9 @@ import { bloquearCampana, contarGrados, insertarGrado } from "../repositories/gr
 import { insertarRequisito } from "../repositories/requisito";
 import { CATEGORIAS_REQUISITO, CONDICIONES_APLICACION, CONDICIONES_POR_APODERADO } from "./configuracion";
 import { CAMPANA_DEMO } from "./indicadores";
+import { validarResponsable } from "./responsable";
+
+export { validarResponsable };
 
 const ORIGEN = "carga_campana";
 const POR_DEFINIR = "por definir con el colegio";
@@ -173,23 +176,6 @@ async function registrarAlta(db: Consultable, detalle: Record<string, unknown>, 
     idPersonal: null,
     detalle: { ...detalle, accion: "alta", origen: ORIGEN, ...(responsable ? { responsable } : {}) },
   });
-}
-
-const RESPONSABLE_MINIMO = 3;
-const RESPONSABLE_MAXIMO = 100;
-
-// Quien corre el comando. Los eventos de la carga no tienen actor (id_personal nulo): el responsable queda en `detalle` (§4.7). La carga
-// real lo exige; con --simular solo se valida si viene.
-export function validarResponsable(valor: string | undefined, obligatorio: boolean): string | undefined {
-  const responsable = valor?.trim();
-  if (!responsable) {
-    if (obligatorio) throw new ErrorApi(400, "RESPONSABLE_REQUERIDO", 'Indica quién corre el comando: --responsable "<nombre>"');
-    return undefined;
-  }
-  if (responsable.length < RESPONSABLE_MINIMO || responsable.length > RESPONSABLE_MAXIMO || /[\u0000-\u001f\u007f]/.test(responsable)) {
-    throw new ErrorApi(400, "RESPONSABLE_INVALIDO", `El responsable debe tener de ${RESPONSABLE_MINIMO} a ${RESPONSABLE_MAXIMO} caracteres, sin saltos de línea`);
-  }
-  return responsable;
 }
 
 class Simulacion extends Error {}
