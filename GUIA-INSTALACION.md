@@ -211,10 +211,10 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
 
 - **Sin firma cargada no se emite ninguna carta.** La API responde 409 `FIRMA_NO_DISPONIBLE` y el expediente sigue en `vacante_asignada`. El barrido reintenta cada minuto y cada intento deja una línea en el log de la API, solo con el id del expediente. En G07 el botón sigue habilitado y el error aparece al pulsarlo.
 - **En dev:** `npm run dev:firma-ficticia` carga en `directora.prueba@ejemplo.test` una imagen que dice «FIRMA FICTICIA · SOLO PRUEBAS». Es seguro repetirlo: si ya la tiene, no hace nada. Hay que correrlo otra vez si se recrea el volumen `archivos`.
-- **Firma real:** `npm run firma:cargar -- <correo de la directora> <ruta de la imagen>`, con un PNG o JPG de hasta 1 MB y la cuenta activa.
+- **Firma real:** `npm run firma:cargar -- <correo de la directora> <ruta de la imagen> --responsable "<nombre y apellido>"`, con un PNG o JPG de hasta 1 MB y la cuenta activa.
   - Pasa la imagen al contenedor `api`, porque el volumen `archivos` solo se ve desde ahí, y queda cifrada como los documentos (ADR-21). No hay pantalla ni ruta HTTP para cargarla o leerla.
   - Reemplaza la anterior y la borra: las cartas ya emitidas la llevan incrustada.
-  - Deja `gestion_usuario` en la bitácora.
+  - Deja `gestion_usuario` en la bitácora, sin actor: el nombre de quien la cargó queda en su `detalle.responsable`. `--responsable` es obligatorio (400 `RESPONSABLE_REQUERIDO`), de 3 a 100 caracteres y sin saltos de línea (400 `RESPONSABLE_INVALIDO`).
 - **Quién firma:** la directora activa con firma cargada; si hay varias, la que adjudicó la vacante.
 - **Después de traer este cambio a una PC ya instalada:** `pdfkit` es una dependencia nueva de la imagen, así que hay que reconstruirla y recrear el contenedor, y después correr lo demás:
   ```bash
@@ -506,7 +506,10 @@ cambiarlos. Los barridos de cada minuto se acumulan (C41). Corrige primero el SM
 **Rebotes (C34):** el sistema solo detecta el rechazo inmediato del servidor SMTP (HU0002-2.0). Un rebote que el proveedor
 avisa después llega al buzón del remitente y no se registra, así que la matriz de trazabilidad dice, para esa parte,
 «verificado solo en dev con Mailpit». Revisión manual declarada para la validación con las primeras familias: confirmar
-su correo por otro canal antes de habilitarlas y revisar ese buzón cada día hábil.
+su correo por otro canal antes de habilitarlas y revisar cada día hábil ese buzón y el log de la API. En el log, cada línea
+`Fallo en n8n (flujo=…, nodo=…, ejecución=…)` es un fallo que n8n registró en `/internal/errores-flujo` (C2):
+`$C logs --since 24h api | grep "Fallo en n8n"`. Una carpeta que falla con 400 (entrada inválida) queda `fallido` sin reintento: el
+prospecto se queda sin carpeta y no aparece en G04 (queda fuera de C41), y esa línea es la única señal.
 
 ### Cuenta inicial de la Directora (C18)
 
@@ -514,21 +517,25 @@ Una sola vez, después de las migraciones, con Keycloak sano y con el SMTP confi
 para crear al resto del personal:
 
 ```bash
-npm run directora:crear -- <correo> "<nombres>" "<apellidos>"
+npm run directora:crear -- <correo> "<nombres>" "<apellidos>" --responsable "<nombre y apellido>"
 ```
 
 - Crea el usuario en Keycloak, con el rol `directora`, y su fila activa en `personal`. Keycloak envía a ese correo el
   enlace para definir la contraseña (vence en 72 h). Usa un buzón que la Directora revise.
 - Corre dentro del contenedor `api`, con la cuenta de servicio de Keycloak. Deja `gestion_usuario` en la bitácora, sin
-  actor (`origen: comando_directora_inicial`), y no imprime el correo ni ningún secreto.
+  actor (`origen: comando_directora_inicial`) y con `detalle.responsable`, el nombre de quien corrió el comando, y no
+  imprime el correo ni ningún secreto.
+- `--responsable` es obligatorio (400 `RESPONSABLE_REQUERIDO`), de 3 a 100 caracteres y sin saltos de línea (400
+  `RESPONSABLE_INVALIDO`): crea la primera cuenta administrativa y, sin él, nadie sabría quién la creó. Usa tu nombre, no
+  un seudónimo.
 - Se niega con 409 `DIRECTORA_YA_EXISTE` si ya hay una directora activa.
 - **Si el SMTP está mal**, el comando falla con `IDENTIDAD_NO_DISPONIBLE` y una línea `…/execute-actions-email → HTTP 500`:
   Keycloak no pudo enviar el correo (el mensaje habla del servicio de identidad, pero Keycloak sí respondió). No queda
   ninguna cuenta usable: la fila de `personal` no se guarda y el usuario de Keycloak se borra (si no pudiera borrarse,
   queda deshabilitado y el siguiente intento lo adopta). Corrige el SMTP («Correo real») y repite el mismo comando. Se
   ensayó con una contraseña SMTP errónea en el overlay de producción local.
-- Falta su firma: `npm run firma:cargar -- <correo> <imagen>` (la real la entrega el colegio, C75). Sin firma no se
-  emite ninguna carta.
+- Falta su firma: `npm run firma:cargar -- <correo> <imagen> --responsable "<nombre y apellido>"` (la real la entrega el
+  colegio, C75). Sin firma no se emite ninguna carta.
 
 ### Carga de la campaña (C26)
 
@@ -731,11 +738,15 @@ ni descifra un DNI.
 
 ### Operación
 
-- **Firma de la Directora:** `npm run firma:cargar -- <correo> <ruta>`, igual que en dev. Necesita la cuenta activa de
-  la Directora en `personal` (`directora:crear`, más arriba).
+- **Firma de la Directora:** `npm run firma:cargar -- <correo> <ruta> --responsable "<nombre y apellido>"`, igual que en dev.
+  Necesita la cuenta activa de la Directora en `personal` (`directora:crear`, más arriba).
 - **Antes de habilitar a cada familia** («Registrar y habilitar portal» en G04), confirma su correo por otro canal, por
   ejemplo con una llamada. Un rebote que el proveedor avisa después no se registra (C34, «Correo real»): llega al buzón
   del remitente, que se revisa cada día hábil. G04 todavía no corrige un correo ni reenvía la carpeta (C32).
+- **Revisión diaria durante la validación con las primeras familias:** el buzón del remitente (rebotes) y el log de la API,
+  `$C logs --since 24h api | grep "Fallo en n8n"`. Cada línea es un fallo que n8n registró en `/internal/errores-flujo`, solo
+  con el flujo, el nodo y el id de la ejecución (C2). Una carpeta que falla con 400 deja al prospecto sin carpeta y fuera de G04
+  (queda fuera de C41): esa línea es la única señal.
 - **Si una familia no recibió sus credenciales** (el reenvío todavía no existe, C32): restablece su contraseña con una
   temporal y entrégala por otro canal, nunca por correo. Keycloak la obliga a cambiarla al entrar. Genérala con
   `openssl rand -base64 12` y abre antes la sesión de administración (primer comando de «Keycloak sin consola
