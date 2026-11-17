@@ -314,7 +314,7 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
 campaña, probados solo en local. **Todavía no se ha desplegado en un VPS.** Lo que depende de un dominio, de un
 proveedor de correo o de un servidor Linux está escrito, pero sin probar, y lleva la marca **[sin probar]**.
 
-**No abrir a familias reales todavía.** Faltan, entre otros compromisos de «Antes del despliegue al VPS»
+**No abrir a familias reales todavía.** Faltan, entre otros compromisos de «Antes de abrir a las familias» y de «Antes del despliegue al VPS»
 (`docs/compromisos.md`):
 
 - **Correo:** elegir el proveedor SMTP y probar por separado sus dos caminos, el de n8n y el de Keycloak (C84). Hasta
@@ -333,10 +333,14 @@ proveedor de correo o de un servidor Linux está escrito, pero sin probar, y lle
 - **Datos de la campaña:** vacantes, fracciones y requisitos de cada grado, en el JSON que el colegio firma (más abajo).
 - **Respaldo (C35):** la copia fuera del servidor y el simulacro de restauración en un servidor nuevo. El respaldo
   diario cifrado en el propio servidor ya está (más abajo).
-- **Código pendiente antes del VPS (orden del 17/11/2026: C41, luego C32 y luego C38):** los cinco puntos de C41
-  (reintentos y tiempos de espera de los flujos con el SMTP real; va primero porque afecta a todo correo y es previo a
-  probar el reenvío), el reenvío de credenciales (C32) y «No desea postular» (C38). Mientras falte el reenvío, el
-  respaldo es «Si una familia no recibió sus credenciales», en «Operación».
+- **Las primeras familias (unas 5):** el acuerdo de confidencialidad y los consentimientos, antes de usar sus datos
+  reales (C86).
+- **Código pendiente antes de abrir a las familias (orden del 17/11/2026: C41, luego C32 y luego C38):** los cinco
+  puntos de C41 (reintentos y tiempos de espera de los flujos con el SMTP real; va primero porque afecta a todo correo y
+  es previo a probar el reenvío), el reenvío de credenciales (C32) y «No desea postular» (C38). No bloquean el primer
+  despliegue con datos ficticios: se traen después con «Actualizar a un commit nuevo» (más abajo), y el reenvío lleva
+  una migración, así que no hay que saltarse `db:migrate`. El ensayo interno completo debe cubrir «No desea postular» y
+  el reenvío. Mientras falte el reenvío, el respaldo es «Si una familia no recibió sus credenciales», en «Operación».
 
 ### Qué cambia respecto de dev
 
