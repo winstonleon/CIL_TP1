@@ -346,8 +346,8 @@ proveedor de correo o de un servidor Linux está escrito, pero sin probar, y lle
 
 - **Solo NGINX publica puertos** (80 y 443). Postgres, Keycloak, n8n y la API solo existen en la red interna de Docker.
 - **NGINX** (`infra/nginx/cil.conf.template`) termina TLS, sirve el build de Vue y reenvía `/api` a la API y `/auth` a
-  Keycloak. No publica `/api/internal/*` (C19), los webhooks ni el editor de n8n (C11), ni la consola de administración
-  de Keycloak. Su registro de acceso no guarda la consulta (`?t=…`) ni el `Referer`.
+  Keycloak. No publica `/api/internal/*` (C19), los webhooks ni el editor de n8n (C11), ni el realm `master` ni la
+  consola de administración de Keycloak. Su registro de acceso no guarda la consulta (`?t=…`) ni el `Referer`.
 - **HTTPS es obligatorio:** el ingreso usa PKCE, que el navegador solo permite en un contexto seguro. Por HTTP el ingreso
   falla aunque todo lo demás cargue.
 - **La API corre con `tsx`**, sin recarga en caliente, con `NODE_ENV=production` y sin privilegios de root. Limitación
@@ -673,7 +673,7 @@ sudo certbot certonly --webroot -w /var/www/cil-acme -d <dominio> \
 
 ### Keycloak sin consola publicada
 
-La consola de administración no se publica. Keycloak se administra con `kcadm.sh` dentro del contenedor:
+La consola de administración y el realm `master` no se publican. Keycloak se administra con `kcadm.sh` dentro del contenedor:
 
 ```bash
 $C exec keycloak sh -c '/opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080/auth --realm master --user "$KC_BOOTSTRAP_ADMIN_USERNAME" --password "$KC_BOOTSTRAP_ADMIN_PASSWORD"'

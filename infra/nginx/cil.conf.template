@@ -78,6 +78,12 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # El realm master (la cuenta de administración de Keycloak) no se publica: solo lo usa kcadm.sh por la red interna.
+    # Va antes del bloque siguiente porque NGINX toma la primera expresión regular que coincide.
+    location ~* ^/auth/realms/master(/|$) {
+        return 404;
+    }
+
     # --- Keycloak, bajo /auth: solo lo que usa el navegador (inicio de sesión, tokens y recursos del tema) ---
     location ~ ^/auth/(realms|resources)/ {
         # Esas rutas nunca llevan «%», «;» ni «..». Lo demás se rechaza, para que nada llegue a Keycloak con una forma

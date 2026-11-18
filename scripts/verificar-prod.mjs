@@ -264,7 +264,7 @@ await prueba("ADR-08", "Keycloak responde bajo /auth con el emisor público", as
   afirmar((await pedir(css)).status === 200, "los recursos del tema no cargan por /auth/resources");
 });
 
-await prueba("ADR-08", "la consola de administración, la Admin API, la salud y las métricas de Keycloak no se publican", async () => {
+await prueba("ADR-08", "la consola de administración, la Admin API, la salud, las métricas y el realm master de Keycloak no se publican", async () => {
   const rutas = [
     "/auth/",
     "/auth/admin/",
@@ -278,6 +278,14 @@ await prueba("ADR-08", "la consola de administración, la Admin API, la salud y 
     "/auth/realms/%2e%2e/admin/master/console/",
     "/auth/realms/..;/admin/master/console/",
     "/auth/Admin/master/console/",
+    "/auth/realms/master",
+    "/auth/realms/master/",
+    "/auth/realms/master/.well-known/openid-configuration",
+    "/auth/realms/master/protocol/openid-connect/token",
+    "/auth/realms/master/account/",
+    "/auth/realms/MASTER/.well-known/openid-configuration",
+    "/auth/realms//master/.well-known/openid-configuration",
+    "/auth/realms/%6Daster/.well-known/openid-configuration",
   ];
   for (const ruta of rutas) {
     const r = await pedir(ruta);
