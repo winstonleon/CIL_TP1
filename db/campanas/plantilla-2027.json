@@ -1,0 +1,20 @@
+{
+  "campana": "2027",
+  "requisitos_comunes": [],
+  "grados": [
+    { "nivel": "inicial", "nombre_grado": "3 años", "vacantes_autorizadas": null, "requiere_jornada_observacion": true, "requiere_evaluacion_psicologica": false, "requiere_evaluacion_academica": false, "monto_cuota_ingreso": 7000, "max_fracciones": null, "requisitos": [] },
+    { "nivel": "inicial", "nombre_grado": "4 años", "vacantes_autorizadas": null, "requiere_jornada_observacion": true, "requiere_evaluacion_psicologica": false, "requiere_evaluacion_academica": false, "monto_cuota_ingreso": 7000, "max_fracciones": null, "requisitos": [] },
+    { "nivel": "inicial", "nombre_grado": "Kindergarten (5 años)", "vacantes_autorizadas": null, "requiere_jornada_observacion": true, "requiere_evaluacion_psicologica": false, "requiere_evaluacion_academica": false, "monto_cuota_ingreso": 7000, "max_fracciones": null, "requisitos": [] },
+    { "nivel": "primaria", "nombre_grado": "1.° de primaria", "vacantes_autorizadas": null, "requiere_jornada_observacion": false, "requiere_evaluacion_psicologica": true, "requiere_evaluacion_academica": false, "monto_cuota_ingreso": 7000, "max_fracciones": null, "requisitos": [] },
+    { "nivel": "primaria", "nombre_grado": "2.° de primaria", "vacantes_autorizadas": null, "requiere_jornada_observacion": false, "requiere_evaluacion_psicologica": true, "requiere_evaluacion_academica": true, "monto_cuota_ingreso": 7000, "max_fracciones": null, "requisitos": [] },
+    { "nivel": "primaria", "nombre_grado": "3.° de primaria", "vacantes_autorizadas": null, "requiere_jornada_observacion": false, "requiere_evaluacion_psicologica": true, "requiere_evaluacion_academica": true, "monto_cuota_ingreso": 7000, "max_fracciones": null, "requisitos": [] },
+    { "nivel": "primaria", "nombre_grado": "4.° de primaria", "vacantes_autorizadas": null, "requiere_jornada_observacion": false, "requiere_evaluacion_psicologica": true, "requiere_evaluacion_academica": true, "monto_cuota_ingreso": 7000, "max_fracciones": null, "requisitos": [] },
+    { "nivel": "primaria", "nombre_grado": "5.° de primaria", "vacantes_autorizadas": null, "requiere_jornada_observacion": false, "requiere_evaluacion_psicologica": true, "requiere_evaluacion_academica": true, "monto_cuota_ingreso": 7000, "max_fracciones": null, "requisitos": [] },
+    { "nivel": "primaria", "nombre_grado": "6.° de primaria", "vacantes_autorizadas": null, "requiere_jornada_observacion": false, "requiere_evaluacion_psicologica": true, "requiere_evaluacion_academica": true, "monto_cuota_ingreso": 7000, "max_fracciones": null, "requisitos": [] },
+    { "nivel": "secundaria", "nombre_grado": "1.° de secundaria", "vacantes_autorizadas": null, "requiere_jornada_observacion": false, "requiere_evaluacion_psicologica": true, "requiere_evaluacion_academica": true, "monto_cuota_ingreso": 4000, "max_fracciones": null, "requisitos": [] },
+    { "nivel": "secundaria", "nombre_grado": "2.° de secundaria", "vacantes_autorizadas": null, "requiere_jornada_observacion": false, "requiere_evaluacion_psicologica": true, "requiere_evaluacion_academica": true, "monto_cuota_ingreso": 4000, "max_fracciones": null, "requisitos": [] },
+    { "nivel": "secundaria", "nombre_grado": "3.° de secundaria", "vacantes_autorizadas": null, "requiere_jornada_observacion": false, "requiere_evaluacion_psicologica": true, "requiere_evaluacion_academica": true, "monto_cuota_ingreso": 4000, "max_fracciones": null, "requisitos": [] },
+    { "nivel": "secundaria", "nombre_grado": "4.° de secundaria", "vacantes_autorizadas": null, "requiere_jornada_observacion": false, "requiere_evaluacion_psicologica": true, "requiere_evaluacion_academica": true, "monto_cuota_ingreso": 4000, "max_fracciones": null, "requisitos": [] },
+    { "nivel": "secundaria", "nombre_grado": "5.° de secundaria", "vacantes_autorizadas": null, "requiere_jornada_observacion": false, "requiere_evaluacion_psicologica": true, "requiere_evaluacion_academica": true, "monto_cuota_ingreso": 4000, "max_fracciones": null, "requisitos": [] }
+  ]
+}

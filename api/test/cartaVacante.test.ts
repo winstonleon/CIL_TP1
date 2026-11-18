@@ -439,6 +439,35 @@ describe("D2 firma de la Directora", () => {
     expect((await archivosAlmacenados()).length).toBe(antes);
     expect(MAXIMO_BYTES_FIRMA).toBe(MiB);
   });
+
+  it("D2 (responsable) la firma que carga un técnico deja su nombre, sin espacios de más, en el detalle de gestion_usuario y sin id_personal", async () => {
+    const correo = await correoDe(db(), e.directora);
+
+    await cargarFirma(e.almacenamiento, correo, pngFirma(), "  Técnico de Prueba  ");
+
+    const { rows } = await db().query(
+      "SELECT id_personal, detalle FROM registro_auditoria WHERE tipo_evento = 'gestion_usuario' AND detalle @> $1::jsonb ORDER BY id_evento DESC LIMIT 1",
+      [JSON.stringify({ accion: "firma_cargada", id_personal_afectado: e.directora })],
+    );
+    expect(rows[0]).toMatchObject({ id_personal: null, detalle: { accion: "firma_cargada", responsable: "Técnico de Prueba" } });
+  });
+
+  it("D2 (responsable) un responsable inválido responde 400 RESPONSABLE_INVALIDO antes de guardar la imagen, y sin responsable la bitácora no lleva la clave", async () => {
+    const correo = await correoDe(db(), e.directora);
+    const antes = (await archivosAlmacenados()).length;
+
+    for (const invalido of ["ab", "x".repeat(101), "Técnico\nde Prueba"]) {
+      await expect(cargarFirma(e.almacenamiento, correo, pngFirma(), invalido)).rejects.toMatchObject({ status: 400, codigo: "RESPONSABLE_INVALIDO" });
+    }
+    expect((await archivosAlmacenados()).length).toBe(antes);
+
+    await cargarFirma(e.almacenamiento, correo, pngFirma());
+    const { rows } = await db().query(
+      "SELECT detalle FROM registro_auditoria WHERE tipo_evento = 'gestion_usuario' AND detalle @> $1::jsonb ORDER BY id_evento DESC LIMIT 1",
+      [JSON.stringify({ accion: "firma_cargada", id_personal_afectado: e.directora })],
+    );
+    expect(rows[0].detalle).not.toHaveProperty("responsable");
+  });
 });
 
 describe("HU0016 descarga de la carta desde el portal", () => {

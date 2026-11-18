@@ -123,14 +123,22 @@ services:
       N8N_WEBHOOK_SECRET_FILE: /run/secrets/n8n_webhook_secret
       INTERNAL_API_TOKEN_FILE: /run/secrets/internal_api_token
       API_INTERNAL_URL: ${API_INTERNAL_URL}
+      # Credencial cil-smtp (C12). La contraseña llega como archivo: si SMTP_PASSWORD está vacía en .env, Docker no crea el
+      # secreto y n8n:credenciales dice que falta (solo con SMTP_AUTH=true).
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
+      SMTP_AUTH: ${SMTP_AUTH:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_SSL: ${SMTP_SSL:-false}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
+      SMTP_PASSWORD_FILE: /run/secrets/smtp_password
       TZ: America/Lima
     secrets:
       - admision_migrator_password
       - n8n_api_key
       - n8n_webhook_secret
       - internal_api_token
+      - smtp_password
     depends_on:
       postgres:
         condition: service_healthy
@@ -151,5 +159,7 @@ secrets:
     environment: N8N_WEBHOOK_SECRET
   internal_api_token:
     environment: INTERNAL_API_TOKEN
+  smtp_password:
+    environment: SMTP_PASSWORD
   postgres_superpassword:
     environment: POSTGRES_SUPERPASSWORD

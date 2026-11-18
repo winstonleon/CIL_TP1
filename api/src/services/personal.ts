@@ -37,9 +37,13 @@ export interface CambiosPersonal {
 
 const correoDuplicado = () => new ErrorApi(409, "CORREO_DUPLICADO", "Ya existe una cuenta con ese correo");
 
-// Quién actúa es la directora (services/actor.ts).
-async function registrarGestion(db: Consultable, keycloakUserIdActor: string, detalle: Record<string, unknown>) {
-  const a = await actor(db, keycloakUserIdActor);
+// Quién actúa es la directora (services/actor.ts). Sin actor (el comando de la cuenta inicial, C18) no hay fila de personal:
+// el detalle dice el origen y, si se dio, el responsable que corrió el comando.
+async function registrarGestion(db: Consultable, keycloakUserIdActor: string | null, detalle: Record<string, unknown>, responsable?: string) {
+  const a =
+    keycloakUserIdActor === null
+      ? { idPersonal: null, detalle: { origen: "comando_directora_inicial", ...(responsable ? { responsable } : {}) } }
+      : await actor(db, keycloakUserIdActor);
   await insertarEvento(db, { tipoEvento: "gestion_usuario", idPersonal: a.idPersonal, detalle: { ...detalle, ...a.detalle } });
 }
 
@@ -61,7 +65,14 @@ export async function listarPersonal(): Promise<FilaPersonal[]> {
 }
 
 // HU0021-1.0: crea la cuenta con su rol y Keycloak envía el enlace para definir la contraseña (72 h).
-export async function crearPersonal(identidad: IdentidadAdmin, keycloakUserIdActor: string, datos: DatosAlta): Promise<FilaPersonal> {
+export const crearPersonal = (identidad: IdentidadAdmin, keycloakUserIdActor: string, datos: DatosAlta): Promise<FilaPersonal> =>
+  altaPersonal(identidad, keycloakUserIdActor, datos);
+
+// C18: la cuenta inicial de la Directora no tiene quién la cree. Solo la llama el comando directora:crear, ninguna ruta.
+export const crearPersonalInicial = (identidad: IdentidadAdmin, datos: DatosAlta, responsable?: string): Promise<FilaPersonal> =>
+  altaPersonal(identidad, null, datos, responsable);
+
+async function altaPersonal(identidad: IdentidadAdmin, keycloakUserIdActor: string | null, datos: DatosAlta, responsable?: string): Promise<FilaPersonal> {
   let idIdentidad: string | null = null; // usuario de Keycloak que esta alta creó o adoptó
   let paso = "crear_usuario";
   try {
@@ -86,13 +97,18 @@ export async function crearPersonal(identidad: IdentidadAdmin, keycloakUserIdAct
       await identidad.establecerRolUnico(idIdentidad, datos.rol);
       paso = "registrar";
       const fila = await insertarPersonal(c, { ...datos, keycloakUserId: idIdentidad });
-      await registrarGestion(c, keycloakUserIdActor, {
-        accion: "alta",
-        id_personal_afectado: fila.id_personal,
-        rol: fila.rol,
-        enlace_contrasena: "enviado",
-        ...(adoptado ? { adoptado: true } : {}),
-      });
+      await registrarGestion(
+        c,
+        keycloakUserIdActor,
+        {
+          accion: "alta",
+          id_personal_afectado: fila.id_personal,
+          rol: fila.rol,
+          enlace_contrasena: "enviado",
+          ...(adoptado ? { adoptado: true } : {}),
+        },
+        responsable,
+      );
       paso = "habilitar";
       await identidad.habilitar(idIdentidad);
       paso = "enviar_enlace";

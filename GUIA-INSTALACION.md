@@ -85,11 +85,11 @@ npm run n8n:importar       # importa los flujos y comprueba que cada nodo quedó
 
 | Credencial | Tipo | Campos |
 |---|---|---|
-| `cil-smtp` | SMTP | User y Password vacíos · Host `mailpit` · Port `1025` · SSL/TLS desactivado · Disable STARTTLS activado · Client Host Name vacío (solo dev; en prod, el proveedor SMTP real) |
+| `cil-smtp` | SMTP | Host y Port = `SMTP_HOST` y `SMTP_PORT` · User y Password = `SMTP_USER` y `SMTP_PASSWORD` (solo con `SMTP_AUTH=true`; vacíos con Mailpit) · SSL/TLS = `SMTP_SSL` · Disable STARTTLS activado si ni `SMTP_SSL` ni `SMTP_STARTTLS` son true (Mailpit, solo dev) · Client Host Name vacío |
 | `cil-webhook-secret` | Header Auth | Name `X-Webhook-Secret` · Value = valor de `N8N_WEBHOOK_SECRET` de tu `.env` |
 | `cil-api-interna` | Header Auth | Name `Authorization` · Value = `Bearer ` (la palabra, un espacio) + valor de `INTERNAL_API_TOKEN` de tu `.env` · Allowed HTTP Request Domains = *Specific domains* `api` (host de `API_INTERNAL_URL`) |
 
-**Un mismo secreto vive en dos lugares.** `INTERNAL_API_TOKEN` está en `.env` (lo valida la API) y en `cil-api-interna` (lo envía n8n). `N8N_WEBHOOK_SECRET` está en `.env` (lo envía la API al llamar al webhook) y en `cil-webhook-secret` (lo valida n8n). Si cambias uno, por ejemplo al ejecutar `generar-secretos.js` sobre un `.env` nuevo, vuelve a correr `npm run n8n:credenciales`; si no, las llamadas fallan con 401 o 403.
+**Un mismo secreto vive en dos lugares.** `INTERNAL_API_TOKEN` está en `.env` (lo valida la API) y en `cil-api-interna` (lo envía n8n). `N8N_WEBHOOK_SECRET` está en `.env` (lo envía la API al llamar al webhook) y en `cil-webhook-secret` (lo valida n8n). Si cambias uno, por ejemplo al ejecutar `generar-secretos.js` sobre un `.env` nuevo, vuelve a correr `npm run n8n:credenciales`; si no, las llamadas fallan con 401 o 403. `SMTP_PASSWORD` vive en tres: `.env`, `cil-smtp` y el realm de Keycloak (no lo genera `generar-secretos.js`: la da el proveedor). Si cambia, además de `n8n:credenciales` hay que aplicarla al realm (sección 10, «Correo real»).
 
 **Al rotar `N8N_WEBHOOK_SECRET`, recrea también `api`** (HU0001, ADR-16). La API lee el secreto y `N8N_WEBHOOK_INTERNAL_URL` al arrancar, para avisar a n8n con el webhook `captacion`. Si solo actualizas la credencial, la API sigue enviando el secreto viejo y n8n responde 403:
 
@@ -195,6 +195,13 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
   - Sin ella la API no arranca, y fallan `npm run db:seed`, `npm run dev:limpiar-personal-huerfano` y `npm run test:api`, porque cargan la misma configuración.
   - Si la agregas con los contenedores ya levantados, recrea `api` para que la reciba: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-deps api`.
 
+- **Versión de Node:** el repo pide la 22.23.3 (`.nvmrc`, `engines`; las imágenes Docker usan la misma). En una PC con la
+  22.14, `npm audit fix` sube `undici` (dependencia de `jsdom`) a la 8.12.4, que rompe `npm run test:front` en todos los
+  archivos, con `Cannot read properties of undefined (reading 'bind')`: se reprodujo en un contenedor con Node 22.14.0
+  (con la 8.11.2 carga bien) y con Node 22.23.3 la 8.12.4 también carga bien. Si pasa, `git checkout -- package-lock.json`.
+  La advertencia de `undici` en `npm audit` queda abierta hasta que las PC usen la versión declarada (solo afecta a las
+  pruebas: no está en las imágenes).
+
 - **Ver el nombre de cada prueba** (para revisar la trazabilidad a mano): `npm run test:api -- -- --reporter=verbose`, y lo mismo con `test:front`.
   - Hacen falta los dos `--`. `test:api` llama a su vez a `npm run test --workspace api`: el primer `--` pasa el argumento a ese segundo `npm`, y el segundo lo pasa a Vitest.
   - Con un solo `--` (`npm run test:api -- --reporter=verbose`), el argumento lo toma npm y Vitest usa su reporter por defecto, que no lista las pruebas.
@@ -204,10 +211,10 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
 
 - **Sin firma cargada no se emite ninguna carta.** La API responde 409 `FIRMA_NO_DISPONIBLE` y el expediente sigue en `vacante_asignada`. El barrido reintenta cada minuto y cada intento deja una línea en el log de la API, solo con el id del expediente. En G07 el botón sigue habilitado y el error aparece al pulsarlo.
 - **En dev:** `npm run dev:firma-ficticia` carga en `directora.prueba@ejemplo.test` una imagen que dice «FIRMA FICTICIA · SOLO PRUEBAS». Es seguro repetirlo: si ya la tiene, no hace nada. Hay que correrlo otra vez si se recrea el volumen `archivos`.
-- **Firma real:** `npm run firma:cargar -- <correo de la directora> <ruta de la imagen>`, con un PNG o JPG de hasta 1 MB y la cuenta activa.
+- **Firma real:** `npm run firma:cargar -- <correo de la directora> <ruta de la imagen> --responsable "<nombre y apellido>"`, con un PNG o JPG de hasta 1 MB y la cuenta activa.
   - Pasa la imagen al contenedor `api`, porque el volumen `archivos` solo se ve desde ahí, y queda cifrada como los documentos (ADR-21). No hay pantalla ni ruta HTTP para cargarla o leerla.
   - Reemplaza la anterior y la borra: las cartas ya emitidas la llevan incrustada.
-  - Deja `gestion_usuario` en la bitácora.
+  - Deja `gestion_usuario` en la bitácora, sin actor: el nombre de quien la cargó queda en su `detalle.responsable`. `--responsable` es obligatorio (400 `RESPONSABLE_REQUERIDO`), de 3 a 100 caracteres y sin saltos de línea (400 `RESPONSABLE_INVALIDO`).
 - **Quién firma:** la directora activa con firma cargada; si hay varias, la que adjudicó la vacante.
 - **Después de traer este cambio a una PC ya instalada:** `pdfkit` es una dependencia nueva de la imagen, así que hay que reconstruirla y recrear el contenedor, y después correr lo demás:
   ```bash
@@ -228,7 +235,9 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
   2. Comprueba qué se recrearía: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --dry-run --no-deps api keycloak`.
   3. Recrea solo esos dos: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-deps api keycloak`. No hace falta reimportar el realm.
   - En el VPS es lo mismo con `docker-compose.prod.yml`.
-- **Antes de cambiarla**, la campaña nueva debe tener sus grados en la base. Hoy G09 no da de alta grados (brecha C26): en dev los crea `npm run db:seed`, solo para 2027.
+- **Antes de cambiarla**, la campaña nueva debe tener sus grados en la base. G09 no da de alta grados (brecha C26): en dev
+  los crea `npm run db:seed`, solo para 2027, y en producción `npm run campana:cargar` (sección 10, «Carga de la
+  campaña»).
 - **Limitaciones conocidas** (compromiso C26, antes del despliegue al VPS):
   - Cambiar de campaña exige a alguien con acceso al servidor y recrear `api` y `keycloak`. Además, en la realidad las campañas se superponen (2028 empieza mientras se cierra 2027), y hoy solo hay una campaña activa a la vez.
   - El derecho de admisión (S/ 300, R16) es una constante de la API: cambiarlo exige modificar el código, lo que contradice el «sin modificar su programación» de HU0022.
@@ -300,14 +309,38 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
 
 ## 10. Despliegue en producción (VPS)
 
-**Estado (16/11/2026):** ensayado en una PC con `docker-compose.prod.yml`, un certificado autofirmado y
-`npm run prod:verificar`. **Todavía no se ha desplegado en un VPS.** Lo que depende de un dominio o de un servidor Linux
-está escrito, pero sin probar, y lleva la marca **[sin probar]**.
+**Estado (17/11/2026):** ensayado en una PC con `docker-compose.prod.yml`, un certificado autofirmado y
+`npm run prod:verificar` (tramo A). El tramo B agregó el SMTP real, la cuenta inicial de la Directora y la carga de la
+campaña, probados solo en local. **Todavía no se ha desplegado en un VPS.** Lo que depende de un dominio, de un
+proveedor de correo o de un servidor Linux está escrito, pero sin probar, y lleva la marca **[sin probar]**.
 
-**No abrir a familias reales todavía.** Faltan, entre otros compromisos de «Antes del despliegue al VPS»
-(`docs/compromisos.md`): el SMTP real (C12; sin él no sale ningún correo), la cuenta inicial de la Directora (C18) y,
-del respaldo (C35), la copia fuera del servidor y el simulacro de restauración en un servidor nuevo. El respaldo diario
-cifrado en el propio servidor ya está (más abajo).
+**No abrir a familias reales todavía.** Faltan, entre otros compromisos de «Antes de abrir a las familias» y de «Antes del despliegue al VPS»
+(`docs/compromisos.md`):
+
+- **Correo:** elegir el proveedor SMTP y probar por separado sus dos caminos, el de n8n y el de Keycloak (C84). Hasta
+  ahora solo se probó con Mailpit. El sistema tampoco detecta los rebotes que el proveedor avisa después (C34):
+  confirma el correo de cada familia por otro canal.
+- **Textos y datos reales del colegio (C85):** bloquea abrir el sistema a las familias todo texto que ellas lean o
+  reciban dentro de la ventana de validación. Como el OE3 exige que lleguen hasta la Carta de Vacante para medir el
+  lead time, en la práctica bloquean casi todos: la política de privacidad (C29, con revisión de su abogado por la
+  Ley 29733), la carpeta informativa (C33), los avisos y la dirección (C39), el cuestionario y el contacto (C42), los
+  bancos (C48), las pautas y los avisos de las evaluaciones (C55), los avisos de documentos, observaciones, vacante y
+  lista de espera, la Carta de Vacante completa (C75: texto institucional, logo y firma real), los plazos y los avisos
+  del seguimiento (C79), los textos de pantalla de las familias que no están en los mockups (C65, C76 y los de C39 y
+  C55) y los del ingreso al portal (C6 y C81). Hoy van entre corchetes o son provisionales. No bloquean los que lee solo
+  el personal (avisos a Admisión, Tesorería y evaluadores; G05, G07 y G08) ni la línea base del OE3 (C66). El colegio
+  los aprueba en un Excel que genera el sistema: «Documento para el colegio», más abajo.
+- **Datos de la campaña:** vacantes, fracciones y requisitos de cada grado, en el JSON que el colegio firma (más abajo).
+- **Respaldo (C35):** la copia fuera del servidor y el simulacro de restauración en un servidor nuevo. El respaldo
+  diario cifrado en el propio servidor ya está (más abajo).
+- **Las primeras familias (unas 5):** el acuerdo de confidencialidad y los consentimientos, antes de usar sus datos
+  reales (C86).
+- **Código pendiente antes de abrir a las familias (orden del 17/11/2026: C41, luego C32 y luego C38):** los cinco
+  puntos de C41 (reintentos y tiempos de espera de los flujos con el SMTP real; va primero porque afecta a todo correo y
+  es previo a probar el reenvío), el reenvío de credenciales (C32) y «No desea postular» (C38). No bloquean el primer
+  despliegue con datos ficticios: se traen después con «Actualizar a un commit nuevo» (más abajo), y el reenvío lleva
+  una migración, así que no hay que saltarse `db:migrate`. El ensayo interno completo debe cubrir «No desea postular» y
+  el reenvío. Mientras falte el reenvío, el respaldo es «Si una familia no recibió sus credenciales», en «Operación».
 
 ### Qué cambia respecto de dev
 
@@ -321,13 +354,15 @@ cifrado en el propio servidor ya está (más abajo).
   aceptada: arranca más lento y usa algo más de memoria que con JavaScript compilado. Como `tsx` no revisa los tipos, la
   imagen de producción no se construye si `tsc --noEmit` falla.
 - **No existe `admision_test`** (C14) y **n8n recibe sus secretos como archivos**, no como variables (C5).
-- **No hay Mailpit:** el correo necesita un servidor SMTP real (C12, pendiente).
+- **No hay Mailpit:** el correo sale por un servidor SMTP real, que se configura con las variables `SMTP_*` del `.env`
+  (más abajo, «Correo real»).
 
 ### Requisitos del servidor
 
 - Linux con Docker Engine y el plugin Compose. Se ensayó con Docker 29.9 y Compose 5.7; hace falta un Compose que admita
   secretos tomados de una variable (`secrets.<nombre>.environment`).
-- Node.js 22, solo para `scripts/generar-secretos.js` y `npm run prod:verificar`. No hace falta `npm ci`.
+- Node.js 22, solo para `scripts/generar-secretos.js`, `npm run prod:verificar` y los comandos que llaman a Docker por dentro
+  (`directora:crear`, `campana:cargar` y `firma:cargar`). No hace falta `npm ci`.
 - Memoria: en reposo, el ensayo usó cerca de 1,5 GB (Keycloak 0,9 GB y n8n 0,4 GB). Keycloak pide más al arrancar.
 - Un dominio que apunte al servidor, para el certificado. **Pendiente: hoy no hay dominio.**
 - Firewall: del exterior solo se ven el 22, el 80 y el 443. SSH solo con llave, sin contraseña. Docker publica sus
@@ -342,8 +377,9 @@ C="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
 ```
 
 1. **`.env`:** `cp .env.example .env`, reemplaza en él las variables de `.env.prod.example` (el dominio, `TLS_CERT_DIR`,
-   `ACME_WEBROOT_DIR`, `RESPALDO_DIR`, `RESPALDO_CLAVE_PUBLICA` y `N8N_CIL_API_KEY` vacía) y completa los datos del
-   colegio. La clave del respaldo se genera **fuera** del servidor (ver «Respaldo diario»). Después:
+   `ACME_WEBROOT_DIR`, `RESPALDO_DIR`, `RESPALDO_CLAVE_PUBLICA`, las de correo (`SMTP_*` y `KEYCLOAK_SMTP_FROM`) y
+   `N8N_CIL_API_KEY` vacía) y completa los datos del colegio. La clave del respaldo se genera **fuera** del servidor (ver
+   «Respaldo diario»). Después:
    ```bash
    node scripts/generar-secretos.js
    chmod 600 .env
@@ -351,6 +387,9 @@ C="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
    **Fija el dominio definitivo antes del primer arranque.** Va dentro del JavaScript del frontend y del realm de
    Keycloak, que se importa una sola vez. Si cambia después, hay que reconstruir `nginx` y corregir en Keycloak las URL
    de retorno de los clientes `portal-familias` y `gestion-interna`, o empezar con volúmenes nuevos si aún no hay datos.
+
+   **Fija también el correo (`SMTP_*`) antes del primer arranque**, por la misma razón: el realm lo importa una sola vez.
+   Comprueba antes las variables, como dice «Correo real». Si el correo cambia después, se aplica como allí.
 2. **Certificado provisional**, para que NGINX pueda arrancar antes de pedir el definitivo. El navegador mostrará una
    advertencia: sirve para ensayar con el equipo, no para las familias.
    ```bash
@@ -384,9 +423,197 @@ C="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
    $C --profile tools run --rm admin n8n:credenciales
    $C --profile tools run --rm admin n8n:importar
    ```
-   `n8n:credenciales` todavía configura el SMTP sin usuario ni TLS (C12).
-5. **Certificado de Let's Encrypt** (más abajo).
-6. **Verificación:** `npm run prod:verificar` (más abajo).
+   `n8n:credenciales` crea la credencial `cil-smtp` con las variables `SMTP_*` del `.env`, con usuario y TLS si así se
+   piden (más abajo, «Correo real»).
+5. **Certificado de Let's Encrypt** (más abajo). Va antes de los pasos con correo: los enlaces que reciben la Directora y
+   las familias abren esta misma dirección.
+6. **Correo real:** comprueba el camino de n8n (más abajo, «Correo real»).
+7. **Cuenta inicial de la Directora** y su firma; con ella se prueba además el camino de Keycloak (más abajo).
+8. **Campaña:** carga de los grados y los requisitos, primero con `--simular` (más abajo, «Carga de la campaña»).
+9. **Verificación:** `npm run prod:verificar` (más abajo).
+
+### Correo real (C12)
+
+El correo sale por **dos caminos distintos**. Los dos toman sus valores de las variables `SMTP_*` del `.env`, pero cada
+uno las lee por su lado:
+
+- **n8n**, para los avisos a las familias y al personal: la credencial `cil-smtp`, que crea `n8n:credenciales`.
+- **Keycloak**, para el enlace con que se define o se recupera la contraseña: el `smtpServer` del realm, que se importa
+  **una sola vez**, en el primer arranque.
+
+| Variable | Qué lleva |
+|---|---|
+| `SMTP_HOST`, `SMTP_PORT` | Los del proveedor. |
+| `SMTP_AUTH` | `true` si el proveedor pide usuario y contraseña (lo normal). Con `true` hacen falta `SMTP_USER` y `SMTP_PASSWORD`; con `false` deben estar vacíos. |
+| `SMTP_SSL` | `true` con TLS implícito (puerto 465). |
+| `SMTP_STARTTLS` | `true` con STARTTLS (puerto 587). `SMTP_SSL` y `SMTP_STARTTLS` no pueden ser `true` a la vez. |
+| `SMTP_FROM`, `KEYCLOAK_SMTP_FROM` | El remitente de n8n y el de Keycloak. Debe ser un buzón que alguien revise (C34). |
+
+- **Prefiere el 465 con `SMTP_SSL=true`** si el proveedor lo ofrece. Con STARTTLS, el nodo de correo de n8n no lo exige:
+  si el servidor no lo ofrece, envía sin cifrar (en `EmailSend/v2/utils.js` del nodo solo se puede desactivar STARTTLS,
+  no exigirlo).
+- **Evita `$`, comillas, `#` y `\` en `SMTP_PASSWORD`:** Compose, Node y el realm (que toma `${…}` como un placeholder) leen el
+  `.env` de forma distinta y la alterarían sin avisar. Si el proveedor la genera así, pide otra o usa una clave de aplicación.
+  No la genera `generar-secretos.js`: la da el proveedor. Vive en `.env`, en `cil-smtp` y en el realm. A Keycloak le llega
+  como variable de entorno (se ve con `docker inspect`, como `KEYCLOAK_API_CLIENT_SECRET`); al contenedor `admin`, como
+  secreto de Docker.
+
+**Comprueba el correo antes del primer arranque**, porque el realm lo importa una sola vez. Valida las variables y avisa
+si la autenticación viajaría sin cifrar (`n8n:credenciales` repite el aviso):
+
+```bash
+node --env-file=.env -e "import('./scripts/lib/smtp.mjs').then((m) => { const c = m.smtpDesdeEntorno(); m.advertenciasSmtp(c).forEach((a) => console.log('AVISO: ' + a)); console.log('SMTP válido'); }).catch((e) => { console.error(e.message); process.exit(1); })"
+```
+
+**Cambiar el SMTP con el realm ya importado** (otro proveedor o una contraseña nueva). El realm no se vuelve a importar:
+
+```bash
+# 1. Cambia SMTP_* en .env y recrea Keycloak, para que su contenedor tome los valores:
+$C up -d keycloak
+# 2. Abre la sesión de administración (primer comando de «Keycloak sin consola publicada») y aplica los valores:
+$C exec keycloak sh -c '/opt/keycloak/bin/kcadm.sh update realms/cil-admision -s "smtpServer.host=$SMTP_HOST" -s "smtpServer.port=$SMTP_PORT" -s "smtpServer.from=$KEYCLOAK_SMTP_FROM" -s "smtpServer.auth=$SMTP_AUTH" -s "smtpServer.user=$SMTP_USER" -s "smtpServer.password=$SMTP_PASSWORD" -s "smtpServer.ssl=$SMTP_SSL" -s "smtpServer.starttls=$SMTP_STARTTLS"'
+# 3. Comprueba (Keycloak enmascara la contraseña) y actualiza la credencial de n8n:
+$C exec keycloak sh -c '/opt/keycloak/bin/kcadm.sh get realms/cil-admision' | grep -A11 smtpServer
+$C --profile tools run --rm admin n8n:credenciales
+```
+
+Se probó en un Keycloak desechable con un servidor SMTP que exige autenticación: con una contraseña errónea Keycloak no
+envía el correo, y con la correcta, sí.
+
+**Probar cada camino por separado**, con el proveedor real y antes de abrir a las familias (C84): que uno funcione no
+dice nada del otro.
+
+1. **n8n, sin enviar nada:** abre el editor por el túnel del paso 4 (`http://localhost:5679`), entra a la credencial
+   `cil-smtp` y repite su prueba de conexión. n8n la hace con el mismo código que `transporter.verify()`: conecta con el
+   proveedor, negocia TLS y se autentica, sin enviar nada. Debe dar éxito; si falla, el mensaje trae el error del
+   servidor. **[la pantalla del editor no se probó en el ensayo]**
+2. **Keycloak, con un correo real:** crea la cuenta de la Directora (más abajo) con un buzón del equipo: debe llegar el
+   enlace para definir la contraseña. Si el SMTP está mal, el comando falla y no deja nada (más abajo): corrige el SMTP
+   como arriba y repítelo. Si termina bien pero el correo no llega, mira la carpeta de spam y `$C logs --tail 50 keycloak`, y
+   pide otro enlace con «¿Olvidaste tu contraseña?» en el acceso del personal (G01).
+3. **n8n, un aviso real (opcional):** envía P01 con un correo del equipo y espera la carpeta informativa. Queda un
+   prospecto de prueba que ninguna ruta borra (C16): hazlo antes de abrir a las familias.
+
+**[sin probar: requiere el proveedor]** El handshake TLS con un proveedor real. En el overlay de producción local, con un
+servidor SMTP que exige usuario y contraseña pero sin TLS, los dos caminos enviaron: P01 hizo que `captacion` enviara la
+carpeta con la credencial `cil-smtp`, y `directora:crear` hizo que Keycloak enviara el enlace de contraseña. La credencial
+se arma con los campos que lee el nodo de n8n (pruebas `C12 …` de `scripts/lib/smtp.test.mjs`).
+
+**Si el SMTP falla el primer día:** los avisos de n8n quedan `pendiente` y se reintentan en los barridos. Los de la visita
+y los de las credenciales tienen un tope de 6 intentos y después quedan `fallido`, sin reenvío (C32). Con un proveedor
+caído o muy lento, cada envío de n8n puede esperar hasta 2 minutos para conectar (medido en dev con Mailpit detenido) y
+30 s para el saludo del servidor; si el servidor saluda y se calla, hasta que el `executionTimeout` de 480 s del flujo corte
+la ejecución. Son los tiempos por defecto de nodemailer (conexión 2 min, saludo 30 s, socket 10 min) y el nodo no deja
+cambiarlos. Los barridos de cada minuto se acumulan (C41). Corrige primero el SMTP; para las familias ya afectadas, ver
+«Si una familia no recibió sus credenciales», en «Operación».
+
+**Rebotes (C34):** el sistema solo detecta el rechazo inmediato del servidor SMTP (HU0002-2.0). Un rebote que el proveedor
+avisa después llega al buzón del remitente y no se registra, así que la matriz de trazabilidad dice, para esa parte,
+«verificado solo en dev con Mailpit». Revisión manual declarada para la validación con las primeras familias: confirmar
+su correo por otro canal antes de habilitarlas y revisar cada día hábil ese buzón y el log de la API. En el log, cada línea
+`Fallo en n8n (flujo=…, nodo=…, ejecución=…)` es un fallo que n8n registró en `/internal/errores-flujo` (C2):
+`$C logs --since 24h api | grep "Fallo en n8n"`. Una carpeta que falla con 400 (entrada inválida) queda `fallido` sin reintento: el
+prospecto se queda sin carpeta y no aparece en G04 (queda fuera de C41), y esa línea es la única señal.
+
+### Cuenta inicial de la Directora (C18)
+
+Una sola vez, después de las migraciones, con Keycloak sano y con el SMTP configurado. Sin esta cuenta nadie entra a G10
+para crear al resto del personal:
+
+```bash
+npm run directora:crear -- <correo> "<nombres>" "<apellidos>" --responsable "<nombre y apellido>"
+```
+
+- Crea el usuario en Keycloak, con el rol `directora`, y su fila activa en `personal`. Keycloak envía a ese correo el
+  enlace para definir la contraseña (vence en 72 h). Usa un buzón que la Directora revise.
+- Corre dentro del contenedor `api`, con la cuenta de servicio de Keycloak. Deja `gestion_usuario` en la bitácora, sin
+  actor (`origen: comando_directora_inicial`) y con `detalle.responsable`, el nombre de quien corrió el comando, y no
+  imprime el correo ni ningún secreto.
+- `--responsable` es obligatorio (400 `RESPONSABLE_REQUERIDO`), de 3 a 100 caracteres y sin saltos de línea (400
+  `RESPONSABLE_INVALIDO`): crea la primera cuenta administrativa y, sin él, nadie sabría quién la creó. Usa tu nombre, no
+  un seudónimo.
+- Se niega con 409 `DIRECTORA_YA_EXISTE` si ya hay una directora activa.
+- **Si el SMTP está mal**, el comando falla con `IDENTIDAD_NO_DISPONIBLE` y una línea `…/execute-actions-email → HTTP 500`:
+  Keycloak no pudo enviar el correo (el mensaje habla del servicio de identidad, pero Keycloak sí respondió). No queda
+  ninguna cuenta usable: la fila de `personal` no se guarda y el usuario de Keycloak se borra (si no pudiera borrarse,
+  queda deshabilitado y el siguiente intento lo adopta). Corrige el SMTP («Correo real») y repite el mismo comando. Se
+  ensayó con una contraseña SMTP errónea en el overlay de producción local.
+- Falta su firma: `npm run firma:cargar -- <correo> <imagen> --responsable "<nombre y apellido>"` (la real la entrega el
+  colegio, C75). Sin firma no se emite ninguna carta.
+
+### Carga de la campaña (C26)
+
+En producción los grados y los requisitos de la campaña los crea este comando, **una sola vez por campaña**. G09 solo edita
+lo que ya existe. El colegio debe entregar antes los datos de **todos** sus grados: vacantes autorizadas, máximo de
+fracciones y la lista de requisitos documentales.
+
+1. Copia `db/campanas/plantilla-2027.json` a un archivo fuera del repo y complétalo. La plantilla trae los 14 grados del
+   modelo de datos (§5): 3 de inicial, 6 de primaria y 5 de secundaria, con sus evaluaciones y cuotas (S/ 7,000 en
+   inicial y primaria, S/ 4,000 en secundaria). Lo que el colegio aún no entregó va como `null` y **el comando lo
+   rechaza**: nada se carga con datos inventados.
+2. **Simula primero:** `npm run campana:cargar -- <archivo.json> --simular`. Valida todo (formato, duplicados, reglas de
+   los requisitos y restricciones de la base) dentro de una transacción que se deshace, lista juntos todos los problemas
+   y, si no hay ninguno, informa cuántos grados y requisitos crearía. No escribe nada.
+3. **El colegio firma ese mismo JSON** (impreso o en PDF): cada grado con su nombre, nivel, vacantes, cuota, fracciones,
+   evaluaciones y requisitos. Para que lo lea sin ver JSON, `npm run colegio:textos -- <archivo.json>` arma la hoja
+   «Campaña» del documento para el colegio con ese archivo, con su huella SHA-256 (los primeros 16 caracteres):
+   comprueba con `Get-FileHash <archivo> -Algorithm SHA256` (PowerShell) o `sha256sum <archivo>` (Linux) que sea la
+   misma que la que firmó. Después de la firma no se cambia ni una coma sin repetir la simulación.
+4. **Carga real:** `npm run campana:cargar -- <archivo.json> --responsable "<nombre y apellido>"`. Una sola
+   transacción: queda todo o nada. Cada fila deja un evento `cambio_configuracion` (origen `carga_campana`, sin actor).
+   Como no hay quien actúe en el sistema, **el nombre de quien corre el comando queda en el `detalle.responsable` de cada
+   evento**: `--responsable` es obligatorio en la carga real (400 `RESPONSABLE_REQUERIDO`), de 3 a 100 caracteres y sin
+   saltos de línea (400 `RESPONSABLE_INVALIDO`); con `--simular` es opcional. Usa tu nombre, no un seudónimo.
+5. `CAMPANA_ACTIVA` en `.env` debe ser la campaña cargada (sección 9). Revisa en G09 que todo esté como en el JSON firmado.
+
+**Casi no hay vuelta atrás.** El comando se niega con 409 `CAMPANA_YA_CARGADA` si la campaña ya tiene grados: no se puede
+repetir ni completar. Qué se corrige después:
+
+- **En G09, con auditoría:** las vacantes, la cuota, las fracciones y las evaluaciones de cada grado, y todos los
+  requisitos (se pueden agregar, modificar y quitar).
+- **Solo con acceso a la base:** el nombre y el nivel de un grado, y los grados que falten o sobren. Por eso el colegio
+  firma antes de la carga real.
+
+El derecho de admisión (S/ 300, R16) no va en el archivo: es una constante de la API (sección 9).
+
+### Documento para el colegio (C85)
+
+El colegio aprueba los textos que sus familias leen o reciben, y entrega los datos que faltan, en un Excel que genera el
+sistema desde el código (así no se desfasa de lo que la familia recibe):
+
+```bash
+npm run colegio:textos                      # usa db/campanas/plantilla-2027.json
+npm run colegio:textos -- <archivo.json>    # la hoja «Campaña» muestra ese archivo (el que el colegio firma)
+```
+
+- Escribe en `docs/colegio/`: `textos-para-el-colegio-v<N>.xlsx` y `carta-de-vacante-ejemplo-v<N>.pdf` (la carta con
+  datos y firma ficticios). Corre en el host, sin base de datos ni `.env`: usa un entorno ficticio.
+- **Versión y fecha:** la hoja «Instrucciones» y el pie de cada hoja traen el número de versión, la fecha (hora de Lima),
+  el commit del código y una huella del contenido que cambia sola con cualquier texto. El número de versión lo sube a mano
+  quien envía una ronda nueva (`VERSION_DOCUMENTO`, en `api/scripts/textosColegioCatalogo.ts`): conserva el archivo de la
+  versión anterior como constancia.
+- **Una fila por texto**, con la columna «Decisión del colegio» (Aprobado o Corregir) y otra para el texto corregido. Los
+  correos salen completos, compuestos con las mismas funciones del sistema y datos ficticios. «¿Bloquea abrir a las
+  familias?» dice Sí para todo lo que ellas leen o reciben y No para los avisos al personal.
+- **Plazo y regla de aprobación (criterio del revisor, 17/11/2026):** la hoja «Instrucciones» fija un plazo de 3 días hábiles
+  desde el día en que se genera el documento, sin sábados, domingos ni feriados (`api/scripts/feriados.json`, el mismo de
+  `dev:agenda`): si lo envías otro día, vuelve a generarlo ese día. La columna «Qué se pide» dice en cada fila qué pasa si
+  el colegio no responde:
+  - «Sin decisión al vencer el plazo, se toma como aprobado»: solo los avisos de bajo riesgo ya redactados, hoy los mensajes
+    de pantalla del portal y del ingreso (69 filas en la versión 1).
+  - «No se aprueba por defecto»: lo que está entre corchetes, entre ello el cuerpo de los 17 correos, y los datos y
+    decisiones que solo el colegio puede dar (40 filas en la versión 1).
+  - «Aprobación explícita y firma»: la política de privacidad (PRI-01) y la Carta de Vacante (CAR-01 a CAR-06); con la campaña
+    (hoja «Campaña»), cada una se firma en la hoja «Aprobación» y nunca vale por defecto (7 filas y la campaña en la
+    versión 1).
+- **La política de privacidad (fila PRI-01) la debe revisar el abogado del colegio**, conforme a la Ley N.° 29733; la hoja
+  «Aprobación» tiene su espacio para el nombre, la firma y la fecha. La fila muestra la versión que el sistema registra con
+  cada consentimiento (hoy `borrador-1`, solo un marcador: el texto definitivo y su versión los entrega el colegio, C29).
+- La prueba `api/test/textosColegio.test.ts` falla si aparece en los servicios un texto entre corchetes sin su fila, o si
+  un texto de pantalla del catálogo cambió de lugar en el código (los de las pantallas no se pueden importar: llevan el
+  archivo y el fragmento donde viven). Un texto de pantalla nuevo se agrega a mano a `api/scripts/textosColegioCatalogo.ts`.
+- Cuando el colegio devuelva el archivo, incorpora cada texto al código (sube la versión del texto que cambie, como pide
+  cada compromiso) y guarda el archivo devuelto junto al generado.
 
 ### El contenedor `admin`
 
@@ -461,6 +688,7 @@ El primero abre la sesión de administración; los otros listan los eventos, bus
   temporales (`USER_DISABLED_BY_TEMPORARY_LOCKOUT`), con el usuario y la IP, durante 90 días. Los ingresos correctos no
   se guardan. Es la evidencia de HU0023-2.0. La retención es provisional: la fija el colegio.
 - El realm de producción se importa una sola vez. Un cambio posterior en `realm-cil-admision.json` no se aplica solo.
+  El SMTP tiene su procedimiento (más arriba, «Correo real»).
 
 ### Respaldo diario (C35)
 
@@ -527,8 +755,30 @@ ni descifra un DNI.
 
 ### Operación
 
-- **Firma de la Directora:** `npm run firma:cargar -- <correo> <ruta>`, igual que en dev. Necesita la cuenta activa de
-  la Directora en `personal` (C18, pendiente).
+- **Firma de la Directora:** `npm run firma:cargar -- <correo> <ruta> --responsable "<nombre y apellido>"`, igual que en dev.
+  Necesita la cuenta activa de la Directora en `personal` (`directora:crear`, más arriba).
+- **Antes de habilitar a cada familia** («Registrar y habilitar portal» en G04), confirma su correo por otro canal, por
+  ejemplo con una llamada. Un rebote que el proveedor avisa después no se registra (C34, «Correo real»): llega al buzón
+  del remitente, que se revisa cada día hábil. G04 todavía no corrige un correo ni reenvía la carpeta (C32).
+- **Revisión diaria durante la validación con las primeras familias:** el buzón del remitente (rebotes) y el log de la API,
+  `$C logs --since 24h api | grep "Fallo en n8n"`. Cada línea es un fallo que n8n registró en `/internal/errores-flujo`, solo
+  con el flujo, el nodo y el id de la ejecución (C2). Una carpeta que falla con 400 deja al prospecto sin carpeta y fuera de G04
+  (queda fuera de C41): esa línea es la única señal.
+- **«No me llegó» (lo más probable con familias reales):** el servidor SMTP acepta el correo y la bandeja de la familia
+  lo manda a spam. G04 lo muestra como enviado y el reenvío de C32 no lo cubrirá, porque solo se ofrecerá con el aviso
+  `fallido`. Llama a la familia: que revise spam y no deseados, y confirma el correo con que se registró. Si no aparece,
+  restablece su contraseña con una temporal, como se explica en el punto siguiente, y entrégala por otro canal.
+- **Si una familia no recibió sus credenciales** (el reenvío todavía no existe, C32): restablece su contraseña con una
+  temporal y entrégala por otro canal, nunca por correo. Keycloak la obliga a cambiarla al entrar. Genérala con
+  `openssl rand -base64 12` y abre antes la sesión de administración (primer comando de «Keycloak sin consola
+  publicada»):
+  ```bash
+  $C exec -e KC_CLI_PASSWORD='<contraseña temporal>' keycloak /opt/keycloak/bin/kcadm.sh set-password -r cil-admision --username <correo> -t
+  ```
+  Probado en dev con un usuario desechable: la cuenta queda con la acción obligatoria `UPDATE_PASSWORD`.
+- **Ejecuciones de n8n (C10):** las que no se guardan (las exitosas) se borran en cerca de un minuto; las de error se
+  conservan 7 días (`EXECUTIONS_DATA_MAX_AGE`, provisional hasta que el colegio fije la retención) y pueden traer datos
+  personales (C11). Está en `docker-compose.yml`, así que rige igual en dev y en producción.
 - **Actualizar a un commit nuevo:**
   ```bash
   git pull
@@ -546,6 +796,16 @@ ni descifra un DNI.
 
 - `npm ci`: cambió `package-lock.json` (`tsx` y `dbmate` pasan a dependencias; ninguna versión cambia).
 - El siguiente `docker compose … up -d` de dev **recrea `postgres`**, que recibe la variable nueva `CREAR_BD_PRUEBA`.
-  Los datos se conservan. Después de ese reinicio, la primera petición a Keycloak puede fallar (C7): reintenta.
+  Los datos se conservan. Después de ese reinicio, la primera petición a Keycloak puede fallar (C7): reintenta. (Desde el
+  tramo B, que valida las conexiones de Keycloak, ya no falla.)
 - Los eventos de Keycloak (C24) solo se activan en dev si se reimporta el realm (`infra/keycloak/README.md`). No hace
   falta para trabajar.
+
+### Al traer el tramo B (correo, Directora y campaña) a una PC de dev ya instalada
+
+- `npm ci` y `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build api`: el lock sube `zod`
+  (4.6.7), `body-parser` (2.4.0) y `qs` (6.17.1) por `npm audit` (C70), y la imagen de la API lleva dos scripts nuevos.
+- El mismo `up -d` **recrea `keycloak`** (variables `SMTP_*` y validación de las conexiones a la base, C7) y **`n8n`**
+  (retención de ejecuciones explícita, C10). Los datos se conservan. Las variables `SMTP_*` son opcionales en dev: sin
+  ellas rige Mailpit. El realm ya importado no cambia.
+- Con la validación de conexiones (C7), la primera petición a Keycloak ya no falla después de reiniciar Postgres.

@@ -54,6 +54,41 @@ export async function existeGrado(db: Consultable, campana: string, idGrado: num
   return (rowCount ?? 0) > 0;
 }
 
+export async function contarGrados(db: Consultable, campana: string): Promise<number> {
+  const { rows } = await db.query<{ n: number }>("SELECT count(*)::int AS n FROM grado WHERE campana_admision = $1", [campana]);
+  return rows[0]!.n;
+}
+
+// Dos cargas de la misma campaña a la vez esperan una a la otra (C26): la segunda ya la ve cargada.
+export async function bloquearCampana(db: Consultable, campana: string): Promise<void> {
+  await db.query("SELECT pg_advisory_xact_lock(hashtext('campana:' || $1))", [campana]);
+}
+
+export type NuevoGrado = Omit<FilaGrado, "id_grado" | "vacantes_disponibles">;
+
+// Alta de un grado de una campaña nueva (C26, carga de campaña): sin adjudicadas, todas las vacantes quedan disponibles.
+export async function insertarGrado(db: Consultable, campana: string, g: NuevoGrado): Promise<FilaGrado> {
+  const { rows } = await db.query<FilaGrado>(
+    `INSERT INTO grado (nivel, nombre_grado, campana_admision, vacantes_autorizadas, vacantes_disponibles,
+                        requiere_jornada_observacion, requiere_evaluacion_psicologica, requiere_evaluacion_academica,
+                        monto_cuota_ingreso, max_fracciones)
+     VALUES ($1::nivel_educativo, $2, $3, $4, $4, $5, $6, $7, $8::numeric, $9)
+     RETURNING ${COLUMNAS}`,
+    [
+      g.nivel,
+      g.nombre_grado,
+      campana,
+      g.vacantes_autorizadas,
+      g.requiere_jornada_observacion,
+      g.requiere_evaluacion_psicologica,
+      g.requiere_evaluacion_academica,
+      g.monto_cuota_ingreso,
+      g.max_fracciones,
+    ],
+  );
+  return rows[0]!;
+}
+
 // Lee los grados de la campaña y los bloquea hasta el fin de la transacción, en orden de id (sin interbloqueos).
 export async function bloquearGrados(db: Consultable, campana: string, ids: number[]): Promise<FilaGrado[]> {
   const { rows } = await db.query<FilaGrado>(

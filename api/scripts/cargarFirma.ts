@@ -1,6 +1,7 @@
 // Carga la firma escaneada de la Directora (HU0016-1.0, D2-A). Corre DENTRO del contenedor `api`, porque el volumen `archivos`
 // solo se ve desde ahí. No tiene ruta HTTP: la firma nunca sale de la API.
-// - `npm run firma:cargar -- <correo> <ruta>` (raíz del repo): la imagen llega por la entrada estándar. La corre un técnico.
+// - `npm run firma:cargar -- <correo> <ruta> --responsable "<nombre>"` (raíz del repo): la imagen llega por la entrada estándar y el
+//   responsable por CIL_RESPONSABLE (el comando lo exige: su evento no tiene actor). La corre un técnico.
 // - `npm run dev:firma-ficticia`: solo dev. Carga la imagen ficticia en la directora de prueba, sin repetirla si ya la tiene.
 //   Sin firma no se emite ninguna carta.
 // No imprime la clave del archivo ni datos de la imagen.
@@ -11,6 +12,7 @@ import { crearAlmacenamientoDesdeConfig, type Almacenamiento } from "../src/alma
 import { cerrarPool, obtenerPool } from "../src/db/pool";
 import { ErrorApi } from "../src/errores";
 import { cargarFirma } from "../src/services/cartaVacante";
+import { validarResponsable } from "../src/services/responsable";
 
 const DIRECTORA_DE_PRUEBA = "directora.prueba@ejemplo.test";
 const IMAGEN_FICTICIA = join(dirname(fileURLToPath(import.meta.url)), "firma-ficticia-dev.png");
@@ -46,8 +48,9 @@ async function principal(): Promise<void> {
     return;
   }
   const correo = process.argv[2];
-  if (!correo) throw new Error("Uso: npm run firma:cargar -- <correo> <ruta de la imagen>");
-  const { id_personal } = await cargarFirma(almacenamiento, correo, await entradaEstandar());
+  if (!correo) throw new Error('Uso: npm run firma:cargar -- <correo> <ruta de la imagen> --responsable "<nombre>"');
+  const responsable = validarResponsable(process.env.CIL_RESPONSABLE, true);
+  const { id_personal } = await cargarFirma(almacenamiento, correo, await entradaEstandar(), responsable);
   console.log(`Firma cargada en la cuenta ${id_personal}.`);
 }
 

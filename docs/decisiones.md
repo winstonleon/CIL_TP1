@@ -47,8 +47,15 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
   - **Mitigaciones:**
     - rotación en cada intento;
     - invalidación al cerrar el aviso `fallido` (M3, *best effort*);
-    - borrado físico de las ejecuciones cada minuto y poda por antigüedad (C10; en el VPS se decide la configuración con el dato de R1).
+    - borrado físico de las ejecuciones cada minuto y poda por antigüedad (C10, decidido el 17/11/2026: más abajo).
   - **Alternativa descartada:** el correo de Keycloak con el enlace para crear la contraseña, como en HU0021. Cumplía la restricción entera, pero cambiaba el texto de HU0004-1.0 y HU0023.
+- **[EQUIPO, Brayan 17/11/2026] Retención de las ejecuciones de n8n (C10):** se mantiene la poda con el borrado físico cada minuto. `docker-compose.yml` fija, también en producción, `EXECUTIONS_DATA_PRUNE=true`, `EXECUTIONS_DATA_PRUNE_HARD_DELETE_INTERVAL=1` y `EXECUTIONS_DATA_HARD_DELETE_BUFFER=0`.
+  - Una ejecución que no se guarda desaparece en cerca de un minuto. Las ejecuciones con error pueden traer datos personales (C11) y se conservan hasta que vence `EXECUTIONS_DATA_MAX_AGE`.
+  - **[PROPUESTA]** `EXECUTIONS_DATA_MAX_AGE=168`: 7 días (n8n usa 14 por defecto). **[PENDIENTE]** La retención definitiva la fija el colegio.
+  - Se descartó `EXECUTIONS_DATA_PRUNE=false`: borra al instante, pero apaga la poda por antigüedad.
+  - Aceptado: n8n envía el corte de la poda en UTC y la base corre en `America/Lima`, así que la poda por antigüedad se adelanta 5 h.
+- **[EQUIPO, Brayan 17/11/2026] Conexiones de Keycloak a Postgres (C7):** Keycloak valida cada conexión al tomarla del pool (`QUARKUS_DATASOURCE_JDBC_VALIDATE_ON_BORROW=true`). Keycloak no tiene una opción propia: se pasa la propiedad de Quarkus por entorno. Sin ella, la primera petición después de reiniciar Postgres respondía HTTP 500 (medido en dev: fallaron 2 de 5 intentos; con la validación, ninguno).
+- **[EQUIPO, Brayan 17/11/2026] Cuenta inicial de la Directora (C18):** en producción la crea `npm run directora:crear`, que corre dentro del contenedor `api`: el usuario en Keycloak con el rol `directora` y su fila activa en `personal`. Keycloak le envía el enlace para definir la contraseña. Deja `gestion_usuario` sin actor (`origen: comando_directora_inicial`) y con `detalle.responsable`, quien corrió el comando (`--responsable`, obligatorio), como la firma (`firma:cargar`, con el mismo `--responsable`), y se niega con 409 si ya hay una directora activa. Su firma se carga después con `npm run firma:cargar` (HU0016).
 - **[HU0023-2.0]** Se activa la detección de fuerza bruta de Keycloak: se bloquea tras **5 intentos fallidos consecutivos** (pantalla P03c).
 - **[PENDIENTE]** La política de contraseñas y el tiempo de bloqueo. Se definen con el colegio y no se inventan.
 - **[MOCKUPS G01/G10]** El personal recibe un correo de Keycloak con un enlace para definir su contraseña (*execute actions email*), como indica HU0021-1.0. El enlace vence en 72 h.
@@ -123,8 +130,9 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
   - Cuenta como rebote el rechazo permanente del destinatario que da el servidor SMTP **durante el envío** (5xx en RCPT, p. ej. «550 5.1.1»).
   - **[EQUIPO, HU0002, 26/10/2026] Qué 5xx es rebote:** el código extendido 5.1.x o 5.2.x, o 550, 551 o 553 sin código extendido. Un 5.7.x (política del servidor, p. ej. «550 5.7.1») o cualquier otro 5xx **no** es rebote: la notificación queda `pendiente`, con registro en `registro-errores` (punto siguiente). Lo clasifica el nodo «Estado fallido» de `notificacion-multicanal`.
   - La notificación queda `fallido` (el enum `estado_envio` no tiene «rebotado»), se audita `notificacion_rebotada` y el expediente pasa de `prospecto` a `contacto_no_entregado` (HU0002-2.0).
-  - **Cubre solo ese caso.** Si el proveedor acepta el correo y avisa del rebote después (Gmail, Google Workspace o un proveedor transaccional), no se detecta. Esa detección asíncrona (webhook del proveedor o buzón de rebotes) queda para antes del despliegue al VPS (C34). Por eso la matriz muestra HU0002-2.0 por partes.
+  - **Cubre solo ese caso.** Si el proveedor acepta el correo y avisa del rebote después (Gmail, Google Workspace o un proveedor transaccional), no se detecta. Esa detección asíncrona (webhook del proveedor o buzón de rebotes) sigue pendiente (C34): para las primeras familias rige la revisión manual de abajo. Por eso la matriz muestra HU0002-2.0 por partes.
   - En dev, Mailpit responde 550 a todo destinatario que no sea `@ejemplo.test` (`MP_SMTP_ALLOWED_RECIPIENTS` en `docker-compose.dev.yml`). Las pruebas de rebote usan `@rebota.ejemplo.test`.
+  - **[EQUIPO, Brayan 17/11/2026] Revisión manual declarada (C34):** con las primeras familias (unas 5) el rebote asíncrono no se detecta. Antes de habilitar a cada familia se confirma su correo por otro canal, y se revisa el buzón del remitente (`SMTP_FROM` y `KEYCLOAK_SMTP_FROM`), a donde llega el rebote. **[PROPUESTA]** Revisarlo cada día hábil. La misma revisión incluye el log de la API: cada línea `Fallo en n8n (flujo=…, nodo=…, ejecución=…)` es un fallo que n8n registró en `/internal/errores-flujo` (C2), entre ellos una carpeta que falla con 400, que deja al prospecto sin carpeta y fuera de G04 (queda fuera de C41). La matriz dice, para el rechazo síncrono, «verificado solo en dev con Mailpit»: con un SMTP real no se ha verificado. HU0002-2.0 no queda cumplido en producción hasta que se elija el proveedor y se detecte su rebote, antes de abrir a toda la campaña.
 - **[EQUIPO, HU0002] Fallos del envío de la carpeta informativa:**
   - rechazo permanente del destinatario → `fallido` con rebote (punto anterior);
   - 400 (entrada inválida) de `notificacion-multicanal`: es un defecto, porque la entrada la arma la API → `fallido`, sin rebote, sin transición y **sin reintento**, con registro en `registro-errores`;
@@ -151,6 +159,10 @@ Si un documento de la tesis contradice este archivo, **manda este archivo**, y s
     - Contar las filas `enviado` o `fallido` es contar avisos. Las `pendiente` son intentos de resultado desconocido y no se cuentan como envíos.
   - **`captacion`** (carpeta, HU0002) sigue sin tope: lo resuelve C41.
 - **[PROPUESTA]** En desarrollo, el correo va a **Mailpit** (contenedor que captura los correos, visible en el navegador). Ningún correo sale a Internet desde dev.
+- **[EQUIPO, Brayan 17/11/2026] SMTP real en producción (C12):** el correo sale por dos caminos, con las mismas variables `SMTP_*` de `.env`: la credencial `cil-smtp` de n8n (`npm run n8n:credenciales`) y el `smtpServer` del realm de Keycloak (enlaces de contraseña), que se importa una sola vez; un cambio posterior se aplica con `kcadm.sh` (`GUIA-INSTALACION.md`, sección 10).
+  - Con `SMTP_AUTH=true` hacen falta usuario y contraseña. `SMTP_SSL` (465) y `SMTP_STARTTLS` (587) no pueden ser `true` a la vez. Sin las variables nuevas rige Mailpit, sin autenticación ni TLS.
+  - **[PROPUESTA]** El nodo de correo de n8n no exige STARTTLS, solo permite desactivarlo: si el proveedor ofrece el 465, se prefiere.
+  - Cada camino se prueba por separado con el proveedor real (C84). Lo que n8n tarda con un proveedor caído o lento sigue abierto en C41.
 - **[EQUIPO, bloque 8, 05/11/2026] Avisos de la vacante y de la cuota:** siguen esta misma regla (ADR-26).
 - **[EQUIPO, bloque 10, 06/11/2026] Aviso de la Carta de Vacante:** sigue esta misma regla y lleva solo el enlace al portal (ADR-28).
 - **[EQUIPO] Excepción:** el enlace para definir la contraseña del personal lo envía Keycloak (ADR-02) y no se registra en notificacion, porque esa tabla exige un expediente. La evidencia queda en registro_auditoria (gestion_usuario).
@@ -200,7 +212,13 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
   - G09 solo configura los grados, requisitos y horarios de esa campaña (`campana_admision`).
   - Para cambiarla se edita `.env` y se recrean los contenedores `api` y `keycloak`.
   - No hay una entidad Campaña ni se le da `manage-realm` a la *service account*.
-  - Brechas abiertas en C26: el alta de una campaña nueva, el cambio de campaña sin un técnico, las campañas superpuestas y el derecho de admisión (S/ 300, R16), que es una constante de la API y no se configura en G09.
+  - Brechas abiertas en C26: el cambio de campaña sin un técnico, las campañas superpuestas y el derecho de admisión (S/ 300, R16), que es una constante de la API y no se configura en G09. El alta de una campaña nueva en producción la cubre `campana:cargar` (punto siguiente).
+- **[EQUIPO, Brayan 17/11/2026] Alta de una campaña en producción (C26, punto 1):** `npm run campana:cargar -- <archivo.json> --responsable "<nombre>" [--simular]` crea los grados y sus requisitos documentales desde un JSON (plantilla: `db/campanas/plantilla-2027.json`, con los 14 grados del §5 del modelo de datos).
+  - Corre dentro del contenedor `api`, en una sola transacción, y solo si la campaña todavía no tiene grados (409 `CAMPANA_YA_CARGADA`): no se repite ni se completa. **[PROPUESTA]** La campaña `DEMO` está reservada (C72).
+  - Rechaza todo valor que el colegio no entregó (`null`) y lista juntos todos los problemas. Con `--simular` valida y deshace.
+  - Cada fila deja un evento `cambio_configuracion` de alta, con `origen: carga_campana`, sin actor y con `detalle.responsable`: quien corrió el comando, para que la carga no quede sin ninguna atribución humana. `--responsable` es obligatorio en la carga real (de 3 a 100 caracteres, sin saltos de línea) y opcional con `--simular`. Lo deja un comando y no una persona de Secretaría, que es lo que §4.7 del modelo de datos atribuye a ese evento: §4.7 registra esa excepción.
+  - **[PENDIENTE]** El colegio firma el JSON antes de la carga real, y entrega las vacantes, las fracciones y los requisitos de cada grado. Después, G09 corrige las vacantes, la cuota, las fracciones, las evaluaciones y los requisitos; el nombre y el nivel de un grado, y los grados que falten, solo con acceso a la base.
+  - **[PENDIENTE]** El colegio confirma el derecho de admisión (S/ 300, constante de la API según R16).
 - **[EQUIPO, HU0022]** Las evaluaciones requeridas (`Grado.requiere_*`) se configuran por grado en G09. R11 solo da los valores semilla. La entrevista a los padres aplica siempre.
 - **[EQUIPO, HU0022]** `Requisito_Documental.tipo_documento` guarda el nombre visible que escribe Secretaría (p. ej. «Partida de nacimiento»).
   - Es único por grado sin distinguir mayúsculas: índice `uq_requisito_grado_tipo_minusculas`.
@@ -357,7 +375,7 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 | Escala del resultado de las evaluaciones | Texto libre de hasta 50 caracteres, «[Escala por definir]» | `Resultado_Evaluacion.resultado` (§7 del modelo) | El colegio define la escala y una HU la cierra | `HU0025-1.0 …` |
 | Plantilla de la Carta de Vacante (HU0016) | `borrador-1`, entre corchetes y sin logo | `api/src/services/plantillaCarta.ts` | El colegio entrega el texto y el logo, y se sube la versión | `HU0016-1.0 …` |
 | Texto del aviso de la carta (HU0016) | `borrador-1`, entre corchetes | `api/src/services/avisosCarta.ts` | El colegio entrega el texto y se sube la versión | `HU0016-1.0 (D1-A) …` |
-| Firma de la Directora (HU0016) | Imagen ficticia en dev | `Personal.firma_url`, archivo cifrado (ADR-21) | `npm run firma:cargar -- <correo> <ruta>` | `D2 …` |
+| Firma de la Directora (HU0016) | Imagen ficticia en dev | `Personal.firma_url`, archivo cifrado (ADR-21) | `npm run firma:cargar -- <correo> <ruta> --responsable "<nombre>"` | `D2 …` |
 | Plazos máximos por etapa (HU0018-2.0, R21) | Postulación 15 días; subsanación, agendamiento, reprogramación y cuota 7 días (D1-A, provisionales) | `PLAZO_POSTULACION_DIAS`, `PLAZO_SUBSANACION_DIAS`, `PLAZO_AGENDAMIENTO_DIAS`, `PLAZO_REPROGRAMACION_DIAS` y `PLAZO_CUOTA_DIAS` (`config.ts`, de 3 a 90; opcionales en `.env`) | El colegio los define (C79); editar `.env` y recrear `api` | `HU0018-2.0 (plazos, ADR-19) …` |
 | Textos de los avisos del seguimiento (HU0018) | `borrador-1`, entre corchetes | `api/src/services/avisosSeguimiento.ts` | El colegio entrega los textos y se sube la versión | `HU0018-1.0 …` y `HU0018-2.0 …` |
 | Hora de la revisión diaria (HU0018) | 08:00 de Lima | Nodo «Cada día a las 8» de `seguimiento-recordatorios` | Editar el JSON del flujo y `npm run n8n:importar` | `HU0018-2.0 (n8n) …` |
@@ -604,7 +622,7 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
   - **Alternativas descartadas:** adjunto por n8n; adjunto enviado por la API, que rompe ADR-07; enlace firmado sin sesión, con el que un correo reenviado entrega el PDF a cualquiera.
   - **Costo aceptado:** la familia necesita su contraseña para ver la carta.
 - **[EQUIPO, D2-A] Firma de la Directora:** archivo cifrado en el almacenamiento de ADR-21, con su clave en la columna nueva `Personal.firma_url`.
-  - La carga un técnico con `npm run firma:cargar -- <correo> <ruta>`: solo PNG o JPG por sus bytes, hasta 1 MB, y legible. Sin pantalla ni ruta HTTP: nunca sale de la API y solo se incrusta en el PDF.
+  - La carga un técnico con `npm run firma:cargar -- <correo> <ruta> --responsable "<nombre>"`: solo PNG o JPG por sus bytes, hasta 1 MB, y legible. Su nombre queda en el `detalle.responsable` del evento `gestion_usuario`, que no tiene actor. Sin pantalla ni ruta HTTP: nunca sale de la API y solo se incrusta en el PDF.
   - Cada carga deja `gestion_usuario` con `accion: "firma_cargada"`. La nueva reemplaza a la anterior y la borra: las cartas emitidas ya la llevan.
   - En dev, `npm run dev:firma-ficticia` carga una imagen que dice «FIRMA FICTICIA · SOLO PRUEBAS». El script corre dentro del contenedor, porque el volumen `archivos` solo se ve desde ahí.
   - **Quién autoriza (`id_personal_autoriza`):** la directora activa con firma cargada; si hay varias, la que adjudicó la vacante. La adjudicación cuenta como la «autorización de la Directora» de la Tabla 3 del TI: no hay un paso adicional.
@@ -618,6 +636,7 @@ OCR o IA para validar documentos · consulta a centrales de riesgo · cálculo d
 
 ## ADR-29 Panel de seguimiento de la familia (HU0020, P04)
 - **[EQUIPO, bloque 10, 06/11/2026] Sin reglas nuevas:** `GET /familia/expedientes/:id/panel` solo compone lo que ya existe (ramas de R9, observaciones vigentes, verificación de completitud, P07 y P08). «En revisión» se deriva: rama `pendiente` con el expediente en `en_validacion`; `en_revision` sigue sin uso (ADR-23).
+- **Las seis etapas de P04 (registro del 16/11/2026; no es una decisión nueva):** son las del mockup `docs/ui/P04-Panel.dc.html`, en este orden: (1) Ficha y cuestionario; (2) Documentos; (3) Pagos y doc. financiera; (4) Evaluaciones; (5) Resultado; (6) Cuota y carta. Son solo una lectura de los estados que ya existen, sin tabla ni columna propia: las compone `api/src/services/panelSeguimiento.ts`.
 - **[EQUIPO, D4] Historial por lista blanca:** cada evento visible de la bitácora se traduce a un texto fijo, y lo que no está en la lista se omite. `detalle` nunca llega al cliente: la respuesta es solo fecha y texto. Los actores van por área («Tesorería»), nunca por nombre.
   - **Nunca se muestran:** `atencion_inicio`, `acceso_denegado`, `notificacion_rebotada`, los `atencion_fin` de citas, dictamen y adjudicación, ni las transiciones de las ramas, que ya salen por su `atencion_fin`.
   - El motivo de una observación va solo en «Acciones pendientes». Nunca aparecen conclusiones, observaciones de las evaluaciones, nombres del personal ni datos de otras familias.

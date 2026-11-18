@@ -44,15 +44,25 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_HEALTH_ENABLED: "true"
+      # C7: el pool de conexiones de Keycloak (Agroal) valida cada conexión antes de entregarla. Sin esto, tras reiniciar Postgres
+      # las primeras peticiones fallaban con HTTP 500 por conexiones muertas del pool. Keycloak no tiene una opción propia para
+      # esto: es una propiedad de Quarkus, que la lee del entorno.
+      QUARKUS_DATASOURCE_JDBC_VALIDATE_ON_BORROW: "true"
       # Emisor estable (iss) para la API; la API y n8n llegan por la red interna (backchannel).
       KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL}
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       # Placeholders que usa infra/keycloak/realm-cil-admision.json al importarse
       KEYCLOAK_API_CLIENT_SECRET: ${KEYCLOAK_API_CLIENT_SECRET}
       FRONTEND_PUBLIC_URL: ${FRONTEND_PUBLIC_URL}
-      # SMTP del realm: Keycloak envía el enlace para definir la contraseña del personal (HU0021, ADR-07 excepción)
+      # SMTP del realm: Keycloak envía el enlace para definir la contraseña del personal (HU0021, ADR-07 excepción) y el de
+      # recuperación de contraseña (HU0023). Autenticación y TLS (C12): sin definirlas en .env rige Mailpit (dev), sin ninguna.
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
+      SMTP_AUTH: ${SMTP_AUTH:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_SSL: ${SMTP_SSL:-false}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
       KEYCLOAK_SMTP_FROM: ${KEYCLOAK_SMTP_FROM}
       # Campaña activa que muestra el tema G01 (HU0022, C23): theme.properties la lee con ${env.CAMPANA_ACTIVA}
       CAMPANA_ACTIVA: ${CAMPANA_ACTIVA}
@@ -101,12 +111,19 @@ services:
       N8N_PORT: "5678"
       GENERIC_TIMEZONE: America/Lima
       TZ: America/Lima
-      # Ventana de las ejecuciones que no se guardan (ADR-02 D3, R1; C10, C11): n8n 2.42.5 no las borra al terminar, las
-      # marca con deletedAt y el borrado físico corre cada EXECUTIONS_DATA_PRUNE_HARD_DELETE_INTERVAL minutos (15 por
-      # defecto). Cada minuto: la contraseña temporal y X-Webhook-Secret quedan legibles 1 min como máximo.
+      # Ejecuciones de n8n (ADR-02 D3, R1; C10, C11). Decisión del 17/11/2026 (C10): borrado físico cada minuto y poda por
+      # antigüedad activa, en dev y en el VPS. n8n 2.42.5 no borra al terminar una ejecución que no se guarda: la marca con
+      # deletedAt y el borrado físico corre cada EXECUTIONS_DATA_PRUNE_HARD_DELETE_INTERVAL minutos (15 por defecto). Con 1, la
+      # contraseña temporal y X-Webhook-Secret quedan legibles 1 min como máximo (medido: de 39 a 54 s).
+      # EXECUTIONS_DATA_PRUNE=false las borraría al instante, pero apaga la poda por antigüedad y las ejecuciones con error (con
+      # correo, asunto y cuerpo) quedarían para siempre.
+      # EXECUTIONS_DATA_MAX_AGE (horas): las ejecuciones con error se conservan 7 días (provisional hasta que el colegio fije la
+      # retención; n8n usa 14 por defecto). El corte lo envía n8n en UTC y la base corre en America/Lima: la poda se adelanta
+      # 5 h, así que solo acorta la retención.
       # El búfer (horas) no alarga la ventana de las ejecuciones automáticas, pero sí la de las manuales
-      # (saveManualExecutions: false en agendamiento): en 0, también se borran en el siguiente ciclo. La poda por
-      # antigüedad (EXECUTIONS_DATA_PRUNE, EXECUTIONS_DATA_MAX_AGE) sigue con sus valores por defecto (C10).
+      # (saveManualExecutions: false en agendamiento): en 0, también se borran en el siguiente ciclo.
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "168"
       EXECUTIONS_DATA_PRUNE_HARD_DELETE_INTERVAL: "1"
       EXECUTIONS_DATA_HARD_DELETE_BUFFER: "0"
       # HU0018 (D8-A): `n8n execute` dentro de este contenedor (la revisión diaria de seguimiento-recordatorios por su

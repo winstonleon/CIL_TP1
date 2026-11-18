@@ -16,11 +16,12 @@
   Los usuarios de prueba los crea `npm run kc:usuarios-prueba` con datos ficticios (`@ejemplo.test`).
 - **Idioma:** español (`defaultLocale: es`) para todo el realm: correos y páginas de Keycloak, también las del
   portal de familias (P03).
-- **SMTP del realm (HU0021):** Keycloak envía el enlace para definir la contraseña del personal (*execute actions
-  email*; excepción de ADR-07 y R22: no pasa por n8n ni se registra en `notificacion`). Toma `SMTP_HOST`,
-  `SMTP_PORT` y `KEYCLOAK_SMTP_FROM` del entorno; en dev el correo va a Mailpit (`http://localhost:8025`).
-  `auth`, `ssl` y `starttls` están fijos en `false`: antes del primer despliegue hay que volverlos placeholders y
-  agregar usuario y contraseña SMTP (compromiso C12), porque el realm de producción se importa una sola vez.
+- **SMTP del realm (HU0021, C12):** Keycloak envía el enlace para definir la contraseña del personal (*execute actions
+  email*; excepción de ADR-07 y R22: no pasa por n8n ni se registra en `notificacion`) y el de recuperación de contraseña.
+  Toma `SMTP_HOST`, `SMTP_PORT`, `SMTP_AUTH`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SSL`, `SMTP_STARTTLS` y
+  `KEYCLOAK_SMTP_FROM` del entorno; sin las de autenticación y TLS rige Mailpit (dev: `http://localhost:8025`). Como el
+  realm de producción se importa una sola vez, un cambio posterior en `.env` no llega a un realm que ya existe:
+  `GUIA-INSTALACION.md` (sección 10) explica cómo aplicarlo con `kcadm.sh`.
 - **Perfil de usuario:** además de los atributos por defecto, declara `origen` (solo lo ven y editan los
   administradores). La API crea las cuentas del personal con `origen=api-personal`: así reconoce un usuario
   huérfano de un alta fallida y lo adopta en el siguiente intento con el mismo correo (plan HU0021, Q4).

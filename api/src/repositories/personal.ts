@@ -63,6 +63,12 @@ export async function existeCorreo(db: Consultable, correo: string): Promise<boo
   return (rowCount ?? 0) > 0;
 }
 
+// ¿Hay una directora con la cuenta activa? El comando de la cuenta inicial (C18) solo corre si no hay ninguna.
+export async function existeDirectoraActiva(db: Consultable): Promise<boolean> {
+  const { rowCount } = await db.query("SELECT 1 FROM personal WHERE rol = 'directora' AND activo LIMIT 1");
+  return (rowCount ?? 0) > 0;
+}
+
 export async function insertarPersonal(db: Consultable, p: NuevoPersonal): Promise<FilaPersonal> {
   const { rows } = await db.query<FilaPersonal>(
     `INSERT INTO personal (nombres, apellidos, rol, correo, keycloak_user_id)
