@@ -4,7 +4,9 @@ import { Router } from "express";
 import { z } from "zod";
 import type { IdentidadAdmin } from "../identidad/keycloakAdmin";
 import type { DisparadorN8n } from "../orquestacion/n8n";
-import { fechaValida, registrarAsistencia, RESULTADOS_ASISTENCIA, visitasDeLaSemana } from "../services/visitas";
+// C73: la misma validación de fecha que G08 y P07b; una fecha imposible («2026-13-01») responde 400, no 500.
+import { fechaValida } from "../services/derechoAdmision";
+import { registrarAsistencia, RESULTADOS_ASISTENCIA, visitasDeLaSemana } from "../services/visitas";
 import { validar } from "../validacion";
 
 const consultaSemana = z.object({ fecha: z.string().refine(fechaValida).optional() }).strict();

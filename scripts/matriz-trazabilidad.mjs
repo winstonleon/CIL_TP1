@@ -42,14 +42,16 @@ const rutaReporte = (nombre) => resolve(DIR_REPORTES, `${nombre}.json`).replaceA
 
 function correr(titulo, args, env = {}) {
   console.log(`\n========== ${titulo} ==========\n`);
-  // En Windows npm es un .cmd: hace falta la shell. Las rutas del repo no tienen espacios.
+  // En Windows npm es un .cmd: hace falta la shell, que parte los argumentos en los espacios. Por eso ningún argumento
+  // lleva la ruta del repo, que puede tenerlos («C:/Users/Nombre Apellido/…»).
   const r = spawnSync("npm", args, { cwd: RAIZ, stdio: "inherit", env: { ...process.env, ...env }, shell: process.platform === "win32" });
   return r.status ?? 1;
 }
 
 const vitest = (workspace) => [
   "run", "test", "--workspace", workspace, "--",
-  "--reporter=verbose", "--reporter=json", `--outputFile.json=${rutaReporte(workspace)}`,
+  // Vitest corre con el workspace como directorio actual: la ruta relativa no tiene espacios.
+  "--reporter=verbose", "--reporter=json", `--outputFile.json=${relative(resolve(RAIZ, workspace), rutaReporte(workspace)).replaceAll("\\", "/")}`,
 ];
 correr("API (Vitest)", vitest("api"));
 correr("Frontend (Vitest)", vitest("frontend"));

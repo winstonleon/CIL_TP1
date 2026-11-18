@@ -1,0 +1,155 @@
+# Overlay de producción (ADR-08): VPS con NGINX y TLS. Solo NGINX publica puertos (80 y 443).
+# Uso, desde la raíz del repo en el servidor (GUIA-INSTALACION.md, sección 10):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Administración (migraciones, credenciales y flujos de n8n): contenedor de un solo uso `admin`, dentro de la red
+# interna. Postgres y n8n no publican ningún puerto:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile tools run --rm admin db:migrate
+
+services:
+  keycloak:
+    # Modo de producción detrás de NGINX, bajo /auth. NGINX termina TLS: Keycloak recibe HTTP por la red interna y
+    # confía en las cabeceras X-Forwarded-* que fija NGINX. En .env, KEYCLOAK_PUBLIC_URL es https://<dominio>/auth
+    # (la base lo pasa como KC_HOSTNAME) y KEYCLOAK_INTERNAL_URL, http://keycloak:8080/auth.
+    command: ["start", "--import-realm"]
+    environment:
+      KC_HTTP_ENABLED: "true"
+      KC_HTTP_RELATIVE_PATH: /auth
+      # La salud sigue en /health/ready del puerto de gestión: vale el healthcheck de docker-compose.yml.
+      KC_HTTP_MANAGEMENT_RELATIVE_PATH: /
+      KC_PROXY_HEADERS: xforwarded
+
+  n8n:
+    # C5: la contraseña de su base y su clave de cifrado llegan como secretos de Docker (archivos en /run/secrets),
+    # no como variables del contenedor.
+    environment:
+      DB_POSTGRESDB_PASSWORD_FILE: /run/secrets/n8n_db_password
+      N8N_ENCRYPTION_KEY_FILE: /run/secrets/n8n_encryption_key
+    secrets:
+      - n8n_db_password
+      - n8n_encryption_key
+
+  api:
+    build:
+      target: prod
+
+  # Único punto de entrada: termina TLS, sirve el build de Vue y reenvía /api y /auth (infra/nginx/cil.conf.template).
+  nginx:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      target: prod
+      args:
+        # Vite los incrusta en el JavaScript al compilar. La API y Keycloak van por el mismo dominio (/api y /auth),
+        # así que salen de las mismas variables que usan los demás servicios.
+        VITE_API_URL: /api
+        VITE_OIDC_AUTHORITY: ${KEYCLOAK_PUBLIC_URL}/realms/${KEYCLOAK_REALM}
+        VITE_OIDC_CLIENT_ID_PORTAL: ${VITE_OIDC_CLIENT_ID_PORTAL}
+        VITE_OIDC_CLIENT_ID_GESTION: ${VITE_OIDC_CLIENT_ID_GESTION}
+    environment:
+      # Las dos variables que envsubst reemplaza en la plantilla al arrancar.
+      FRONTEND_PUBLIC_URL: ${FRONTEND_PUBLIC_URL}
+      API_PORT: ${API_PORT}
+      TZ: America/Lima
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      # Viven en el servidor, fuera del repo: el certificado TLS (fullchain.pem y privkey.pem) y la carpeta donde
+      # certbot deja la validación de Let's Encrypt.
+      - ${TLS_CERT_DIR:?falta TLS_CERT_DIR en .env}:/etc/nginx/certs:ro
+      - ${ACME_WEBROOT_DIR:?falta ACME_WEBROOT_DIR en .env}:/var/www/acme:ro
+    depends_on:
+      - api
+      - keycloak
+    healthcheck:
+      # Pide la página de inicio por HTTPS desde el propio contenedor (el certificado no se valida contra 127.0.0.1).
+      test: ["CMD-SHELL", "wget -q --no-check-certificate -O /dev/null https://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    networks: [interna]
+    restart: unless-stopped
+
+  # Respaldo diario cifrado (ADR-08; C35 y C47): infra/respaldo/respaldar.sh, a las 02:00 de Lima. Sin puertos. Lee las
+  # tres bases como superusuario (pg_dumpall --globals-only lo exige) y el volumen `archivos` en solo lectura. Cifra con
+  # la clave PÚBLICA de age: la privada no está en el servidor. Restauración: GUIA-INSTALACION.md, §10.
+  respaldo:
+    build:
+      context: infra/respaldo
+    # El bucle es un script de shell: como PID 1 ignoraría SIGTERM y `docker stop` esperaría 10 s para matarlo.
+    init: true
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ${POSTGRES_SUPERUSER}
+      ADMISION_DB: ${ADMISION_DB}
+      N8N_DB: ${N8N_DB}
+      KEYCLOAK_DB: ${KEYCLOAK_DB}
+      RESPALDO_CLAVE_PUBLICA: ${RESPALDO_CLAVE_PUBLICA:?falta RESPALDO_CLAVE_PUBLICA en .env}
+      TZ: America/Lima
+    secrets:
+      - postgres_superpassword
+    volumes:
+      - archivos:/respaldo/origen/archivos:ro
+      # Carpeta del servidor, fuera del repo. No protege contra la pérdida del servidor: la copia fuera del VPS es C35.
+      - ${RESPALDO_DIR:?falta RESPALDO_DIR en .env}:/respaldo/destino
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [interna]
+    restart: unless-stopped
+
+  # Administración del servidor desde dentro de la red interna (ADR-08). No arranca con `up`: se usa con
+  #   docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile tools run --rm admin <script>
+  # donde <script> es db:migrate, n8n:credenciales o n8n:importar. Recibe solo las variables que esos scripts
+  # necesitan, y los secretos como archivos (C5): los scripts los leen de las variables *_FILE.
+  admin:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+      target: admin
+    profiles: ["tools"]
+    environment:
+      # db:migrate, con el rol de migración (dueño del esquema).
+      ADMISION_DB: ${ADMISION_DB}
+      ADMISION_MIGRATOR_USER: ${ADMISION_MIGRATOR_USER}
+      ADMISION_MIGRATOR_PASSWORD_FILE: /run/secrets/admision_migrator_password
+      MIGRACIONES_DB_HOST: postgres
+      MIGRACIONES_DB_PORT: "5432"
+      # n8n:credenciales y n8n:importar. La API de n8n solo se alcanza por la red interna.
+      N8N_CIL_API_URL: http://n8n:5678
+      N8N_CIL_API_KEY_FILE: /run/secrets/n8n_api_key
+      N8N_WEBHOOK_SECRET_FILE: /run/secrets/n8n_webhook_secret
+      INTERNAL_API_TOKEN_FILE: /run/secrets/internal_api_token
+      API_INTERNAL_URL: ${API_INTERNAL_URL}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      TZ: America/Lima
+    secrets:
+      - admision_migrator_password
+      - n8n_api_key
+      - n8n_webhook_secret
+      - internal_api_token
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [interna]
+
+# Los valores salen de .env (que no se versiona): Docker los entrega al contenedor como archivos de /run/secrets,
+# así no aparecen en su entorno ni en `docker inspect`.
+secrets:
+  n8n_db_password:
+    environment: N8N_DB_PASSWORD
+  n8n_encryption_key:
+    environment: N8N_ENCRYPTION_KEY
+  admision_migrator_password:
+    environment: ADMISION_MIGRATOR_PASSWORD
+  n8n_api_key:
+    environment: N8N_CIL_API_KEY
+  n8n_webhook_secret:
+    environment: N8N_WEBHOOK_SECRET
+  internal_api_token:
+    environment: INTERNAL_API_TOKEN
+  postgres_superpassword:
+    environment: POSTGRES_SUPERPASSWORD

@@ -10,11 +10,12 @@
 //   5. Exporta el estado real de la instancia al repo, con nombres en lugar de IDs y sin campos propios de la instancia.
 // Importa en orden de dependencias: registro-errores, notificacion-multicanal, verificacion-completitud y luego el resto. Si falla uno del que
 // dependen otros, no importa los siguientes (un flujo nuevo no queda activo llamando a una versión vieja).
-// Usa N8N_CIL_API_URL y N8N_CIL_API_KEY (variables de Windows, las mismas del MCP). No imprime secretos.
+// Usa N8N_CIL_API_URL y N8N_CIL_API_KEY (en dev, variables de Windows, las mismas del MCP; en producción las fija
+// el contenedor `admin`, dentro de la red interna). No imprime secretos.
 // Uso: node scripts/importar-workflows.mjs [nombre-del-flujo ...]
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { RAIZ } from "./lib/keycloak.mjs";
+import { RAIZ, leerVariable } from "./lib/keycloak.mjs";
 
 const FLUJOS_TI = new Set([
   "captacion",
@@ -36,7 +37,7 @@ const EXECUTE_WORKFLOW = "n8n-nodes-base.executeWorkflow";
 const DIR = resolve(RAIZ, "n8n/workflows");
 
 const URL_N8N = process.env.N8N_CIL_API_URL?.replace(/\/$/, "");
-const CLAVE = process.env.N8N_CIL_API_KEY;
+const CLAVE = leerVariable("N8N_CIL_API_KEY");
 if (!URL_N8N || !CLAVE) {
   console.error("Faltan N8N_CIL_API_URL o N8N_CIL_API_KEY en el entorno (ver GUIA-INSTALACION.md §3).");
   process.exit(2);

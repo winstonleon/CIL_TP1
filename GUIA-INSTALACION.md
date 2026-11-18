@@ -297,3 +297,255 @@ Las instrucciones del Proyecto «Desarrollo» en claude.ai todavía mencionan OC
   - La salida de `n8n execute` trae los asuntos y cuerpos de los avisos (datos ficticios en dev): no la compartas como evidencia.
 - **Tema de login (ADR-31):** P03, P03b y P03c se ven en `portal-familias` y G01 en `gestion-interna`. Un cambio en el realm (`login_theme`, `resetPasswordAllowed`) exige reimportarlo (`infra/keycloak/README.md`); un cambio en las plantillas se ve al recargar la página.
 - **Cuenta bloqueada en dev:** tras 5 intentos fallidos, una cuenta queda bloqueada por un tiempo (provisional, C6). Para desbloquearla sin esperar: consola de Keycloak → realm `cil-admision` → **Users** → la cuenta → **Details** → desactivar el bloqueo temporal, o `DELETE /admin/realms/cil-admision/attack-detection/brute-force/users/<id>` por la Admin API (lo hace el E2E al terminar).
+
+## 10. Despliegue en producción (VPS)
+
+**Estado (16/11/2026):** ensayado en una PC con `docker-compose.prod.yml`, un certificado autofirmado y
+`npm run prod:verificar`. **Todavía no se ha desplegado en un VPS.** Lo que depende de un dominio o de un servidor Linux
+está escrito, pero sin probar, y lleva la marca **[sin probar]**.
+
+**No abrir a familias reales todavía.** Faltan, entre otros compromisos de «Antes del despliegue al VPS»
+(`docs/compromisos.md`): el SMTP real (C12; sin él no sale ningún correo), la cuenta inicial de la Directora (C18) y,
+del respaldo (C35), la copia fuera del servidor y el simulacro de restauración en un servidor nuevo. El respaldo diario
+cifrado en el propio servidor ya está (más abajo).
+
+### Qué cambia respecto de dev
+
+- **Solo NGINX publica puertos** (80 y 443). Postgres, Keycloak, n8n y la API solo existen en la red interna de Docker.
+- **NGINX** (`infra/nginx/cil.conf.template`) termina TLS, sirve el build de Vue y reenvía `/api` a la API y `/auth` a
+  Keycloak. No publica `/api/internal/*` (C19), los webhooks ni el editor de n8n (C11), ni la consola de administración
+  de Keycloak. Su registro de acceso no guarda la consulta (`?t=…`) ni el `Referer`.
+- **HTTPS es obligatorio:** el ingreso usa PKCE, que el navegador solo permite en un contexto seguro. Por HTTP el ingreso
+  falla aunque todo lo demás cargue.
+- **La API corre con `tsx`**, sin recarga en caliente, con `NODE_ENV=production` y sin privilegios de root. Limitación
+  aceptada: arranca más lento y usa algo más de memoria que con JavaScript compilado. Como `tsx` no revisa los tipos, la
+  imagen de producción no se construye si `tsc --noEmit` falla.
+- **No existe `admision_test`** (C14) y **n8n recibe sus secretos como archivos**, no como variables (C5).
+- **No hay Mailpit:** el correo necesita un servidor SMTP real (C12, pendiente).
+
+### Requisitos del servidor
+
+- Linux con Docker Engine y el plugin Compose. Se ensayó con Docker 29.9 y Compose 5.7; hace falta un Compose que admita
+  secretos tomados de una variable (`secrets.<nombre>.environment`).
+- Node.js 22, solo para `scripts/generar-secretos.js` y `npm run prod:verificar`. No hace falta `npm ci`.
+- Memoria: en reposo, el ensayo usó cerca de 1,5 GB (Keycloak 0,9 GB y n8n 0,4 GB). Keycloak pide más al arrancar.
+- Un dominio que apunte al servidor, para el certificado. **Pendiente: hoy no hay dominio.**
+- Firewall: del exterior solo se ven el 22, el 80 y el 443. SSH solo con llave, sin contraseña. Docker publica sus
+  puertos por encima de `ufw`: por eso ningún otro servicio publica nada.
+
+### Primera instalación
+
+En el servidor, desde la raíz del repo clonado. `C` abrevia el comando de Compose:
+
+```bash
+C="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+```
+
+1. **`.env`:** `cp .env.example .env`, reemplaza en él las variables de `.env.prod.example` (el dominio, `TLS_CERT_DIR`,
+   `ACME_WEBROOT_DIR`, `RESPALDO_DIR`, `RESPALDO_CLAVE_PUBLICA` y `N8N_CIL_API_KEY` vacía) y completa los datos del
+   colegio. La clave del respaldo se genera **fuera** del servidor (ver «Respaldo diario»). Después:
+   ```bash
+   node scripts/generar-secretos.js
+   chmod 600 .env
+   ```
+   **Fija el dominio definitivo antes del primer arranque.** Va dentro del JavaScript del frontend y del realm de
+   Keycloak, que se importa una sola vez. Si cambia después, hay que reconstruir `nginx` y corregir en Keycloak las URL
+   de retorno de los clientes `portal-familias` y `gestion-interna`, o empezar con volúmenes nuevos si aún no hay datos.
+2. **Certificado provisional**, para que NGINX pueda arrancar antes de pedir el definitivo. El navegador mostrará una
+   advertencia: sirve para ensayar con el equipo, no para las familias.
+   ```bash
+   sudo mkdir -p /etc/cil/tls /var/www/cil-acme
+   sudo install -d -m 700 /var/backups/cil      # RESPALDO_DIR
+   sudo openssl req -x509 -newkey rsa:2048 -nodes -days 30 -subj "/CN=<dominio>" \
+     -keyout /etc/cil/tls/privkey.pem -out /etc/cil/tls/fullchain.pem
+   ```
+3. **Imágenes, base y migraciones**, en este orden. Las migraciones van antes de levantar la API:
+   ```bash
+   $C --profile tools build
+   $C up -d postgres
+   $C --profile tools run --rm admin db:migrate
+   $C up -d
+   ```
+   La primera vez, Keycloak importa el realm y tarda cerca de dos minutos. Mientras tanto `/auth` responde 503
+   («Bootstrap in progress»), aunque el contenedor ya figure como `healthy` (en el ensayo: `healthy` a los 73 s y
+   `/auth` listo a los 136 s).
+4. **n8n: usuario owner y clave de API**, una sola vez. El editor no se publica: se abre por un túnel SSH hacia el
+   contenedor. **[sin probar: en Docker Desktop las IP de los contenedores no se alcanzan desde el host; en el ensayo el
+   owner y la clave se crearon desde dentro del contenedor]**
+   ```bash
+   # En el servidor, la IP del contenedor:
+   docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' cil-admision-n8n-1
+   # En tu PC, con esa IP:
+   ssh -L 5679:<ip>:5678 <usuario>@<servidor>
+   ```
+   Abre `http://localhost:5679`, crea el owner y una clave en **Settings → n8n API**. Pégala en `N8N_CIL_API_KEY` del
+   `.env` del servidor y corre:
+   ```bash
+   $C --profile tools run --rm admin n8n:credenciales
+   $C --profile tools run --rm admin n8n:importar
+   ```
+   `n8n:credenciales` todavía configura el SMTP sin usuario ni TLS (C12).
+5. **Certificado de Let's Encrypt** (más abajo).
+6. **Verificación:** `npm run prod:verificar` (más abajo).
+
+### El contenedor `admin`
+
+Las migraciones, las credenciales y los flujos de n8n se administran desde dentro de la red interna, con un contenedor
+de un solo uso que no arranca con `up`. Así Postgres y n8n no publican ningún puerto.
+
+```bash
+$C --profile tools run --rm admin <script>      # db:migrate · n8n:credenciales · n8n:importar
+```
+
+- Lleva los scripts, las migraciones y los flujos del commit con que se construyó la imagen. Después de un `git pull`
+  hay que reconstruirla: `$C --profile tools build`.
+- Recibe solo las variables que esos scripts necesitan, y los secretos como archivos (variables `*_FILE`).
+- `n8n:importar` reescribe los JSON con el estado de la instancia. Dentro del contenedor esa copia se descarta: el repo
+  del servidor no cambia.
+- En dev nada cambia: los mismos scripts corren en el host, contra los puertos publicados en `127.0.0.1`.
+
+### Verificación (`npm run prod:verificar`)
+
+Se corre en el servidor. Comprueba, entre otras cosas: que solo NGINX publique puertos, la redirección a HTTPS, el
+certificado, que `/api/internal` y sus variantes no lleguen a la API (C19), que los webhooks no se publiquen (C11), el
+tope de 11 MB de las cargas (C46), Keycloak bajo `/auth`, el registro de acceso sin consultas, los secretos de n8n (C5)
+y que no exista `admision_test` (C14), y que el último respaldo haya terminado bien hace menos de 26 h (C35).
+
+- `--certificado-autofirmado`: mientras el certificado sea el provisional.
+- `--limite-por-ip`: comprueba además que `X-Forwarded-For` no esquiva el límite por IP. Deja la IP desde la que se
+  corre sin poder enviar P01 durante 10 minutos.
+- Con `PROD_VERIFICAR_USUARIO` y `PROD_VERIFICAR_CONTRASENA` en el entorno, comprueba el ingreso de esa cuenta y que la
+  API acepte su token.
+
+Además, a mano y como evidencia. **[sin probar: requiere el servidor]**
+
+- `ss -tlnp` en el servidor y `nmap` desde otra máquina: solo el 22, el 80 y el 443.
+- `$C logs --tail 20 nginx` después de entrar desde otra red: la primera columna debe ser la IP pública del visitante.
+  Si es una IP de Docker (172.x), todas las familias compartirían el límite por IP de P01 y P02.
+
+### Certificado TLS con Let's Encrypt **[sin probar: requiere dominio]**
+
+NGINX solo lee `fullchain.pem` y `privkey.pem` de `TLS_CERT_DIR`. El certificado lo pide y lo renueva `certbot`,
+instalado en el servidor, sin detener NGINX: valida el dominio con los archivos que deja en `ACME_WEBROOT_DIR`, que
+NGINX sirve por el puerto 80.
+
+```bash
+sudo apt install certbot
+sudo certbot certonly --webroot -w /var/www/cil-acme -d <dominio> \
+  --deploy-hook 'cp -L "$RENEWED_LINEAGE/fullchain.pem" "$RENEWED_LINEAGE/privkey.pem" /etc/cil/tls/ && docker exec cil-admision-nginx-1 nginx -s reload'
+```
+
+- El certificado vence a los 90 días. `certbot` lo renueva solo con su temporizador (`systemctl list-timers certbot.timer`)
+  y, después de cada renovación, el `--deploy-hook` copia los archivos y recarga NGINX. Sin ese paso, el sitio deja de
+  abrir cuando vence el certificado.
+- Después de pedirlo, comprueba que `/etc/cil/tls` tiene los archivos nuevos. Si no, corre a mano el comando del
+  `--deploy-hook`.
+- Ensaya la renovación sin esperar: `sudo certbot renew --dry-run`. `npm run prod:verificar` avisa si el certificado
+  vence en menos de 15 días.
+- Hace falta el puerto 80 abierto, para la validación y para la redirección a HTTPS.
+
+### Keycloak sin consola publicada
+
+La consola de administración no se publica. Keycloak se administra con `kcadm.sh` dentro del contenedor:
+
+```bash
+$C exec keycloak sh -c '/opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080/auth --realm master --user "$KC_BOOTSTRAP_ADMIN_USERNAME" --password "$KC_BOOTSTRAP_ADMIN_PASSWORD"'
+$C exec keycloak /opt/keycloak/bin/kcadm.sh get events -r cil-admision
+$C exec keycloak /opt/keycloak/bin/kcadm.sh get users -r cil-admision -q username=<correo> --fields id
+$C exec keycloak /opt/keycloak/bin/kcadm.sh delete attack-detection/brute-force/users/<id> -r cil-admision
+```
+
+El primero abre la sesión de administración; los otros listan los eventos, buscan una cuenta y la desbloquean.
+
+- **Eventos de inicio de sesión (C24):** el realm guarda solo los intentos fallidos (`LOGIN_ERROR`) y los bloqueos
+  temporales (`USER_DISABLED_BY_TEMPORARY_LOCKOUT`), con el usuario y la IP, durante 90 días. Los ingresos correctos no
+  se guardan. Es la evidencia de HU0023-2.0. La retención es provisional: la fija el colegio.
+- El realm de producción se importa una sola vez. Un cambio posterior en `realm-cil-admision.json` no se aplica solo.
+
+### Respaldo diario (C35)
+
+El servicio `respaldo` (`infra/respaldo/respaldar.sh`) respalda cada día a las 02:00 de Lima. Además, mientras el
+último respaldo no sea bueno y de menos de 26 h (porque falló o porque el contenedor estuvo detenido), reintenta al
+arrancar y cada hora. Con el servicio funcionando se pierden como máximo unas 27 h de datos. Deja en `RESPALDO_DIR` una carpeta `AAAAMMDD-HHMMSS` con las tres bases
+(`pg_dump`), los roles (`pg_dumpall --globals-only`), el volumen `archivos` y su manifiesto, **todo cifrado con age**.
+Conserva 14 días y nunca menos de los 7 últimos; la poda corre solo después de un respaldo exitoso.
+
+- **Qué no protege todavía:** la pérdida del servidor. El respaldo vive en el mismo disco que la base hasta que exista
+  la copia fuera del VPS (C35, pendiente: el destino lo decide el colegio). No se afirma recuperación ante la pérdida del
+  servidor mientras tanto.
+- **n8n sin ejecuciones:** de la base `n8n` no se respaldan los datos de `execution*` (correos, cuerpos de avisos y
+  `X-Webhook-Secret`, C10 y C11). Sí van los flujos, las credenciales cifradas, los usuarios y la clave de API.
+- **Retención y borrado:** un dato que una familia pida borrar sigue en los respaldos hasta que estos venzan: 14 días si
+  los respaldos funcionan. Si fallan varios días seguidos, los 7 últimos buenos no se borran hasta que vuelva a haber
+  uno exitoso, así que ese plazo se alarga lo mismo que dure la falla.
+
+**Claves: tres cosas distintas, ninguna junto al respaldo.**
+
+1. **Clave privada de age** (`AGE-SECRET-KEY-…`): descifra los respaldos. Se genera en la máquina del responsable, no en
+   el servidor; en el `.env` del servidor va solo la línea pública:
+   ```bash
+   age-keygen -o clave-respaldo-cil.txt      # imprime «Public key: age1…» → RESPALDO_CLAVE_PUBLICA
+   ```
+2. **El `.env` del servidor:** `ARCHIVOS_ENCRYPTION_KEY`, `DATA_ENCRYPTION_KEY` y `DATA_HMAC_KEY` (sin ellas los DNI y
+   los archivos restaurados no se leen, C47), `N8N_ENCRYPTION_KEY` y las contraseñas de las bases. El respaldo no lo
+   incluye.
+3. **Propuesta, por confirmar con John y el colegio:** dos copias de cada una, en dos lugares distintos, con un
+   responsable nombrado y una revisión de que siguen legibles. Hoy no hay responsable ni lugares definidos.
+
+**Revisión diaria** durante la validación con familias: `npm run prod:verificar` (o `$C exec respaldo respaldar.sh
+comprobar`). Sin clave privada en el servidor, solo puede comprobar que terminó, que es reciente, que cuadra con su
+manifiesto y que está cifrado; que se pueda restaurar se prueba con el simulacro.
+
+**Respaldo a mano**, por ejemplo antes de actualizar: `$C exec respaldo respaldar.sh una-vez`.
+
+**Simulacro de restauración en un servidor nuevo [sin probar: requiere un segundo servidor].** Es la única prueba de
+que el respaldo sirve si se pierde el servidor. Se hace en un host limpio, con las claves tomadas de sus copias aparte,
+y se mide cuánto tarda:
+
+1. Clonar el repo en el host nuevo y copiar el `.env` **desde su copia guardada aparte**, no desde el servidor original.
+2. Copiar a `RESPALDO_DIR` la carpeta `AAAAMMDD-HHMMSS` del respaldo y construir: `$C --profile tools build`, `$C build`.
+3. Levantar **solo** Postgres, que crea las bases vacías y los roles con el `.env` (`infra/postgres/init/`). **No** correr
+   `db:migrate`: el respaldo ya trae el esquema.
+   ```bash
+   $C up -d postgres
+   $C run --rm -v /ruta/clave-respaldo-cil.txt:/clave:ro -v cil-admision_archivos:/respaldo/restaurar \
+     respaldo restaurar.sh --prueba <AAAAMMDD-HHMMSS> /clave     # bases temporales y conteo de filas
+   $C run --rm -v /ruta/clave-respaldo-cil.txt:/clave:ro -v cil-admision_archivos:/respaldo/restaurar \
+     respaldo restaurar.sh <AAAAMMDD-HHMMSS> /clave              # restauración real
+   $C up -d
+   ```
+   Si la restauración real falla a mitad, las bases ya restauradas quedan con datos y `restaurar.sh` se negará a
+   repetirlas: hay que borrar el volumen `pgdata` (y `archivos`) y volver a empezar desde `$C up -d postgres`.
+4. Comprobar con datos reales: entrar al portal con una cuenta de familia, ver en su ficha (P05) el DNI del postulante
+   (prueba `DATA_ENCRYPTION_KEY`) y abrir uno de sus documentos (prueba `ARCHIVOS_ENCRYPTION_KEY`). Después,
+   `npm run prod:verificar`.
+5. Anotar la fecha, cuánto tardó y quién lo hizo.
+
+La prueba automática del respaldo y la restauración, con contenedores y datos ficticios desechables, se corre en
+cualquier PC con Docker: `bash infra/respaldo/probar.sh`. No reemplaza el simulacro: no usa el `.env` guardado aparte
+ni descifra un DNI.
+
+### Operación
+
+- **Firma de la Directora:** `npm run firma:cargar -- <correo> <ruta>`, igual que en dev. Necesita la cuenta activa de
+  la Directora en `personal` (C18, pendiente).
+- **Actualizar a un commit nuevo:**
+  ```bash
+  git pull
+  $C --profile tools build
+  $C --profile tools run --rm admin db:migrate
+  $C up -d
+  $C --profile tools run --rm admin n8n:importar    # si cambiaron los flujos
+  npm run prod:verificar
+  ```
+- **Cambiar una variable de `.env`:** `$C up -d` recrea solo los contenedores afectados. NGINX encuentra a `api` y a
+  `keycloak` en su dirección nueva sin reiniciarse. Si cambian `N8N_WEBHOOK_SECRET` o `INTERNAL_API_TOKEN`, corre además
+  `admin n8n:credenciales`.
+
+### Al traer este cambio a una PC de dev ya instalada
+
+- `npm ci`: cambió `package-lock.json` (`tsx` y `dbmate` pasan a dependencias; ninguna versión cambia).
+- El siguiente `docker compose … up -d` de dev **recrea `postgres`**, que recibe la variable nueva `CREAR_BD_PRUEBA`.
+  Los datos se conservan. Después de ese reinicio, la primera petición a Keycloak puede fallar (C7): reintenta.
+- Los eventos de Keycloak (C24) solo se activan en dev si se reimporta el realm (`infra/keycloak/README.md`). No hace
+  falta para trabajar.

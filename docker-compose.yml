@@ -84,14 +84,14 @@ services:
     # Variables declaradas una por una (ajuste A): nunca claves de cifrado de la API,
     # secretos de Keycloak ni contraseñas de otras bases. Los secretos que usan los flujos
     # (token de la API interna, secreto del webhook, SMTP) viven en credenciales de n8n, no aquí.
+    # La contraseña de su base y su clave de cifrado las entrega cada overlay (C5): dev, como variables
+    # (DB_POSTGRESDB_PASSWORD y N8N_ENCRYPTION_KEY); prod, como secretos de Docker (variables *_FILE).
     environment:
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: postgres
       DB_POSTGRESDB_PORT: "5432"
       DB_POSTGRESDB_DATABASE: ${N8N_DB}
       DB_POSTGRESDB_USER: ${N8N_DB_USER}
-      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD}
-      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
       # n8n 2.x bloquea $env por defecto; los flujos leen con $env solo configuración no secreta
       # (URLs, banderas, remitente), según rules/n8n.md
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"

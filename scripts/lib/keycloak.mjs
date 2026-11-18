@@ -1,18 +1,37 @@
 // Utilidades compartidas por los scripts de infraestructura: carga del .env y Admin API de Keycloak.
 // Nunca imprimen valores de variables ni tokens.
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 export const RAIZ = resolve(import.meta.dirname, "..", "..");
 
 export function cargarEntorno() {
+  // En el contenedor `admin` de producción (ADR-08) las variables llegan del compose y no hay .env que cargar.
+  if (process.env.CIL_ENTORNO_DEL_CONTENEDOR === "1") return;
   const ruta = resolve(RAIZ, ".env");
   if (!existsSync(ruta)) throw new Error("No existe .env en la raíz del repo (copia .env.example)");
   process.loadEnvFile(ruta);
 }
 
-export function requerida(nombre) {
+// Valor de una variable. Un secreto también puede llegar como secreto de Docker (C5): NOMBRE_FILE indica el archivo
+// que lo contiene y NOMBRE queda sin definir, para que el valor no viaje en el entorno del contenedor. Si están las
+// dos, manda NOMBRE. Si el archivo no existe, no hay valor: Docker no crea el secreto cuando su variable está vacía
+// en .env. El mensaje de error nunca incluye el valor ni la ruta.
+export function leerVariable(nombre) {
   const valor = process.env[nombre];
+  if (valor) return valor;
+  const archivo = process.env[`${nombre}_FILE`];
+  if (!archivo) return valor;
+  try {
+    return readFileSync(archivo, "utf8").replace(/\r?\n$/, "");
+  } catch (e) {
+    if (e.code === "ENOENT") return undefined;
+    throw new Error(`No se pudo leer el archivo que indica ${nombre}_FILE`);
+  }
+}
+
+export function requerida(nombre) {
+  const valor = leerVariable(nombre);
   if (!valor || valor.startsWith("cambiar")) {
     throw new Error(`Falta la variable ${nombre} en .env (ejecuta node scripts/generar-secretos.js)`);
   }

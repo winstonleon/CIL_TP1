@@ -5,13 +5,14 @@
 //     su tipo y se actualiza con PATCH, que conserva el ID y no rompe los flujos importados. Si hay más de
 //     una con el mismo nombre, o el tipo no coincide, falla.
 //   - Nunca imprime valores: solo «creada» o «actualizada» y el ID.
-// Usa N8N_CIL_API_URL y N8N_CIL_API_KEY (variables de Windows, las mismas del MCP).
+// Usa N8N_CIL_API_URL y N8N_CIL_API_KEY (en dev, variables de Windows, las mismas del MCP; en producción las fija
+// el contenedor `admin`, que llega a n8n por la red interna: los secretos no salen de ella).
 // Uso: npm run n8n:credenciales
-import { cargarEntorno, requerida } from "./lib/keycloak.mjs";
+import { cargarEntorno, leerVariable, requerida } from "./lib/keycloak.mjs";
 
 cargarEntorno();
 const URL_N8N = process.env.N8N_CIL_API_URL?.replace(/\/$/, "");
-const CLAVE = process.env.N8N_CIL_API_KEY;
+const CLAVE = leerVariable("N8N_CIL_API_KEY");
 if (!URL_N8N || !CLAVE) {
   console.error("Faltan N8N_CIL_API_URL o N8N_CIL_API_KEY en el entorno (ver GUIA-INSTALACION.md §3).");
   process.exit(2);
