@@ -494,12 +494,13 @@ function historial(): Texto[] {
 
 const PORTAL = "frontend/src/views/portal";
 const SERVICIOS = "api/src/services";
+const INICIO = "frontend/src/views/Inicio.vue";
 
 function pantalla(id: string, ref: string, donde: string, texto: string, archivo: string, fragmento: string = texto, pide?: string): Texto {
   return fila({ id, grupo: GRUPOS.pantallas, donde, quien: FAMILIA, texto, ref, familia: true, fuentes: [{ archivo, fragmento }], ...(pide ? { pide } : {}) });
 }
 
-// Textos de las pantallas de las familias que no están en los mockups (C39 c, C55, C65, C76).
+// Textos de las pantallas de las familias que no están en los mockups (C39 c, C55, C65, C76) y los de la página de inicio (C85).
 function pantallas(): Texto[] {
   const visita = `${PORTAL}/VisitaGuiada.vue`;
   const evaluaciones = `${PORTAL}/EvaluacionesAgenda.vue`;
@@ -579,6 +580,100 @@ function pantallas(): Texto[] {
       "Tesorería está conciliando tu comprobante. La Carta de Vacante se emite al conciliarlo.",
       accion,
     ),
+    // Página de inicio (/): no tiene mockup. Es la entrada de la familia nueva (P01) y de la que ya visitó el colegio (P03).
+    fila({
+      id: "PAN-44",
+      grupo: GRUPOS.pantallas,
+      donde: "Inicio · Página de entrada · encabezado",
+      quien: FAMILIA,
+      texto: "Colegio Internacional de Lima\nIngreso del personal",
+      ref: SIN_COMPROMISO,
+      familia: true,
+      nota: "El sello «CIL» del encabezado es provisional (las siglas en un círculo): el logo oficial es el de la fila CAR-04.",
+      fuentes: [
+        { archivo: INICIO, fragmento: "Colegio Internacional de Lima" },
+        { archivo: INICIO, fragmento: ">Ingreso del personal<" },
+      ],
+    }),
+    fila({
+      id: "PAN-45",
+      grupo: GRUPOS.pantallas,
+      donde: "Inicio · Página de entrada · presentación",
+      quien: FAMILIA,
+      texto: "Admisión\nPostula en línea y sigue tu trámite sin llamar al colegio\nElige por dónde empezar según la etapa en que te encuentras.",
+      ref: SIN_COMPROMISO,
+      familia: true,
+      fuentes: [
+        { archivo: INICIO, fragmento: ">Admisión<" },
+        { archivo: INICIO, fragmento: "Postula en línea y sigue tu trámite sin llamar al colegio" },
+        { archivo: INICIO, fragmento: "Elige por dónde empezar según la etapa en que te encuentras." },
+      ],
+    }),
+    fila({
+      id: "PAN-46",
+      grupo: GRUPOS.pantallas,
+      donde: "Inicio · Página de entrada · opción para la familia que aún no visita el colegio",
+      quien: FAMILIA,
+      texto: "¿Primera vez?\nSolicita información\nTe enviamos la carpeta informativa y podrás agendar tu visita guiada.\nBotón: Solicitar información",
+      ref: SIN_COMPROMISO,
+      familia: true,
+      fuentes: [
+        { archivo: INICIO, fragmento: "¿Primera vez?" },
+        { archivo: INICIO, fragmento: "<h2>Solicita información</h2>" },
+        { archivo: INICIO, fragmento: "Te enviamos la carpeta informativa y podrás agendar tu visita guiada." },
+        { archivo: INICIO, fragmento: ">Solicitar información<" },
+      ],
+    }),
+    fila({
+      id: "PAN-47",
+      grupo: GRUPOS.pantallas,
+      donde: "Inicio · Página de entrada · opción para la familia que ya visitó el colegio",
+      quien: FAMILIA,
+      texto: "¿Ya visitaste el colegio?\nIngresa al portal de familias\nUsa el usuario y la contraseña temporal que recibiste después de la visita.\nBotón: Ingresar al portal",
+      ref: SIN_COMPROMISO,
+      familia: true,
+      fuentes: [
+        { archivo: INICIO, fragmento: "¿Ya visitaste el colegio?" },
+        { archivo: INICIO, fragmento: "<h2>Ingresa al portal de familias</h2>" },
+        { archivo: INICIO, fragmento: "Usa el usuario y la contraseña temporal que recibiste después de la visita." },
+        { archivo: INICIO, fragmento: ">Ingresar al portal<" },
+      ],
+    }),
+    fila({
+      id: "PAN-48",
+      grupo: GRUPOS.pantallas,
+      donde: "Inicio · Página de entrada · cómo funciona (cuatro pasos)",
+      quien: FAMILIA,
+      texto: [
+        "Cómo funciona",
+        "1. Solicita información: Recibes la carpeta informativa en tu correo.",
+        "2. Visita el colegio: Agendas tu visita guiada en línea.",
+        "3. Postula en línea: Completas la ficha, subes los documentos y registras el pago.",
+        "4. Recibe el resultado: Sigues cada etapa desde el portal, sin llamar al colegio.",
+      ].join("\n"),
+      ref: SIN_COMPROMISO,
+      familia: true,
+      fuentes: [
+        { archivo: INICIO, fragmento: ">Cómo funciona<" },
+        { archivo: INICIO, fragmento: "titulo: 'Solicita información', texto: 'Recibes la carpeta informativa en tu correo.'" },
+        { archivo: INICIO, fragmento: "titulo: 'Visita el colegio', texto: 'Agendas tu visita guiada en línea.'" },
+        { archivo: INICIO, fragmento: "titulo: 'Postula en línea', texto: 'Completas la ficha, subes los documentos y registras el pago.'" },
+        { archivo: INICIO, fragmento: "titulo: 'Recibe el resultado', texto: 'Sigues cada etapa desde el portal, sin llamar al colegio.'" },
+      ],
+    }),
+    fila({
+      id: "PAN-49",
+      grupo: GRUPOS.pantallas,
+      donde: "Inicio · Página de entrada · pie de página",
+      quien: FAMILIA,
+      texto: "Tus datos personales se tratan conforme a la Ley N.° 29733.",
+      ref: SIN_COMPROMISO,
+      familia: true,
+      aprobacion: "respuesta",
+      pide: "Confirmar con el abogado del colegio que este aviso puede mostrarse tal como está",
+      nota: "Afirma que los datos personales se tratan conforme a la Ley N.° 29733. Depende de la política de privacidad (fila PRI-01), que revisa el abogado del colegio. Si no se confirma, se quita la línea de la página de inicio.",
+      fuentes: [{ archivo: INICIO, fragmento: "Tus datos personales se tratan conforme a la Ley N.° 29733." }],
+    }),
   ];
 }
 
