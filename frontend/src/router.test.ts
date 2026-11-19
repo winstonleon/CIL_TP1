@@ -51,11 +51,13 @@ describe("S0-C4 protección de las áreas con Keycloak", () => {
     expect(envoltorio.findAll('[data-testid="roles"] li').map((li) => li.text())).toEqual(["secretaria"]);
   });
 
-  it("S0-C4 la página de inicio no exige sesión", async () => {
+  it("S0-C4 la página de inicio no exige sesión y enlaza a P01, al portal de familias y a la gestión interna", async () => {
     const { envoltorio } = await montarEn("/");
     expect(usuarioActual).not.toHaveBeenCalled();
-    expect(envoltorio.text()).toContain("Portal de familias");
-    expect(envoltorio.text()).toContain("Gestión interna");
+    const destino = (texto: string) => envoltorio.findAll("a").find((a) => a.text() === texto)?.attributes("href");
+    expect(destino("Solicitar información")).toBe("/solicitud-informacion");
+    expect(destino("Ingresar al portal")).toBe("/portal");
+    expect(destino("Ingreso del personal")).toBe("/gestion");
   });
 });
 
