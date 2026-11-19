@@ -126,6 +126,9 @@ services:
       EXECUTIONS_DATA_MAX_AGE: "168"
       EXECUTIONS_DATA_PRUNE_HARD_DELETE_INTERVAL: "1"
       EXECUTIONS_DATA_HARD_DELETE_BUFFER: "0"
+      # Por defecto n8n guarda todo: un flujo sin ajuste propio guardaría las exitosas y las manuales (C10, C11).
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: "none"
+      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: "false"
       # HU0018 (D8-A): `n8n execute` dentro de este contenedor (la revisión diaria de seguimiento-recordatorios por su
       # Manual Trigger, en el E2E o a mano) arranca un segundo proceso de n8n con su propio task broker. El del proceso
       # principal ya ocupa el puerto por defecto (5679, interno al contenedor), así que la ejecución por CLI usa este otro:
