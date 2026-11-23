@@ -24,6 +24,12 @@ export async function insertarApoderado(db: Consultable, a: NuevoApoderado): Pro
   return rows[0]!.id_apoderado;
 }
 
+// Para el alta manual de familias: evita un segundo apoderado con el mismo correo (el correo es su usuario de Keycloak).
+export async function existeApoderadoConCorreo(db: Consultable, correo: string): Promise<boolean> {
+  const { rowCount } = await db.query("SELECT 1 FROM apoderado WHERE lower(correo) = lower($1)", [correo]);
+  return (rowCount ?? 0) > 0;
+}
+
 // Búsqueda por DNI a través de dni_hash (ADR-03): el DNI cifrado no se puede comparar.
 export async function existeApoderadoConDni(db: Consultable, dni: string): Promise<boolean> {
   const { rowCount } = await db.query("SELECT 1 FROM apoderado WHERE dni_hash = $1", [hashDni(dni)]);
