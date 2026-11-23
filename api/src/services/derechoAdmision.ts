@@ -1,6 +1,6 @@
 // Derecho de admisión (P07b, HU0007): la familia registra el comprobante de su depósito o transferencia. El monto es la
 // constante de R16 (C26 punto 2) y el pago queda pendiente de Tesorería; la constancia se muestra en pantalla.
-// Los textos que debe entregar el colegio (bancos y cuenta) van entre corchetes en `borrador-1` (ADR-19, C48).
+// Los textos que debe entregar el colegio (la cuenta) van entre corchetes en `borrador-1` (ADR-19, C48). Los bancos los indicó el equipo.
 // Subsanación (A1, bloque 5; HU0024-2.0): con el comprobante observado y el expediente en en_validacion, la familia
 // registra el comprobante nuevo en la misma fila del Pago, que vuelve a `pendiente`; el anterior no se borra.
 import type { Readable } from "node:stream";
@@ -26,7 +26,7 @@ import { codigoExpediente } from "./fichaInscripcion";
 
 export const VERSION_DERECHO_ADMISION = "borrador-1";
 // Lista cerrada de bancos de P07b (P1 a: la unicidad es por banco, así que «BCP» y «bcp» no pueden ser dos valores).
-export const BANCOS = ["[Banco 1]", "[Banco 2]", "[Banco 3]"] as const;
+export const BANCOS = ["BCP", "BBVA", "Interbank"] as const;
 export const CUENTA_COLEGIO = "[Banco y N.º de cuenta del colegio]";
 const ESTADO_REGISTRABLE = "en_postulacion";
 

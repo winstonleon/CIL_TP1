@@ -207,7 +207,7 @@ test.describe.serial("HU0012 a HU0015 vacante y cuota de ingreso", () => {
   test("HU0014-1.0 la familia registra el comprobante de la primera fracción: queda «en conciliación» y se avisa a Tesorería", async ({ request }) => {
     const { page } = familia;
     operacion = `E2E${Date.now()}${randomBytes(2).toString("hex")}`;
-    await page.locator("#p07-banco").selectOption("[Banco 1]");
+    await page.locator("#p07-banco").selectOption("BCP");
     await page.locator("#p07-operacion").fill(operacion);
     await page.locator("#p07-fecha").fill("2026-10-20");
     await page.locator("#p07-comprobante").setInputFiles({ name: "voucher.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n% voucher ficticio\n") });
