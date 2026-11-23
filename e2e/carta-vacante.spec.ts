@@ -197,7 +197,7 @@ test.describe.serial("HU0016 y HU0020 carta de vacante y panel de seguimiento", 
     await expect(page.getByTestId("observacion")).toContainText(MOTIVO);
 
     await page.getByTestId("regularizar-cuota").click();
-    await page.locator("#p07-banco").selectOption("[Banco 1]");
+    await page.locator("#p07-banco").selectOption("BCP");
     await page.locator("#p07-operacion").fill(`E2ER${Date.now()}${randomBytes(2).toString("hex")}`);
     await page.locator("#p07-fecha").fill("2026-10-21");
     await page.locator("#p07-comprobante").setInputFiles({ name: "voucher.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n% voucher ficticio\n") });

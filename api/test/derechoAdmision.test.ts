@@ -92,7 +92,7 @@ describe("HU0007-1.0 registro conforme del comprobante de pago de postulación",
     const archivos = (await archivosAlmacenados()).length;
 
     const invalidos = [
-      datos({ banco: "BCP" }),
+      datos({ banco: "Banco Inexistente" }),
       datos({ banco: "" }),
       datos({ fecha_pago: "2026-02-30" }),
       datos({ fecha_pago: "10/10/2026" }),

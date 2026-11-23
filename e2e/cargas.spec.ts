@@ -130,7 +130,7 @@ test.describe.serial("HU0006 y HU0007 P06 y P07b en el entorno dev", () => {
                   VALUES ('Otra', 'Familia', '+51987654322', 'hu0007-otra-${Date.now()}@ejemplo.test') RETURNING id_apoderado),
             e AS (INSERT INTO expediente (id_apoderado_titular, id_grado) SELECT a.id_apoderado, g.id_grado FROM a, grado g WHERE ${GRADO_SQL} RETURNING id_expediente)
        INSERT INTO pago (id_expediente, tipo_pago, numero_fraccion, numero_operacion, banco, monto, fecha_pago, comprobante_url)
-       SELECT id_expediente, 'derecho_admision', 1, '${numeroOperacion}', '[Banco 1]', 300, '2026-10-09', 'sin-archivo-e2e' FROM e`,
+       SELECT id_expediente, 'derecho_admision', 1, '${numeroOperacion}', 'BCP', 300, '2026-10-09', 'sin-archivo-e2e' FROM e`,
     );
 
     await iniciarYCompletarFicha(browser);
@@ -211,7 +211,7 @@ test.describe.serial("HU0006 y HU0007 P06 y P07b en el entorno dev", () => {
     await expect(page.getByRole("heading", { name: "Registrar el derecho de admisión" })).toBeVisible();
     await expect(page.locator("main")).toContainText("S/ 300 (no reembolsable)");
 
-    await page.locator("#p07b-banco").selectOption("[Banco 1]");
+    await page.locator("#p07b-banco").selectOption("BCP");
     await page.locator("#p07b-operacion").fill(numeroOperacion);
     await page.locator("#p07b-fecha").fill("2026-10-10");
     await page.locator("#p07b-comprobante").setInputFiles({ name: "voucher.pdf", mimeType: "application/pdf", buffer: pdf("voucher ficticio") });
@@ -225,7 +225,7 @@ test.describe.serial("HU0006 y HU0007 P06 y P07b en el entorno dev", () => {
 
   test("HU0007-1.0 la familia corrige el número, registra el comprobante y ve la constancia con el pago pendiente de Tesorería", async () => {
     // El mismo número en otro banco es otro comprobante (R19 por banco): se cambia el banco, no el número.
-    await page.locator("#p07b-banco").selectOption("[Banco 2]");
+    await page.locator("#p07b-banco").selectOption("BBVA");
     await page.getByRole("button", { name: "Enviar comprobante" }).click();
 
     const constancia = page.getByTestId("constancia");
@@ -240,7 +240,7 @@ test.describe.serial("HU0006 y HU0007 P06 y P07b en el entorno dev", () => {
     await capturar("p07b-constancia");
 
     expect(consultarAdmision(`SELECT concat_ws('|', tipo_pago, numero_fraccion, monto, banco, estado_validacion, id_personal_validador IS NULL) FROM pago WHERE id_expediente = ${idExpediente}`))
-      .toBe("derecho_admision|1|300.00|[Banco 2]|pendiente|t");
+      .toBe("derecho_admision|1|300.00|BBVA|pendiente|t");
     const clave = consultarAdmision(`SELECT comprobante_url FROM pago WHERE id_expediente = ${idExpediente}`);
     expect(enApi("head", "-c", "4", `${DIRECTORIO_ARCHIVOS}/${clave}`)).toBe("CILF");
     expect(consultarAdmision(`SELECT concat_ws('|', estado, estado_financiero, estado_documental) FROM expediente WHERE id_expediente = ${idExpediente}`)).toBe("en_postulacion|pendiente|pendiente");
