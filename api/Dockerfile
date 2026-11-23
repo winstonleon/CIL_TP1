@@ -38,8 +38,8 @@ COPY --from=tipos /tmp/tipos-ok /tmp/tipos-ok
 COPY api/tsconfig.json api/
 COPY api/src api/src
 # Scripts que corren en producción, dentro de este contenedor: cargar la firma de la Directora (HU0016, C18), crear su cuenta
-# inicial (C18) y cargar los grados y requisitos de una campaña (C26). Ninguno importa archivos de fuera de api/.
-COPY api/scripts/cargarFirma.ts api/scripts/crearDirectora.ts api/scripts/cargarCampana.ts api/scripts/
+# inicial (C18), dar de alta cuentas de familia sin pasar por G04 y cargar los grados y requisitos de una campaña (C26). Ninguno importa archivos de fuera de api/.
+COPY api/scripts/cargarFirma.ts api/scripts/crearDirectora.ts api/scripts/crearFamilias.ts api/scripts/cargarCampana.ts api/scripts/
 RUN mkdir -p /var/lib/cil/archivos && chown node:node /var/lib/cil/archivos
 # El directorio de trabajo es la raíz, como en dev: `npm run firma:cargar --workspace api` (scripts/firma-cargar.mjs)
 # solo encuentra el workspace desde aquí. tsx toma el tsconfig de la API de esta variable.
