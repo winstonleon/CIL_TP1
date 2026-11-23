@@ -20,6 +20,7 @@
     "dev:demo": "npm run demo --workspace api",
     "firma:cargar": "node scripts/firma-cargar.mjs",
     "directora:crear": "node scripts/directora-crear.mjs",
+    "familias:crear": "node scripts/familias-crear.mjs",
     "campana:cargar": "node scripts/campana-cargar.mjs",
     "colegio:textos": "npm run --silent colegio:textos --workspace api --",
     "dev:firma-ficticia": "docker compose exec -T api npm run --silent firma:ficticia --workspace api",

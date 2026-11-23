@@ -3,7 +3,8 @@
 // La fecha y hora de aceptación la pone la BD (default now()), nunca el cliente.
 import type { Consultable } from "../db/pool";
 
-export type CanalOrigen = "facebook" | "instagram" | "formulario_web";
+// `alta_manual`: cuenta creada por un técnico con `familias:crear`, no por la familia en P01 (canal_origen es varchar(30) sin CHECK).
+export type CanalOrigen = "facebook" | "instagram" | "formulario_web" | "alta_manual";
 
 export interface NuevoConsentimiento {
   idApoderado: number;
